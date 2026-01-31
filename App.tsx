@@ -103,7 +103,7 @@ const App: React.FC = () => {
       case AppView.SHOPPING_CENTER:
         return <ShoppingCenter onBack={() => navigateTo(AppView.LANDING)} onSelectProduct={openProduct} {...commonProps} />;
       case AppView.PRODUCT_DETAILS:
-        return <ProductDetails productId={selectedProductId} onBack={() => navigateTo(AppView.SHOPPING_CENTER)} {...commonProps} />;
+        return <ProductDetails productId={selectedProductId} onSelectProduct={openProduct} onBack={() => navigateTo(AppView.SHOPPING_CENTER)} {...commonProps} />;
       case AppView.ADMIN_LOGIN:
         return <AdminLogin onLoginSuccess={() => navigateTo(AppView.ADMIN_DASHBOARD)} onBack={() => navigateTo(AppView.LANDING)} {...commonProps} />;
       case AppView.ADMIN_DASHBOARD:

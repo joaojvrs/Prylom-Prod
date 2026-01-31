@@ -42,7 +42,6 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   
-  // Cache de Geocoding para evitar requisições repetidas e lentidão no render
   const geoCache = useRef<Record<string, L.LatLng>>({});
 
   // Filtros Universais
@@ -92,9 +91,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   const [minArrArea, setMinArrArea] = useState<string>('');
   const [maxArrArea, setMaxArrArea] = useState<string>('');
   const [arrCulturaBase, setArrCulturaBase] = useState<string>('');
-  const [arrSafraInicio, setArrSafraInicio] = useState<string>('');
   const [arrQtdSafras, setArrQtdSafras] = useState<string>('');
-  const [arrInicioPrevisto, setArrInicioPrevisto] = useState<string>('');
   const [arrMesInicioColheita, setArrMesInicioColheita] = useState<string>('');
 
   // --- FILTROS DE MAPA ---
@@ -131,24 +128,23 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   };
 
   useEffect(() => {
-    // Bridge global para cliques no tooltip do Leaflet
-    (window as any).openPrylomProduct = (id: string) => {
-      onSelectProduct(id);
-    };
-
     fetchProducts();
+    
+    const handleNav = (e: any) => {
+      if (e.detail) onSelectProduct(e.detail);
+    };
+    window.addEventListener('prylom-navigate', handleNav);
+
     return () => { 
       if (mapInstance.current) mapInstance.current.remove(); 
-      delete (window as any).openPrylomProduct;
+      window.removeEventListener('prylom-navigate', handleNav);
     };
   }, []);
 
-  // SOLUÇÃO: Atrasar inicialização para o DOM e animações estabilizarem
   useEffect(() => {
     if (viewMode === 'map' && !loading) {
       const timer = setTimeout(() => {
         initGeneralMap();
-        // Invalida o tamanho após o render do container estar concluído
         setTimeout(() => mapInstance.current?.invalidateSize(), 100);
       }, 300);
       return () => clearTimeout(timer);
@@ -159,7 +155,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
     if (mapInstance.current && mapLayersRef.current) {
         renderMarkers();
     }
-  }, [mapGrouping, mapHeatmap, mapOnlyFarms, mapOnlyLeases, products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, minAreaTotal, brandFilter, grainCulture, planeTypeFilter, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrSafraInicio, arrQtdSafras, arrInicioPrevisto, arrMesInicioColheita]);
+  }, [mapGrouping, mapHeatmap, mapOnlyFarms, mapOnlyLeases, products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, minAreaTotal, brandFilter, grainCulture, planeTypeFilter, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita]);
 
   useEffect(() => {
     if (activeCategory !== 'fazendas' && activeCategory !== 'all') {
@@ -178,20 +174,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
           maquinas (*),
           avioes (*),
           graos (*),
-          arrendamentos (
-            modalidade,
-            quantidade,
-            unidade,
-            prazo_tipo,
-            safra_inicio,
-            quantidade_safras,
-            anos_contrato,
-            inicio_previsto,
-            mes_inicio_colheita,
-            mes_fim_colheita,
-            ativo,
-            area_arrendada_ha
-          ),
+          arrendamentos (*),
           produtos_imagens (image_url, ordem)
         `)
         .order('created_at', { ascending: false });
@@ -224,9 +207,6 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
     }
   };
 
-  const availableStates = useMemo(() => Array.from(new Set(products.map(p => p.estado))).sort(), [products]);
-  const availableCities = useMemo(() => Array.from(new Set(products.filter(p => !filterState || p.estado === filterState).map(p => p.cidade))).sort(), [products, filterState]);
-
   const filteredProducts = useMemo(() => {
     let filtered = products;
 
@@ -243,13 +223,8 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
         if (mapOnlyLeases) filtered = filtered.filter(p => p.tipo_transacao === 'arrendamento');
     }
 
-    if (filterState) {
-      filtered = filtered.filter(p => p.estado === filterState);
-    }
-
-    if (filterCity) {
-      filtered = filtered.filter(p => p.cidade === filterCity);
-    }
+    if (filterState) filtered = filtered.filter(p => p.estado === filterState);
+    if (filterCity) filtered = filtered.filter(p => p.cidade === filterCity);
 
     if (filterStatus !== 'all') {
       if (filterStatus === 'verified') filtered = filtered.filter(p => p.certificacao);
@@ -270,7 +245,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
       });
     }
 
-    // Filtros Técnicos de Fazendas
+    // Filtros Técnicos Fazendas
     if (activeCategory === 'fazendas' || activeCategory === 'all') {
       if (minAreaTotal) filtered = filtered.filter(p => p.area_total_ha && p.area_total_ha >= Number(minAreaTotal));
       if (maxAreaTotal) filtered = filtered.filter(p => p.area_total_ha && p.area_total_ha <= Number(maxAreaTotal));
@@ -281,20 +256,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
       if (docOnlyOk) filtered = filtered.filter(p => p.fazenda_data?.documentacao_ok?.toLowerCase().includes('sim') || p.fazenda_data?.documentacao_ok?.toLowerCase().includes('ok'));
     }
 
-    // Filtros de Arrendamento
-    if (transactionType === 'arrendamento' || mapOnlyLeases) {
-      if (arrModalidade) filtered = filtered.filter(p => p.arrendamento_info?.modalidade === arrModalidade);
-      if (arrAptidao) filtered = filtered.filter(p => p.fazenda_data?.vocacao?.toLowerCase().includes(arrAptidao.toLowerCase()));
-      if (minArrArea) filtered = filtered.filter(p => p.arrendamento_info?.area_arrendada_ha && p.arrendamento_info?.area_arrendada_ha >= Number(minArrArea));
-      if (maxArrArea) filtered = filtered.filter(p => p.arrendamento_info?.area_arrendada_ha && p.arrendamento_info?.area_arrendada_ha <= Number(maxArrArea));
-      if (arrCulturaBase) filtered = filtered.filter(p => p.arrendamento_info?.unidade?.toLowerCase().includes(arrCulturaBase.toLowerCase()));
-      if (arrSafraInicio) filtered = filtered.filter(p => p.arrendamento_info?.safra_inicio?.includes(arrSafraInicio));
-      if (arrQtdSafras) filtered = filtered.filter(p => p.arrendamento_info?.quantidade_safras && p.arrendamento_info?.quantidade_safras >= Number(arrQtdSafras));
-      if (arrInicioPrevisto) filtered = filtered.filter(p => p.arrendamento_info?.inicio_previsto && p.arrendamento_info?.inicio_previsto.includes(arrInicioPrevisto));
-      if (arrMesInicioColheita) filtered = filtered.filter(p => p.arrendamento_info?.mes_inicio_colheita?.toString() === arrMesInicioColheita);
-    }
-
-    // Filtros Técnicos de Máquinas
+    // Filtros Técnicos Máquinas
     if (activeCategory === 'maquinas' || activeCategory === 'all') {
       if (brandFilter) filtered = filtered.filter(p => p.maquina_data?.marca?.toLowerCase().includes(brandFilter.toLowerCase()));
       if (machineModelFilter) filtered = filtered.filter(p => p.maquina_data?.modelo?.toLowerCase().includes(machineModelFilter.toLowerCase()));
@@ -303,14 +265,11 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
       if (maxHours) filtered = filtered.filter(p => p.maquina_data?.horas_trabalhadas && p.maquina_data?.horas_trabalhadas <= Number(maxHours));
       if (conservationState) filtered = filtered.filter(p => p.maquina_data?.estado_conservacao?.toLowerCase().includes(conservationState.toLowerCase()));
       if (precisionAgFilter) filtered = filtered.filter(p => p.maquina_data?.agricultura_precisao?.toLowerCase().includes(precisionAgFilter.toLowerCase()));
-      if (minPower) filtered = filtered.filter(p => {
-        const powerValue = parseInt(p.maquina_data?.potencia);
-        return !isNaN(powerValue) && powerValue >= Number(minPower);
-      });
+      if (minPower) filtered = filtered.filter(p => parseInt(p.maquina_data?.potencia) >= Number(minPower));
       if (fuelType) filtered = filtered.filter(p => p.maquina_data?.combustivel?.toLowerCase().includes(fuelType.toLowerCase()));
     }
 
-    // Filtros Técnicos de Aviões
+    // Filtros Técnicos Aviões
     if (activeCategory === 'avioes' || activeCategory === 'all') {
       if (planeTypeFilter) filtered = filtered.filter(p => p.aviao_data?.tipo_operacao?.toLowerCase().includes(planeTypeFilter.toLowerCase()));
       if (manufacturerFilter) filtered = filtered.filter(p => p.aviao_data?.fabricante?.toLowerCase().includes(manufacturerFilter.toLowerCase()));
@@ -319,16 +278,27 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
       if (anacHomologFilter) filtered = filtered.filter(p => p.aviao_data?.homologado_anac?.toLowerCase().includes(anacHomologFilter.toLowerCase()));
     }
 
-    // Filtros Técnicos de Grãos
+    // Filtros Técnicos Grãos
     if (activeCategory === 'graos' || activeCategory === 'all') {
       if (grainCulture) filtered = filtered.filter(p => p.grao_data?.cultura?.toLowerCase().includes(grainCulture.toLowerCase()));
       if (grainHarvest) filtered = filtered.filter(p => p.grao_data?.safra?.toLowerCase().includes(grainHarvest.toLowerCase()));
       if (grainQuality) filtered = filtered.filter(p => p.grao_data?.qualidade?.toLowerCase().includes(grainQuality.toLowerCase()));
       if (minVolume) filtered = filtered.filter(p => p.grao_data?.estoque_toneladas && p.grao_data?.estoque_toneladas >= Number(minVolume));
     }
+
+    // Filtros de Arrendamento
+    if (transactionType === 'arrendamento') {
+      if (arrModalidade) filtered = filtered.filter(p => p.arrendamento_info?.modalidade?.toLowerCase().includes(arrModalidade.toLowerCase()));
+      if (arrAptidao) filtered = filtered.filter(p => p.fazenda_data?.vocacao?.toLowerCase().includes(arrAptidao.toLowerCase()));
+      if (minArrArea) filtered = filtered.filter(p => p.area_total_ha && p.area_total_ha >= Number(minArrArea));
+      if (maxArrArea) filtered = filtered.filter(p => p.area_total_ha && p.area_total_ha <= Number(maxArrArea));
+      if (arrCulturaBase) filtered = filtered.filter(p => p.arrendamento_info?.cultura_base?.toLowerCase().includes(arrCulturaBase.toLowerCase()));
+      if (arrQtdSafras) filtered = filtered.filter(p => p.arrendamento_info?.qtd_safras && p.arrendamento_info?.qtd_safras >= Number(arrQtdSafras));
+      if (arrMesInicioColheita) filtered = filtered.filter(p => p.arrendamento_info?.mes_inicio_colheita?.toString() === arrMesInicioColheita);
+    }
     
     return filtered;
-  }, [products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, priceMode, minAreaTotal, maxAreaTotal, minAreaLavoura, soilType, clayContent, topography, docOnlyOk, brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType, planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter, grainCulture, grainHarvest, grainQuality, minVolume, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrSafraInicio, arrQtdSafras, arrInicioPrevisto, arrMesInicioColheita, mapOnlyFarms, mapOnlyLeases, viewMode]);
+  }, [products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, priceMode, minAreaTotal, maxAreaTotal, minAreaLavoura, soilType, clayContent, topography, docOnlyOk, brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType, planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter, grainCulture, grainHarvest, grainQuality, minVolume, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita, viewMode]);
 
   const initGeneralMap = async () => {
     if (!mapContainerRef.current) return;
@@ -356,14 +326,8 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
     mapLayersRef.current.markers.clearLayers();
     mapLayersRef.current.heatmap.clearLayers();
 
-    const groupingKey = (p: Product) => {
-        if (mapGrouping === 'municipio') return `${p.cidade}-${p.estado}`.toLowerCase();
-        if (mapGrouping === 'microrregiao') return `${p.fazenda_data?.regiao_produtiva || 'Região Geral'}-${p.estado}`.toLowerCase();
-        return `${p.cidade}-${p.estado}`.toLowerCase();
-    };
-
     const grouped = filteredProducts.reduce((acc, p) => {
-      const key = groupingKey(p);
+      const key = `${p.cidade}-${p.estado}`.toLowerCase();
       if (!acc[key]) acc[key] = [];
       acc[key].push(p);
       return acc;
@@ -373,11 +337,10 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
     
     for (const key in grouped) {
       const items = grouped[key];
-      const p = items[0];
-      const searchTerm = mapGrouping === 'municipio' ? `${p.cidade}, ${p.estado}, Brasil` : `${p.estado}, Brasil`;
+      const firstItem = items[0];
+      const searchTerm = `${firstItem.cidade}, ${firstItem.estado}, Brasil`;
 
       let pos: L.LatLng | null = null;
-
       if (geoCache.current[searchTerm]) {
           pos = geoCache.current[searchTerm];
       } else {
@@ -388,138 +351,66 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
             pos = new L.LatLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
             geoCache.current[searchTerm] = pos;
           }
-        } catch (e) { console.error("Geocoding failed for:", key); }
+        } catch (e) { console.warn("Geocoding failed for:", key); }
       }
       
       if (pos) {
         bounds.extend(pos);
-
-        if (mapHeatmap !== 'none') {
-            let weight = 0;
-            let color = '#d4a017';
-
-            if (mapHeatmap === 'price') {
-                const avgPriceHa = items.reduce((acc, curr) => acc + (curr.valor && curr.area_total_ha ? curr.valor / curr.area_total_ha : 0), 0) / items.length;
-                weight = Math.min(avgPriceHa / 1000, 50);
-                color = avgPriceHa > 50000 ? '#ef4444' : (avgPriceHa > 25000 ? '#f59e0b' : '#10b981');
-            } else if (mapHeatmap === 'productivity') {
-                const avgPrec = items.reduce((acc, curr) => acc + (curr.fazenda_data?.precipitacao_mm || 0), 0) / items.length;
-                weight = Math.min(avgPrec / 20, 50);
-                color = avgPrec > 1800 ? '#22c55e' : (avgPrec > 1200 ? '#3b82f6' : '#9ca3af');
-            }
-
-            L.circle(pos, {
-                radius: weight * 1000,
-                fillColor: color,
-                fillOpacity: 0.4,
-                stroke: false
-            }).addTo(mapLayersRef.current.heatmap);
-        }
-
-        const primaryCat = items[0].categoria;
-        let pinIcon = '📍';
-        if (primaryCat === 'fazendas') pinIcon = '🌱';
-        else if (primaryCat === 'maquinas') pinIcon = '🚜';
-        else if (primaryCat === 'avioes') pinIcon = '🛩️';
-        else if (primaryCat === 'graos') pinIcon = '🌾';
-
-        // CONTEÚDO DO TOOLTIP COM ESTILO DE ANÚNCIO PREMIUM
-        const tooltipContent = `
-          <div class="p-4 w-full flex flex-col gap-4">
-            <header class="flex justify-between items-center border-b border-white/10 pb-3">
-              <span class="text-[10px] font-black text-prylom-gold uppercase tracking-[0.2em]">${items.length} ${items.length > 1 ? 'Ativos' : 'Ativo'} em ${p.cidade}</span>
-              <span class="bg-white/10 px-2 py-0.5 rounded text-[7px] font-bold text-white/40 uppercase tracking-widest">Prylom Hub</span>
-            </header>
-            <div class="flex flex-col gap-3">
-              ${items.slice(0, 4).map(it => {
-                const price = formatPriceParts(it.valor);
-                const miniPhoto = it.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=150';
-                return `
-                  <div onclick="window.openPrylomProduct('${it.id}')" class="prylom-mini-ad flex items-center gap-4 p-2.5 bg-white/5 rounded-2xl cursor-pointer group">
-                     <div class="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-white/10 bg-black/40">
-                       <img src="${miniPhoto}" class="w-full h-full object-cover group-hover:scale-115 transition-transform duration-700" />
-                     </div>
-                     <div class="flex flex-col min-w-0 flex-1">
-                       <span class="text-[11px] font-black text-white uppercase truncate tracking-tight mb-1">${it.titulo}</span>
-                       <div class="flex items-center justify-between">
-                         <span class="text-[10px] font-black text-prylom-gold">${price.symbol} ${price.value}</span>
-                         <span class="text-[7px] font-black text-white/30 uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full group-hover:border-prylom-gold/50 group-hover:text-prylom-gold transition-colors">Detalhes</span>
-                       </div>
-                     </div>
-                  </div>
-                `;
-              }).join('')}
-              ${items.length > 4 ? `
-                <div class="text-center py-2 bg-white/5 rounded-xl text-[8px] font-black text-white/40 uppercase tracking-[0.3em]">+ ${items.length - 4} outros ativos</div>
-              ` : ''}
-              <div class="pt-2 flex justify-center items-center gap-2">
-                 <div class="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
-                 <span class="text-[7px] font-black text-white/30 uppercase tracking-[0.5em]">Auditado Prylom Verified Analysis</span>
-              </div>
-            </div>
-          </div>
-        `;
-
+        const hasMultiple = items.length > 1;
         const marker = L.marker(pos, {
           icon: L.divIcon({
             className: 'custom-pin',
-            html: `<div class="bg-prylom-dark w-12 h-12 rounded-full border-4 border-white shadow-3xl flex flex-col items-center justify-center font-black text-white text-[9px] transform relative group cursor-pointer">
-                      <span class="absolute -top-1 -right-1 bg-prylom-gold w-5 h-5 rounded-full border-2 border-white text-[8px] flex items-center justify-center shadow-lg group-hover:bg-white group-hover:text-prylom-dark transition-colors">${items.length}</span>
-                      <span class="text-lg leading-none">${pinIcon}</span>
-                      <span class="text-[6px] opacity-60 uppercase tracking-tighter mt-0.5">${mapGrouping === 'municipio' ? t.municipio : t.microrregiao}</span>
-                   </div>`,
-            iconSize: [48, 48]
+            html: `
+              <div class="group relative">
+                <div class="bg-prylom-gold w-10 h-10 rounded-full border-4 border-white shadow-2xl flex items-center justify-center transform group-hover:scale-110 transition-all">
+                  <span class="text-xs text-white font-black">${hasMultiple ? items.length : 'P'}</span>
+                </div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-white rounded-[2rem] shadow-3xl opacity-0 group-hover:opacity-100 transition-all pointer-events-auto w-64 border border-gray-100 overflow-hidden z-[500] invisible group-hover:visible" onwheel="event.stopPropagation()">
+                  <div class="bg-prylom-dark p-4 border-b border-white/10">
+                     <p class="text-[9px] font-black text-prylom-gold uppercase tracking-[0.2em] mb-1">${hasMultiple ? 'Múltiplos Ativos' : firstItem.categoria}</p>
+                     <p class="text-xs font-bold text-white truncate">${hasMultiple ? `${firstItem.cidade}, ${firstItem.estado}` : firstItem.titulo}</p>
+                  </div>
+                  <div class="max-h-48 overflow-y-auto no-scrollbar p-2 space-y-1">
+                     ${items.map(p => {
+                       const pd = formatPriceParts(p.valor);
+                       return `
+                       <div 
+                         class="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-2xl cursor-pointer transition-colors border border-transparent hover:border-gray-200"
+                         onclick="window.dispatchEvent(new CustomEvent('prylom-navigate', { detail: '${p.id}' }))"
+                       >
+                          <div class="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                             <img src="${p.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=100'}" class="w-full h-full object-cover" />
+                          </div>
+                          <div class="flex-1 min-w-0">
+                             <p class="text-[10px] font-black text-prylom-dark truncate uppercase tracking-tighter">${p.titulo}</p>
+                             <p class="text-[10px] font-bold text-prylom-gold">${pd.symbol} ${pd.value}</p>
+                          </div>
+                       </div>
+                     `}).join('')}
+                  </div>
+                  ${hasMultiple ? '' : `
+                     <div class="p-3 bg-gray-50 border-t border-gray-100 text-center">
+                        <p class="text-[8px] font-black text-gray-400 uppercase tracking-widest">Clique para Detalhes</p>
+                     </div>
+                  `}
+                </div>
+              </div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
           })
         }).addTo(mapLayersRef.current.markers);
 
-        // --- LÓGICA DE HOVER PROFISSIONAL (DESACOPLADA) ---
-        let closeTimeout: any;
-
-        marker.bindTooltip(tooltipContent, {
-          direction: 'top',
-          className: 'prylom-custom-tooltip',
-          offset: L.point(0, -10),
-          sticky: false,
-          interactive: true,
-          opacity: 1
-        });
-
-        // Abre o tooltip ao passar no marcador
-        marker.on('mouseover', () => {
-          clearTimeout(closeTimeout);
-          marker.openTooltip();
-        });
-
-        // Gerenciamento de persistência via eventos do próprio Tooltip
-        marker.on('tooltipopen', (e) => {
-          const el = e.tooltip.getElement();
-          if (!el) return;
-
-          // Se o mouse entrar no tooltip, cancelamos o fechamento
-          el.addEventListener('mouseenter', () => {
-            clearTimeout(closeTimeout);
-          });
-
-          // Se o mouse sair do tooltip, agendamos o fechamento com pequeno delay para permitir transições
-          el.addEventListener('mouseleave', () => {
-            closeTimeout = setTimeout(() => {
-              marker.closeTooltip();
-            }, 150);
-          });
-        });
-
-        marker.on('click', () => {
-            if (items.length === 1) onSelectProduct(items[0].id);
-            else {
-                mapInstance.current?.setView(pos!, 12);
-            }
-        });
+        if (!hasMultiple) {
+          marker.on('click', () => onSelectProduct(firstItem.id));
+        } else {
+          marker.on('click', () => mapInstance.current?.setView(pos!, 12));
+        }
       }
     }
 
     if (bounds.isValid() && mapInstance.current) {
-        mapInstance.current.fitBounds(bounds, { padding: [120, 120] });
-        setTimeout(() => mapInstance.current?.invalidateSize(), 50);
+        mapInstance.current.fitBounds(bounds, { padding: [100, 100], maxZoom: 12 });
     }
   };
 
@@ -530,6 +421,9 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
     { id: 'avioes', label: t.catPlanes },
     { id: 'graos', label: t.catGrains }
   ];
+
+  const availableStates = useMemo(() => Array.from(new Set(products.map(p => p.estado))).sort(), [products]);
+  const availableCities = useMemo(() => Array.from(new Set(products.filter(p => !filterState || p.estado === filterState).map(p => p.cidade))).sort(), [products, filterState]);
 
   return (
     <div className="max-w-7xl mx-auto w-full px-4 py-8 md:py-16 animate-fadeIn pb-40 flex flex-col gap-10">
@@ -565,198 +459,235 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
       {showFilters && (
         <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-gray-100 shadow-2xl animate-fadeIn space-y-10 max-h-[75vh] overflow-y-auto no-scrollbar scroll-smooth">
           {/* SEÇÃO 1: FILTROS UNIVERSAIS */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="space-y-2">
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.locationLabel}</label>
-              <div className="grid grid-cols-2 gap-3">
-                <select value={filterState} onChange={e => {setFilterState(e.target.value); setFilterCity('');}} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                  <option value="">{t.stateAll}</option>
-                  {availableStates.map(st => <option key={st} value={st}>{st}</option>)}
-                </select>
-                <select value={filterCity} onChange={e => setFilterCity(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                  <option value="">{t.cityAll}</option>
-                  {availableCities.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center px-1 mb-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider leading-tight">{t.priceRange}</label>
-                <div className="flex bg-gray-100 p-0.5 rounded-lg text-[8px] font-black uppercase">
-                  <button onClick={() => setPriceMode('total')} className={`px-2 py-1 rounded-md ${priceMode === 'total' ? 'bg-white shadow-sm text-prylom-dark' : 'text-gray-400'}`}>{t.priceTotal}</button>
-                  <button onClick={() => setPriceMode('hectare')} className={`px-2 py-1 rounded-md ${priceMode === 'hectare' ? 'bg-white shadow-sm text-prylom-dark' : 'text-gray-400'}`}>{t.priceHectare}</button>
+          <div className="space-y-6">
+            <h4 className="text-[11px] font-black text-prylom-dark uppercase tracking-[0.3em] flex items-center gap-4">
+              📌 {t.advancedFilters} Universais
+              <div className="h-px flex-1 bg-gray-100"></div>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.locationLabel}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <select value={filterState} onChange={e => {setFilterState(e.target.value); setFilterCity('');}} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
+                    <option value="">{t.stateAll}</option>
+                    {availableStates.map(st => <option key={st} value={st}>{st}</option>)}
+                  </select>
+                  <select value={filterCity} onChange={e => setFilterCity(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
+                    <option value="">{t.cityAll}</option>
+                    {availableCities.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                  </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" placeholder={t.areaMin} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
-                <input type="number" placeholder={t.areaMax} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
+              <div className="space-y-2">
+                <div className="flex justify-between items-center px-1 mb-1">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider leading-tight">{t.priceRange}</label>
+                  <div className="flex bg-gray-100 p-0.5 rounded-lg text-[8px] font-black uppercase">
+                    <button onClick={() => setPriceMode('total')} className={`px-2 py-1 rounded-md ${priceMode === 'total' ? 'bg-white shadow-sm text-prylom-dark' : 'text-gray-400'}`}>{t.priceTotal}</button>
+                    <button onClick={() => setPriceMode('hectare')} className={`px-2 py-1 rounded-md ${priceMode === 'hectare' ? 'bg-white shadow-sm text-prylom-dark' : 'text-gray-400'}`}>{t.priceHectare}</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" placeholder={t.areaMin} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
+                  <input type="number" placeholder={t.areaMax} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
+                </div>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.statusLabel}</label>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                <option value="all">{t.statusAll}</option>
-                <option value="ativo">{t.statusAvailable}</option>
-                <option value="negociacao">{t.statusNegotiating}</option>
-                <option value="verified">{t.verifiedLabel}</option>
-              </select>
+              <div className="space-y-2">
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.transactionType}</label>
+                <select value={transactionType} onChange={e => setTransactionType(e.target.value as any)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
+                  <option value="all">{t.transactionAll}</option>
+                  <option value="venda">{t.transactionSale}</option>
+                  <option value="arrendamento">{t.transactionLease}</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.statusLabel}</label>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
+                  <option value="all">{t.statusAll}</option>
+                  <option value="ativo">{t.statusAvailable}</option>
+                  <option value="negociacao">{t.statusNegotiating}</option>
+                  <option value="verified">{t.verifiedLabel}</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* SEÇÃO MAPA */}
-          {viewMode === 'map' && (
-            <div className="pt-8 border-t border-gray-100 animate-fadeIn space-y-6">
-              <div className="flex items-center gap-4">
-                <h3 className="text-[11px] font-black text-prylom-gold uppercase tracking-widest whitespace-nowrap">🗺️ {t.mapAnalytics}</h3>
-                <div className="h-px flex-1 bg-gray-100"></div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div className="space-y-2">
-                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.mapGrouping}</label>
-                   <div className="flex bg-gray-50 p-1 rounded-2xl">
-                      <button onClick={() => setMapGrouping('municipio')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${mapGrouping === 'municipio' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400'}`}>{t.municipio}</button>
-                      <button onClick={() => setMapGrouping('microrregiao')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all ${mapGrouping === 'microrregiao' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400'}`}>{t.microrregiao}</button>
-                   </div>
-                </div>
-                <div className="space-y-2">
-                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.mapHeatmap}</label>
-                   <select value={mapHeatmap} onChange={e => setMapHeatmap(e.target.value as any)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                      <option value="none">{t.mapHeatNone}</option>
-                      <option value="price">{t.mapHeatPrice}</option>
-                      <option value="productivity">{t.mapHeatProd}</option>
-                   </select>
-                </div>
-                <div className="space-y-2 lg:col-span-2">
-                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">Monitoramento Rápido</label>
-                   <div className="grid grid-cols-2 gap-3">
-                      <button onClick={() => setMapOnlyFarms(!mapOnlyFarms)} className={`py-4 px-5 rounded-xl text-[9px] font-black uppercase transition-all border ${mapOnlyFarms ? 'bg-prylom-dark text-white border-prylom-dark' : 'bg-white text-gray-400 border-gray-200 hover:border-prylom-gold'}`}>{t.onlyFarms}</button>
-                      <button onClick={() => setMapOnlyLeases(!mapOnlyLeases)} className={`py-4 px-5 rounded-xl text-[9px] font-black uppercase transition-all border ${mapOnlyLeases ? 'bg-prylom-dark text-white border-prylom-dark' : 'bg-white text-gray-400 border-gray-200 hover:border-prylom-gold'}`}>{t.onlyLeases}</button>
-                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SEÇÃO 2: FILTROS TÉCNICOS (FAZENDAS) */}
+          {/* SEÇÃO 2: FILTROS TÉCNICOS POR CATEGORIA */}
           {activeCategory === 'fazendas' && (
-            <div className="pt-8 border-t border-gray-100 animate-fadeIn space-y-6">
-              <div className="flex items-center gap-4">
-                <h3 className="text-[11px] font-black text-prylom-dark uppercase tracking-widest whitespace-nowrap">🌱 {t.techFiltersFarm}</h3>
+            <div className="space-y-6 animate-fadeIn">
+              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
+                🌱 {t.techFiltersFarm}
                 <div className="h-px flex-1 bg-gray-100"></div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">📐 {t.leaseArea}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder={t.areaMin} value={minAreaTotal} onChange={e => setMinAreaTotal(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
-                    <input type="number" placeholder={t.areaMax} value={maxAreaTotal} onChange={e => setMaxAreaTotal(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
-                  </div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.soilAptitude}</label>
+                  <input placeholder={t.soilType} value={soilType} onChange={e => setSoilType(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.transactionType}</label>
-                  <select value={transactionType} onChange={e => setTransactionType(e.target.value as any)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                    <option value="all">{t.transactionAll}</option>
-                    <option value="venda">{t.transactionSale}</option>
-                    <option value="arrendamento">{t.transactionLease}</option>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.clayContent}</label>
+                  <select value={clayContent} onChange={e => setClayContent(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
+                    <option value="">{t.catAll}</option>
+                    <option value="15-25">15% - 25%</option>
+                    <option value="25-35">25% - 35%</option>
+                    <option value="35+">35% + (Alta Argila)</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.soilAptitude}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder={t.soilType} value={soilType} onChange={e => setSoilType(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                    <input type="text" placeholder={t.clayContent} value={clayContent} onChange={e => setClayContent(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                  </div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.topographyLabel}</label>
+                  <select value={topography} onChange={e => setTopography(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
+                    <option value="">{t.topographyAll}</option>
+                    <option value="plana">{t.topographyFlat}</option>
+                    <option value="ondulada">{t.topographyWavy}</option>
+                  </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.legalRisk}</label>
-                  <button onClick={() => setDocOnlyOk(!docOnlyOk)} className={`w-full py-4 px-5 rounded-2xl text-[11px] font-black uppercase transition-all border ${docOnlyOk ? 'bg-prylom-dark text-white border-prylom-dark' : 'bg-gray-50 text-gray-500 border-gray-100 hover:border-prylom-gold'}`}>
-                    {docOnlyOk ? t.docOk : t.docAny}
-                  </button>
+                <div className="flex items-end">
+                   <label className="flex items-center gap-3 cursor-pointer p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-prylom-gold transition-all w-full">
+                      <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} className="w-4 h-4 accent-prylom-gold" />
+                      <span className="text-[10px] font-black text-prylom-dark uppercase tracking-widest">{t.docOk}</span>
+                   </label>
                 </div>
               </div>
             </div>
           )}
 
-          {/* SEÇÃO 3: FILTROS TÉCNICOS (MÁQUINAS) */}
           {activeCategory === 'maquinas' && (
-            <div className="pt-8 border-t border-gray-100 animate-fadeIn space-y-6">
-              <div className="flex items-center gap-4">
-                <h3 className="text-[11px] font-black text-prylom-dark uppercase tracking-widest whitespace-nowrap">🚜 {t.techFiltersMachine}</h3>
+            <div className="space-y-6 animate-fadeIn">
+              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
+                🚜 {t.techFiltersMachine}
                 <div className="h-px flex-1 bg-gray-100"></div>
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.brand}</label>
+                  <input value={brandFilter} onChange={e => setBrandFilter(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.hoursMax}</label>
+                  <input type="number" value={maxHours} onChange={e => setMaxHours(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.precisionAg}</label>
+                  <select value={precisionAgFilter} onChange={e => setPrecisionAgFilter(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
+                    <option value="">{t.precisionAg}</option>
+                    <option value="sim">Sim</option>
+                    <option value="não">Não</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.powerMin} (HP)</label>
+                  <input type="number" value={minPower} onChange={e => setMinPower(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            </div>
+          )}
+
+          {activeCategory === 'avioes' && (
+            <div className="space-y-6 animate-fadeIn">
+              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
+                🛩️ {t.techFiltersPlane}
+                <div className="h-px flex-1 bg-gray-100"></div>
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.brand} & {t.model}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder={t.brand} value={brandFilter} onChange={e => setBrandFilter(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                    <input type="text" placeholder={t.model} value={machineModelFilter} onChange={e => setMachineModelFilter(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                  </div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.planeOperation}</label>
+                  <select value={planeTypeFilter} onChange={e => setPlaneTypeFilter(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
+                    <option value="">{t.planeOperation}</option>
+                    <option value="agricola">{t.planeAgri}</option>
+                    <option value="executivo">{t.planeExec}</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.yearMin} & {t.hoursMax}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder={t.yearMin} value={minYear} onChange={e => setMinYear(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                    <input type="number" placeholder={t.hoursMax} value={maxHours} onChange={e => setMaxHours(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                  </div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.manufacturer}</label>
+                  <input value={manufacturerFilter} onChange={e => setManufacturerFilter(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.powerMin}</label>
-                  <input type="number" placeholder={t.powerMin} value={minPower} onChange={e => setMinPower(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.yearMin}</label>
+                  <input type="number" value={minYearPlane} onChange={e => setMinYearPlane(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.machineState}</label>
-                  <select value={conservationState} onChange={e => setConservationState(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                    <option value="">{t.machineState}</option>
-                    <option value="Novo">Novo</option>
-                    <option value="Excelente">Excelente</option>
-                    <option value="Bom">Bom</option>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.planeAnac}</label>
+                  <select value={anacHomologFilter} onChange={e => setAnacHomologFilter(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
+                    <option value="">{t.planeAnac}</option>
+                    <option value="sim">Homologado</option>
+                    <option value="experimental">Experimental</option>
                   </select>
                 </div>
               </div>
             </div>
           )}
 
-          {/* SEÇÃO 6: FILTROS DE ARRENDAMENTO */}
-          {(transactionType === 'arrendamento' || mapOnlyLeases) && (
-            <div className="pt-8 border-t border-gray-100 animate-fadeIn space-y-6">
-              <div className="flex items-center gap-4">
-                <h3 className="text-[11px] font-black text-prylom-gold uppercase tracking-widest whitespace-nowrap">📑 {t.leaseFilters}</h3>
+          {activeCategory === 'graos' && (
+            <div className="space-y-6 animate-fadeIn">
+              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
+                🌾 {t.techFiltersGrain}
                 <div className="h-px flex-1 bg-gray-100"></div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.leaseMod}</label>
-                  <select value={arrModalidade} onChange={e => setArrModalidade(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                    <option value="">{t.leaseMod}</option>
-                    <option value="agricola">{t.planeAgri}</option>
-                    <option value="pecuaria">{t.wizardStep2Pecuaria}</option>
-                  </select>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.cultureAll}</label>
+                  <input placeholder="Soja, Milho, Trigo..." value={grainCulture} onChange={e => setGrainCulture(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.grainHarvest} & {t.leaseCulture}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder={t.grainHarvest} value={arrSafraInicio} onChange={e => setArrSafraInicio(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                    <input type="text" placeholder={t.leaseCulture} value={arrCulturaBase} onChange={e => setArrCulturaBase(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
-                  </div>
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.grainHarvest}</label>
+                  <input placeholder="Ex: 24/25" value={grainHarvest} onChange={e => setGrainHarvest(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.leaseSafras}</label>
-                  <input type="number" placeholder={t.leaseSafras} value={arrQtdSafras} onChange={e => setArrQtdSafras(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark border border-transparent focus:border-prylom-gold transition-all" />
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.grainQuality}</label>
+                  <input placeholder="Exportação, Padrão..." value={grainQuality} onChange={e => setGrainQuality(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.grainVolume} (Min)</label>
+                  <input type="number" value={minVolume} onChange={e => setMinVolume(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
                 </div>
               </div>
             </div>
           )}
-          
-          <div className="pt-8 border-t border-gray-100 flex justify-between items-center">
-             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.assetsGeoreferenced}: <span className="text-prylom-dark">{filteredProducts.length}</span></p>
+
+          {transactionType === 'arrendamento' && (
+             <div className="space-y-6 animate-fadeIn">
+               <h4 className="text-[11px] font-black text-orange-600 uppercase tracking-[0.3em] flex items-center gap-4">
+                 📑 {t.leaseFilters}
+                 <div className="h-px flex-1 bg-gray-100"></div>
+               </h4>
+               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                 <div className="space-y-2">
+                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.leaseMod}</label>
+                   <select value={arrModalidade} onChange={e => setArrModalidade(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
+                      <option value="">{t.leaseMod}</option>
+                      <option value="fixo">Pagamento Fixo</option>
+                      <option value="sacas">Pagamento em Sacas</option>
+                      <option value="parceria">Parceria (% Colheita)</option>
+                   </select>
+                 </div>
+                 <div className="space-y-2">
+                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.leaseCulture}</label>
+                   <input placeholder="Soja, Milho..." value={arrCulturaBase} onChange={e => setArrCulturaBase(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.leaseSafras} (Min)</label>
+                   <input type="number" value={arrQtdSafras} onChange={e => setArrQtdSafras(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold" />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.leaseStartMonth}</label>
+                   <select value={arrMesInicioColheita} onChange={e => setArrMesInicioColheita(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
+                      <option value="">{t.leaseStartMonth}</option>
+                      {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => <option key={m} value={i+1}>{m}</option>)}
+                   </select>
+                 </div>
+               </div>
+             </div>
+          )}
+
+          <div className="pt-6 flex justify-end">
              <button onClick={() => {
-               setFilterState(''); setFilterCity(''); setMinPrice(''); setMaxPrice(''); setFilterStatus('all'); setTransactionType('all');
-               setMinAreaTotal(''); setMaxAreaTotal(''); setBrandFilter(''); setGrainCulture(''); setPlaneTypeFilter('');
-               setArrModalidade(''); setArrSafraInicio(''); setArrQtdSafras('');
-               setMapOnlyFarms(false); setMapOnlyLeases(false); setMapGrouping('municipio'); setMapHeatmap('none');
-             }} className="text-[9px] font-black text-prylom-gold uppercase tracking-widest hover:underline">{t.resetMapFilters}</button>
+                // Reset de todos os filtros
+                setFilterState(''); setFilterCity(''); setMinPrice(''); setMaxPrice(''); setFilterStatus('all');
+                setMinAreaTotal(''); setMaxAreaTotal(''); setMinAreaLavoura(''); setSoilType(''); setClayContent(''); setTopography(''); setDocOnlyOk(false);
+                setBrandFilter(''); setMachineModelFilter(''); setMinYear(''); setMaxYear(''); setMaxHours(''); setConservationState(''); setPrecisionAgFilter(''); setMinPower(''); setFuelType('');
+                setPlaneTypeFilter(''); setManufacturerFilter(''); setMinYearPlane(''); setMaxHoursPlane(''); setAnacHomologFilter('');
+                setGrainCulture(''); setGrainHarvest(''); setGrainQuality(''); setMinVolume('');
+                setArrModalidade(''); setArrAptidao(''); setMinArrArea(''); setMaxArrArea(''); setArrCulturaBase(''); setArrQtdSafras(''); setArrMesInicioColheita('');
+             }} className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] hover:text-red-500 transition-colors">Limpar Todos os Filtros</button>
           </div>
         </div>
       )}
@@ -789,18 +720,14 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
                       <p className="text-[10px] text-gray-400 font-bold uppercase mb-6">{p.cidade} - {p.estado}</p>
                       <div className="mt-auto p-6 bg-gray-50 rounded-3xl border border-gray-100">
                         <p className="text-[9px] font-black text-prylom-gold uppercase tracking-widest mb-1">{p.tipo_transacao === 'arrendamento' ? t.transactionLease : t.transactionSale}</p>
-                        {p.tipo_transacao === 'arrendamento' && p.arrendamento_info ? (
-                          <p className="text-xl font-black text-prylom-dark">{p.arrendamento_info.quantidade} <span className="text-xs">{p.arrendamento_info.unidade?.replace('_', '/')}</span></p>
-                        ) : (
-                          <div className="flex items-baseline justify-between">
-                            <p className="text-3xl font-black text-prylom-dark">{price.symbol} {price.value}</p>
-                            {p.area_total_ha && (
-                              <p className="text-[9px] font-black text-gray-400 uppercase">
-                                {getSymbol()} {formatPriceParts(p.valor! / p.area_total_ha).value} <span className="opacity-60">{t.priceHectare}</span>
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex items-baseline justify-between">
+                          <p className="text-3xl font-black text-prylom-dark">{price.symbol} {price.value}</p>
+                          {p.area_total_ha && (
+                            <p className="text-[9px] font-black text-gray-400 uppercase">
+                              {getSymbol()} {formatPriceParts(p.valor! / p.area_total_ha).value} <span className="opacity-60">{t.priceHectare}</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -808,20 +735,12 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
               })}
             </div>
           ) : (
-            <div className="h-[75vh] bg-white rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white relative" style={{ minHeight: '75vh' }}>
-               <div ref={mapContainerRef} className="w-full h-full"></div>
-               
-               <div className="absolute bottom-10 right-10 z-[500] bg-prylom-dark/95 backdrop-blur-xl px-10 py-6 rounded-[2.5rem] shadow-3xl border border-prylom-gold/20 flex flex-col items-end animate-fadeIn">
-                  <div className="flex items-center gap-3 mb-1">
-                     <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em]">{t.mapScanAlpha}</span>
-                     <div className="flex gap-1">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" style={{animationDelay:'0.2s'}}></div>
-                     </div>
-                  </div>
-                  <p className="text-white text-3xl font-black tracking-tighter leading-none">{filteredProducts.length}</p>
-                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mt-1">{t.assetsGeoreferenced}</p>
-               </div>
+            <div className="w-full h-[600px] md:h-[700px] rounded-[4rem] overflow-hidden border-8 border-white shadow-3xl relative bg-gray-100">
+                <div ref={mapContainerRef} className="absolute inset-0 z-0"></div>
+                <div className="absolute top-8 right-8 z-10 bg-white/95 backdrop-blur-md p-6 rounded-3xl shadow-2xl border border-gray-100 pointer-events-none max-w-xs">
+                    <p className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.2em] mb-2">Visão Estratégica</p>
+                    <p className="text-sm font-bold text-prylom-dark">Explore ativos geolocalizados. Agrupamentos mostram múltiplos anúncios no mesmo município.</p>
+                </div>
             </div>
           )}
         </>
