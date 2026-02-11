@@ -50,12 +50,73 @@ const ToolsHub: React.FC<Props> = ({ onBack, t, lang, currency }) => {
     return `${getSymbol()} ${converted.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
   };
 
-  const regionalCosts: Record<string, any> = {
-    'MT - Médio Norte': { costHa: 4850, yieldBe: 52, location: "Pólo Regional de Sorriso/Sinop (MT)" },
-    'GO - Sudoeste': { costHa: 4620, yieldBe: 49, location: "Eixo Rio Verde–Jataí (GO)" },
-    'PR - Oeste': { costHa: 5100, yieldBe: 58, location: "Região de Cascavel/Toledo (PR)" },
-    'MS - Sul': { costHa: 4400, yieldBe: 47, location: "Pólo de Maracaju–Dourados (MS)" }
-  };
+// --- LOCAL 1: SUBSTITUA O regionalCosts ---
+const regionalCosts: Record<string, any> = {
+  'MT - Médio Norte': { 
+    costHa: 4850, 
+    yieldBe: 52, 
+    location: "Sorriso (MT)",
+    argila: "40% e 70%",
+    pluvio: "1.850 a 2.150 mm",
+    altimetria: "350 a 420 mts",
+    relevo: "Plano",
+    rodovia: "BR-163",
+    ferrovia: "FERRONORTE",
+    porto: "PORTO DE MIRITITUBA",
+    prodLocal: "82 a 92",
+    prodEstado: "78 a 80",
+    prodBrasil: "62",
+    labelEstado: "Mato Grosso"
+  },
+  'GO - Sudoeste': { 
+    costHa: 4620, 
+    yieldBe: 49, 
+    location: "Alexandria (GO)",
+    argila: "40% e 70%", // Conforme imagem 1 e 2
+    pluvio: "1.450 a 1.650 mm",
+    altimetria: "1.100 e 1.250 mts",
+    relevo: "Plano e Suave Ondulado",
+    rodovia: "BR-040",
+    ferrovia: "CENTRO-ATLÂNTICA",
+    porto: "PORTO DE SANTOS",
+    prodLocal: "68 a 78",
+    prodEstado: "62 a 62",
+    prodBrasil: "62",
+    labelEstado: "Goiás"
+  },
+  'PR - Oeste': { 
+    costHa: 5100, 
+    yieldBe: 58, 
+    location: "Cascavel (PR)",
+    argila: "60% e 80%",
+    pluvio: "1.700 a 1.900 mm",
+    altimetria: "700 a 800 mts",
+    relevo: "Ondulado",
+    rodovia: "BR-277",
+    ferrovia: "FERROESTE",
+    porto: "PORTO DE PARANAGUÁ",
+    prodLocal: "75 a 85",
+    prodEstado: "70 a 72",
+    prodBrasil: "62",
+    labelEstado: "Paraná"
+  },
+  'MS - Sul': { 
+    costHa: 4400, 
+    yieldBe: 47, 
+    location: "Maracaju (MS)",
+    argila: "35% e 55%",
+    pluvio: "1.400 a 1.600 mm",
+    altimetria: "400 a 550 mts",
+    relevo: "Suave Ondulado",
+    rodovia: "BR-163",
+    ferrovia: "MALHA OESTE",
+    porto: "PORTO DE PARANAGUÁ",
+    prodLocal: "70 a 80",
+    prodEstado: "65 a 68",
+    prodBrasil: "62",
+    labelEstado: "Mato Grosso do Sul"
+  }
+};
 
   const barterRatio = inputCost / commodityPrice;
   
@@ -363,34 +424,98 @@ const ToolsHub: React.FC<Props> = ({ onBack, t, lang, currency }) => {
           </div>
         </div>
 
-        <div className="space-y-8">
-          <div className="bg-gray-50 rounded-[2.5rem] p-8 border border-gray-100 flex flex-col gap-6 shadow-inner">
-            <div>
-              <h3 className="text-lg font-black text-prylom-dark uppercase tracking-tight mb-1">{t.landMeasures}</h3>
-              <p className="text-gray-700 text-xs font-bold">Fonte de Dados: IMEA / CONAB</p>
-            </div>
-            
-            <div className="space-y-4">
-               <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">{t.selectRegion}</label>
-               <select value={region} onChange={e => setRegion(e.target.value)} className="w-full p-4 bg-white rounded-2xl font-bold text-[#000080] border border-gray-200 outline-none appearance-none cursor-pointer">
-                  {Object.keys(regionalCosts).map(r => <option key={r} value={r}>{r}</option>)}
-               </select>
-            </div>
+<div className="space-y-8">
+  <div className="bg-gray-50 rounded-[2.5rem] p-8 border border-gray-100 flex flex-col gap-6 shadow-inner">
+    <div>
+      <h3 className="text-lg font-black text-prylom-dark uppercase tracking-tight mb-1">{t.landMeasures}</h3>
+      <p className="text-gray-700 text-xs font-bold">Fonte de Dados: IMEA / CONAB</p>
+    </div>
+    
+    <div className="space-y-4">
+       <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">{t.selectRegion}</label>
+       <select value={region} onChange={e => setRegion(e.target.value)} className="w-full p-4 bg-white rounded-2xl font-bold text-[#000080] border border-gray-200 outline-none appearance-none cursor-pointer shadow-sm">
+          {Object.keys(regionalCosts).map(r => <option key={r} value={r}>{r}</option>)}
+       </select>
+    </div>
 
-            <div className="mt-4 space-y-4 flex-1">
-               <div className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
-                 <span className="text-[10px] font-black text-gray-400 uppercase">Custo Médio / Ha</span>
-                 <span className="font-black text-prylom-dark">{formatPrice(regionalCosts[region]?.costHa, 0)}</span>
-               </div>
-               <div className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
-                 <span className="text-[10px] font-black text-gray-400 uppercase">Aptidão Reg.</span>
-                 <span className="text-[9px] font-black uppercase text-prylom-gold tracking-widest">Alta Performance</span>
-               </div>
+    {/* Métricas Conforme Imagem 3 */}
+    <div className="mt-4 space-y-6">
+       <div className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
+         <span className="text-[10px] font-black text-gray-400 uppercase">Custo Médio / Ha</span>
+         <span className="font-black text-prylom-dark">{formatPrice(regionalCosts[region]?.costHa, 0)}</span>
+       </div>
+       <div className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
+         <span className="text-[10px] font-black text-gray-400 uppercase">Aptidão Reg.</span>
+         <span className="text-[9px] font-black uppercase text-prylom-gold tracking-widest">Alta Performance</span>
+       </div>
+
+       {/* Dados Agro-técnicos (Imagem 3) */}
+       <div className="pt-4 space-y-4 text-center">
+         <div>
+            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Teor médio de Argila</p>
+            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].argila}</p>
+         </div>
+         <div>
+            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Indice Pluviometrico</p>
+            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].pluvio}</p>
+         </div>
+         <div>
+            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Indice de Altimetria</p>
+            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].altimetria}</p>
+         </div>
+         <div>
+            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Indice Relevo</p>
+            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].relevo}</p>
+         </div>
+       </div>
+
+       {/* Escoamento (Imagem 1) */}
+       <div className="pt-6 border-t border-gray-200">
+         <p className="text-prylom-gold text-[13px] font-black uppercase tracking-tighter text-center mb-4">
+            Escoamento da Produção <br/> <span className="text-[#000080]">{regionalCosts[region].location}</span>
+         </p>
+         <div className="space-y-3">
+           <div className="flex justify-between text-[11px] font-black uppercase">
+             <span className="text-[#000080]">Rodovia:</span>
+             <span className="text-gray-400">{regionalCosts[region].rodovia}</span>
+           </div>
+           <div className="flex justify-between text-[11px] font-black uppercase">
+             <span className="text-[#000080]">Ferrovia:</span>
+             <span className="text-gray-400">{regionalCosts[region].ferrovia}</span>
+           </div>
+           <div className="flex justify-between text-[11px] font-black uppercase">
+             <span className="text-[#000080]">Porto:</span>
+             <span className="text-gray-400">{regionalCosts[region].porto}</span>
+           </div>
+         </div>
+       </div>
+
+       {/* Produção Soja (Imagem 2) */}
+       <div className="bg-[#2C5266] p-6 rounded-[2rem] shadow-lg mt-6">
+          <div className="text-center mb-4">
+            <p className="text-white font-black text-[13px] uppercase leading-tight">Produção média de Soja</p>
+            <p className="text-white/50 font-bold text-[9px] uppercase tracking-widest">(saca/ha) 2025/26</p>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-prylom-gold text-[10px] font-black uppercase">{regionalCosts[region].location}:</span>
+              <span className="text-white font-bold text-xs">{regionalCosts[region].prodLocal} sacas/ha</span>
+            </div>
+            <div className="flex justify-between items-center opacity-80 pt-2 border-t border-white/10">
+              <span className="text-prylom-gold text-[10px] font-black uppercase">Média {regionalCosts[region].labelEstado}:</span>
+              <span className="text-white font-bold text-xs">{regionalCosts[region].prodEstado} sacas/ha</span>
+            </div>
+            <div className="flex justify-between items-center opacity-60">
+              <span className="text-prylom-gold text-[10px] font-black uppercase">Média Brasil:</span>
+              <span className="text-white font-bold text-xs">{regionalCosts[region].prodBrasil} sacas/ha</span>
             </div>
           </div>
-        </div>
-      </div>
+       </div>
     </div>
+  </div>
+</div>
+</div>
+</div>
   );
 };
 

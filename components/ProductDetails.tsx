@@ -12,9 +12,9 @@ interface Props {
   currency: AppCurrency;
 }
 const getFullImage = (url: string) => {
-  // Remova o upscale e foque no redimensionamento inteligente
   return `${url}?width=1280&quality=85&resize=contain`;
 };
+
 
 
 
@@ -68,8 +68,9 @@ const ProductDetails: React.FC<Props> = ({ productId, onSelectProduct, onBack, t
 
   const handleShare = async () => {
     const url = window.location.href;
-    const title = `Prylom - ${product.titulo}`;
-    const text = `Confira este ativo em ${product.cidade} no ecossistema Prylom.`;
+const title = `Prylom - ${product.titulo}`;
+const text = `Confira este ativo em ${product.cidade} no ecossistema Prylom.`;
+
 
     if (navigator.share) {
       try {
@@ -168,17 +169,39 @@ useEffect(() => {
       const custoTotalAnual = areaAgri * valorArrendamentoHa;
       const margemOperacionalMin = 18;
       const margemOperacionalMax = 28;
-      
-      return { 
-        isLease: true,
-        areaAgri, 
-        valorArrendamentoHa, 
-        custoTotalAnual, 
-        margemOperacionalMin, 
-        margemOperacionalMax,
-        prodSoja,
-        prodMilho
-      };
+      const receitaEstimada = (areaAgri * prodSoja * 135) + (areaAgri * prodMilho * 72); 
+      const ebitdaEstimado = receitaEstimada - custoTotalAnual - (areaAgri * 8000);
+// Dentro do if (isLease) no farmEconomics:
+return { 
+  isLease: true,
+  areaAgri, 
+  receitaBruta: receitaEstimada, 
+  ebitda: ebitdaEstimado,
+  lucroLiquido: ebitdaEstimado * 0.85,
+  roiRange: { pessimista: 12, base: 18, otimista: 25 }, 
+  paybackReal: 0,
+  prodSoja,
+  prodMilho,
+  // DADOS DINÂMICOS DO BANCO DE DADOS:
+  indices: {
+    argila: { 
+      atual: spec?.teor_argila || '---', 
+      mediaEstado: spec?.media_argila_estado || '30%' 
+    },
+    pluviometrico: { 
+      atual: spec?.precipitacao_mm ? `${spec.precipitacao_mm}mm` : '---', 
+      mediaEstado: spec?.media_pluvio_estado || '1.600mm' 
+    },
+    altimetria: { 
+      atual: spec?.altitude_m ? `${spec.altitude_m}m` : '---', 
+      mediaEstado: spec?.media_altitude_estado || '400m' 
+    },
+    relevo: { 
+      atual: spec?.topografia || '---', 
+      mediaEstado: spec?.media_relevo_estado || 'Plano/Ondulado' 
+    }
+  }
+};
     } else {
       const valorAtivo = product.valor || 1;
       const precoSoja = 135; 
@@ -287,7 +310,17 @@ useEffect(() => {
 
   const fetchRelatedProducts = async (currentProd: any) => {
     try {
-      const { data } = await supabase.from('produtos').select(`*, arrendamentos (modalidade, quantidade, unidade, ativo), produtos_imagens (image_url, ordem)`).eq('estado', currentProd.estado).neq('id', currentProd.id).limit(3);
+      const { data } = await supabase
+  .from('produtos')
+  .select(`
+    *,
+    arrendamentos (modalidade, quantidade, unidade, ativo),
+    produtos_imagens (image_url, ordem)
+  `)
+  .eq('estado', currentProd.estado)
+  .neq('id', currentProd.id)
+  .limit(3);
+
       if (data) setRelatedProducts(data.map((item: any) => ({ ...item, main_image: item.produtos_imagens?.[0]?.image_url })));
     } catch (e) { console.error(e); }
   };
@@ -314,17 +347,23 @@ useEffect(() => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12 animate-fadeIn pb-40 space-y-12 print:p-0 print:space-y-4 print:m-0">
       
-      <style>{`
-        @media print {
-          body { background: white !important; }
-          .no-print { display: none !important; }
-          .print-full { width: 100% !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
-          header, footer, aside { display: none !important; }
-          .print-main { display: block !important; width: 100% !important; }
-          .aspect-video { height: 400px !important; }
-          .rounded-[3rem], .rounded-[3.5rem], .rounded-full { border-radius: 0.5rem !important; }
-        }
-      `}</style>
+<style
+  dangerouslySetInnerHTML={{
+    __html: `
+      @media print {
+        body { background: white !important; }
+        .no-print { display: none !important; }
+        .print-full { width: 100% !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+        header, footer, aside { display: none !important; }
+        .print-main { display: block !important; width: 100% !important; }
+        .aspect-video { height: 400px !important; }
+        .rounded-[3rem], .rounded-[3.5rem], .rounded-full { border-radius: 0.5rem !important; }
+      }
+    `,
+  }}
+/>
+
+
 
       <button onClick={onBack} className="flex items-center gap-2 text-[10px] font-black uppercase text-prylom-gold tracking-widest transition-all no-print">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -342,28 +381,107 @@ useEffect(() => {
               {product.certificacao && <span className="text-[8px] font-black text-prylom-gold bg-prylom-gold/5 px-3 py-1 rounded-md border border-prylom-gold/10 uppercase tracking-widest">🔒 Prylom Verified | 📑 Compliance OK</span>}
            </div>
            <h1 className="text-3xl font-black text-[#000080] tracking-tighter leading-none mb-2">
-             {isGrain ? `${spec?.cultura || 'Soja'} – Grão Físico | Safra ${spec?.safra || '24/25'}` : isPlane && spec?.fabricante ? `${spec.fabricante} ${spec.modelo}` : product.titulo}
+
+             {isGrain
+  ? `${spec?.cultura || 'Soja'} – Grão Físico | Safra ${spec?.safra || '24/25'}`
+  : isPlane && spec?.fabricante
+    ? `${spec.fabricante} ${spec.modelo}`
+    : product.titulo
+    
+}
+
+
            </h1>
-           <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-prylom-dark uppercase">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-prylom-gold no-print" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
-             Origem: {product.cidade} — {product.estado}
-           </div>
-        </div>
-        <div className="col-span-1 flex flex-col justify-center">
-           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{isGrain ? 'Volume Total' : (isPlane ? 'Liquidez de Mercado' : (isLease ? '🏷️ Modalidade' : t.statusLabel))}</p>
-           <div className="flex items-center gap-2">
-             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse no-print"></div>
-             <span className="text-sm font-black text-[#000080] uppercase tracking-tighter">
-               {isGrain ? `${formatNumber(spec?.estoque_toneladas || 120000, 0)} t` : isPlane ? `${planeEcoData?.liquidez} (TMV: ${planeEcoData?.tmv} dias)` : (isLease ? 'Arrendamento Operacional' : t.statusAvailable)}
-             </span>
-           </div>
+<div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-prylom-dark uppercase">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-3 w-3 text-prylom-gold no-print"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={3}
+      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+    />
+  </svg>
+  Origem: {product.cidade} — {product.estado}
+</div>
+</div>
+
+<div className="col-span-1 flex flex-col justify-center items-start w-full">
+  
+  <div className="flex items-start gap-8 w-full">
+    
+    {/* Coluna 1: Status / Modalidade / Volume */}
+    <div className="flex flex-col min-w-0">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">
+        {isGrain ? 'Volume Total' : isPlane ? 'Liquidez de Mercado' : isLease ? '🏷️ Modalidade' : 'Status & Selo'}
+      </p>
+      
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse no-print flex-shrink-0"></div>
+        <span className="text-sm font-black text-[#000080] uppercase tracking-tighter truncate">
+          {isGrain
+            ? `${formatNumber(spec?.estoque_toneladas || 120000, 0)} t`
+            : isPlane
+              ? `${planeEcoData?.liquidez} (TMV: ${planeEcoData?.tmv} dias)`
+              : isLease
+                ? 'Arrendamento'
+                : t.statusAvailable}
+        </span>
+      </div>
+    </div>
+
+{/* Adicionei mr-8 como exemplo, ajuste o número conforme necessário */}
+<div className="flex flex-col ml-auto mr-8 text-left min-w-fit">
+  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
+    Código
+  </p>
+  <span className="text-sm font-black text-[#000080] uppercase tracking-tighter">
+    {product.codigo}
+  </span>
+</div>
+
+  </div>
+
+
+
+ 
            {isGrain && <p className="text-[8px] font-bold text-prylom-gold mt-1 uppercase tracking-widest">Preço: {formatV(product.valor || 1000)} / t</p>}
         </div>
-        <div className="col-span-1 bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 flex flex-col justify-center">
+        <div className="col-span-1 bg-gray-100/70 p-6 rounded-[2.5rem] border border-gray-200 flex flex-col justify-center">
            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{isGrain ? 'Valor Total Lote' : (isLease ? 'Área Disponível' : t.priceTotal)}</p>
-           <p className="text-3xl font-black text-[#000080] leading-none">
-             {isGrain ? formatV((spec?.estoque_toneladas || 120000) * (product.valor || 1000)) : isLease ? `${formatNumber(spec?.area_total_ha || 1000)} ha` : formatV(product.valor)}
+           <p className="text-[1.6rem] font-black text-[#000080] leading-tight">
+             {isGrain
+  ? formatV((spec?.estoque_toneladas || 120000) * (product.valor || 1000))
+  : isLease
+    ? `${formatNumber(spec?.area_total_ha || 1000)} ha`
+    : formatV(product.valor)
+}
+
            </p>
+
+{/* VALOR POR HECTARE — apenas fazenda à venda */}
+{!isGrain && !isLease && spec?.area_total_ha && product.valor && (
+  <div className="mt-2 flex items-baseline gap-1 opacity-70">
+    <span className="text-sm font-black text-gray-500">
+      {getSymbol()}
+    </span>
+
+    <span className="text-lg font-black text-gray-500 tabular-nums">
+      {formatNumber(product.valor / spec.area_total_ha, 0)}
+    </span>
+
+    <span className="text-xs font-black text-gray-400">
+      / ha
+    </span>
+  </div>
+)}
+
+
         </div>
       </section>
 
@@ -432,78 +550,149 @@ useEffect(() => {
            </div>
 
 
-           {/* ECONOMICS (FAZENDAS) */}
-           {isFarm && farmEconomics && (
-             <div className="space-y-8 animate-fadeIn pt-4">
-                <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-sm space-y-10 print-full">
-                   <header className="flex justify-between items-center border-b border-gray-50 pb-6">
-                      <h3 className="text-2xl font-black text-[#000080] uppercase tracking-tighter flex items-center gap-3">💰 Economics do Ativo</h3>
-                      <span className="bg-prylom-gold/10 text-prylom-gold text-[8px] font-black px-3 py-1 rounded-md uppercase tracking-widest">Projeção Auditada</span>
-                   </header>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                      <div className="space-y-8">
-                         <div>
-                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">📊 Produtividade Real (Ajustada por Risco)</h4>
-                            <div className="space-y-4">
-                               <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                                  <span className="text-sm font-bold text-prylom-dark uppercase">Soja</span>
-                                  <div className="text-right">
-                                    <span className="text-2xl font-black text-prylom-dark">{formatNumber(farmEconomics.prodSoja, 1)} sc/ha</span>
-                                    <p className="text-[7px] text-red-500 font-bold uppercase tracking-widest">Incluindo Risco Climático</p>
-                                  </div>
-                               </div>
-                               <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                                  <span className="text-sm font-bold text-prylom-dark uppercase">Milho (2ª Safra)</span>
-                                  <div className="text-right">
-                                    <span className="text-2xl font-black text-prylom-dark">{formatNumber(farmEconomics.prodMilho, 1)} sc/ha</span>
-                                    <p className="text-[7px] text-red-500 font-bold uppercase tracking-widest">Incluindo Risco Climático</p>
-                                  </div>
-                               </div>
-                            </div>
-                         </div>
-                         {!isLease && (
-                            <div className="pt-6">
-                               <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">💵 Receita Bruta Anual</h4>
-                               <div className="p-8 bg-[#000080]/5 rounded-[2.5rem] border border-[#000080]/10 flex flex-col items-center text-center">
-                                  <span className="text-[9px] font-black text-[#000080] uppercase tracking-widest mb-2">Faturamento Estimado</span>
-                                  <p className="text-4xl font-black text-[#000080]">{formatV(farmEconomics.receitaBruta || 0)}</p>
-                                  <span className="text-[8px] font-bold text-gray-400 uppercase mt-2">/ ano</span>
-                               </div>
-                            </div>
-                         )}
-                      </div>
-                      <div className="space-y-8">
-                         <div className="bg-prylom-dark text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-                            <h4 className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.2em] mb-6">📈 Performance Líquida</h4>
-                            <div className="space-y-6">
-                               <div>
-                                  <p className="text-[8px] font-bold text-gray-400 uppercase mb-1">EBITDA (Fluxo de Caixa)</p>
-                                  <p className="text-2xl font-black text-white">{formatV(farmEconomics.ebitda || 0)} <span className="text-[10px] opacity-40">/ ano</span></p>
-                               </div>
-                               <div className="pt-6 border-t border-white/10">
-                                  <p className="text-[9px] font-black text-prylom-gold uppercase mb-1">Lucro Líquido Real (Pos-Tax/Reinvest)</p>
-                                  <p className="text-3xl font-black text-white">{formatV(farmEconomics.lucroLiquido || 0)} <span className="text-[10px] opacity-40">/ ano</span></p>
-                               </div>
-                            </div>
-                            <div className="absolute -bottom-6 -right-6 text-white/5 text-8xl font-black">ROI</div>
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div className="p-6 bg-green-50 rounded-3xl border border-green-100">
-                               <p className="text-[8px] font-black text-green-700 uppercase mb-2">ROI Real Anual</p>
-                               <p className="text-xl font-black text-green-700">
-                                  {formatNumber(farmEconomics.roiRange.pessimista, 1)}% - {formatNumber(farmEconomics.roiRange.otimista, 1)}%
-                               </p>
-                            </div>
-                            <div className="p-6 bg-[#000080] rounded-3xl">
-                               <p className="text-[8px] font-black text-prylom-gold uppercase mb-2">Payback Real</p>
-                               <p className="text-xl font-black text-white">{formatNumber(farmEconomics.paybackReal || 0, 1)} anos</p>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
+ {/* ECONOMICS (FAZENDAS) */}
+{isFarm && farmEconomics && (
+  <div className="space-y-8 animate-fadeIn pt-4">
+    <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-sm space-y-10 print-full">
+      <header className="flex justify-between items-center border-b border-gray-50 pb-6">
+        <h3 className="text-2xl font-black text-[#000080] uppercase tracking-tighter flex items-center gap-3">💰 Economics do Ativo</h3>
+        <span className="bg-prylom-gold/10 text-prylom-gold text-[8px] font-black px-3 py-1 rounded-md uppercase tracking-widest">Projeção Auditada</span>
+      </header>
+
+      {/* BLOCO DE PRODUTIVIDADE E PERFORMANCE - SEMPRE APARECE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <div className="space-y-8">
+          <div>
+            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">📊 Produtividade Real (Ajustada por Risco)</h4>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-sm font-bold text-prylom-dark uppercase">Soja</span>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-prylom-dark">{formatNumber(farmEconomics.prodSoja, 1)} sc/ha</span>
+                  <p className="text-[7px] text-red-500 font-bold uppercase tracking-widest">Incluindo Risco Climático</p>
                 </div>
-             </div>
-           )}
+              </div>
+              <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-sm font-bold text-prylom-dark uppercase">Milho (2ª Safra)</span>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-prylom-dark">{formatNumber(farmEconomics.prodMilho, 1)} sc/ha</span>
+                  <p className="text-[7px] text-red-500 font-bold uppercase tracking-widest">Incluindo Risco Climático</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Faturamento para Venda (Escondido se for Arrendamento, pois o Arrendamento tem o seu próprio bloco gigante abaixo) */}
+          {!isLease && (
+            <div className="pt-6">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">💵 Receita Bruta Anual</h4>
+              <div className="p-8 bg-[#000080]/5 rounded-[2.5rem] border border-[#000080]/10 flex flex-col items-center text-center">
+                <span className="text-[9px] font-black text-[#000080] uppercase tracking-widest mb-2">Faturamento Estimado</span>
+                <p className="text-4xl font-black text-[#000080]">{formatV(farmEconomics.receitaBruta || 0)}</p>
+                <span className="text-[8px] font-bold text-gray-400 uppercase mt-2">/ ano</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-8">
+          <div className="bg-prylom-dark text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
+            <h4 className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.2em] mb-6">📈 Performance Líquida</h4>
+            <div className="space-y-6">
+              <div>
+                <p className="text-[8px] font-bold text-gray-400 uppercase mb-1">EBITDA (Fluxo de Caixa)</p>
+                <p className="text-2xl font-black text-white">{formatV(farmEconomics.ebitda || 0)} <span className="text-[10px] opacity-40">/ ano</span></p>
+              </div>
+              <div className="pt-6 border-t border-white/10">
+                <p className="text-[9px] font-black text-prylom-gold uppercase mb-1">Lucro Líquido Real (Pos-Tax/Reinvest)</p>
+                <p className="text-3xl font-black text-white">{formatV(farmEconomics.lucroLiquido || 0)} <span className="text-[10px] opacity-40">/ ano</span></p>
+              </div>
+            </div>
+          </div>
+
+          {/* SELEÇÃO CONDICIONAL: Se for Arrendamento, fecha o grid de 2 colunas para o conteúdo abaixo ocupar tudo. Se for Venda, mantém os cards originais. */}
+          {!isLease && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-6 bg-green-50 rounded-3xl border border-green-100">
+                <p className="text-[8px] font-black text-green-700 uppercase mb-2">ROI Real Anual</p>
+                <p className="text-xl font-black text-green-700">
+                  {formatNumber(farmEconomics.roiRange.pessimista, 1)}% - {formatNumber(farmEconomics.roiRange.otimista, 1)}%
+                </p>
+              </div>
+              <div className="p-6 bg-[#000080] rounded-3xl">
+                <p className="text-[8px] font-black text-prylom-gold uppercase mb-2">Payback Real</p>
+                <p className="text-xl font-black text-white">{formatNumber(farmEconomics.paybackReal || 0, 1)} anos</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+  </div>
+
+{isLease && (
+  <div className="w-full border-t border-gray-100 pt-12 mt-10 space-y-6">
+    <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.4em] mb-4 ml-2">
+      💰 Economics & Indicadores Agrotecnológicos
+    </h4>
+
+    {/* BLOCO SUPERIOR: Faturamento com destaque total */}
+    <div className="w-full p-8 bg-[#000080]/5 rounded-[3rem] border border-[#000080]/10 flex flex-col items-center justify-center text-center shadow-sm">
+      <span className="text-[11px] font-black text-[#000080] uppercase tracking-[0.2em] mb-3 opacity-60">
+        Faturamento Estimado Anual
+      </span>
+      <div className="flex flex-col md:flex-row items-baseline gap-3">
+        <p className="text-4xl md:text-5xl font-black text-[#000080] tracking-tighter">
+          {formatV(farmEconomics.receitaBruta || 0)}
+        </p>
+        <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
+          / ano projetado
+        </span>
+      </div>
+    </div>
+
+    {/* BLOCO INFERIOR: Cards técnicos em grid de 4 colunas (ou 2 no tablet) */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      {[
+        { label: 'Teor médio de Argila', val: farmEconomics.indices.argila.atual, media: farmEconomics.indices.argila.mediaEstado },
+        { label: 'Índice Pluviométrico', val: farmEconomics.indices.pluviometrico.atual, media: farmEconomics.indices.pluviometrico.mediaEstado },
+        { label: 'Índice de Altimetria', val: farmEconomics.indices.altimetria.atual, media: farmEconomics.indices.altimetria.mediaEstado },
+        { label: 'Índice Relevo', val: farmEconomics.indices.relevo.atual, media: farmEconomics.indices.relevo.mediaEstado },
+      ].map((item, idx) => (
+        <div 
+          key={idx} 
+          className="p-6 bg-white border border-gray-100 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[180px] transition-all hover:border-prylom-gold/30"
+        >
+          <p className="text-[10px] font-black text-prylom-gold uppercase tracking-tighter mb-6 leading-tight">
+            {item.label}
+          </p>
+
+          <div className="space-y-4">
+            <div className="flex flex-col">
+              <p className="text-[10px] font-black text-[#000080] uppercase opacity-60 mb-1">
+                {product.cidade}:
+              </p>
+              <p className="text-sm font-bold text-gray-600 truncate">
+                {item.val}
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-gray-50 flex flex-col">
+              <p className="text-[10px] font-black text-[#000080] uppercase opacity-40 mb-1">
+                Média {product.estado}:
+              </p>
+              <p className="text-sm font-bold text-gray-400 truncate">
+                {item.media}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+    </div>
+
+)}
 
            {/* ESPECIFICAÇÕES TÉCNICAS */}
            <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-sm print-full">
@@ -568,17 +757,68 @@ useEffect(() => {
               </div>
            </div>
 
-           <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
-              <h4 className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.4em]">🧭 Casos de Uso Estratégicos</h4>
-              <ul className="space-y-4">
-                 {(isGrain ? [{ label: 'Compra spot para exportação' }, { label: 'Abastecimento industrial / Esmagamento' }] : [{ label: 'Produção própria de grãos' }, { label: 'Ativo patrimonial de longo prazo' }, { label: 'Hedge contra inflação' }]).map((item, i) => (
-                   <li key={i} className="flex gap-3 items-start">
-                      <span className="text-prylom-gold mt-1 font-bold">✔</span>
-                      <p className="text-[10px] font-bold text-gray-600 uppercase">{item.label}</p>
-                   </li>
-                 ))}
-              </ul>
-           </div>
+{isLease ? (
+    <div className="space-y-8">
+      {/* IMAGEM 1: ESCOAMENTO DA PRODUÇÃO */}
+      <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+        <h4 className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.4em] text-center">
+          Escoamento da Produção <br/> {product.cidade} {product.estado}
+        </h4>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+            <span className="text-[11px] font-black text-[#000080] uppercase">Rodovia:</span>
+            <span className="text-[11px] font-bold text-gray-500">BR - 040</span>
+          </div>
+          <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+            <span className="text-[11px] font-black text-[#000080] uppercase">Ferrovia:</span>
+            <span className="text-[11px] font-bold text-gray-500 uppercase">Centro-Atlântica</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[11px] font-black text-[#000080] uppercase">Porto:</span>
+            <span className="text-[11px] font-bold text-gray-500 uppercase">Porto de Santos</span>
+          </div>
+        </div>
+      </div>
+
+      {/* IMAGEM 2: PRODUÇÃO MÉDIA DE SOJA */}
+      <div className="bg-[#2C5266] p-8 rounded-[2.5rem] shadow-xl space-y-6">
+        <div className="text-center">
+          <h4 className="text-[13px] font-black text-white uppercase leading-tight">
+            Produção média de Soja
+          </h4>
+          <p className="text-[11px] font-bold text-white/70 uppercase">(saca/ha) 2025/26</p>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-[12px] font-black text-prylom-gold uppercase">{product.cidade} {product.estado}:</span>
+            <span className="text-[12px] font-bold text-white">68 a 78 sacas/ha</span>
+          </div>
+          <div className="flex justify-between items-center opacity-80">
+            <span className="text-[12px] font-black text-prylom-gold uppercase">Média Goiás:</span>
+            <span className="text-[12px] font-bold text-white">62 a 62 sacas/ha</span>
+          </div>
+          <div className="flex justify-between items-center opacity-80 border-t border-white/10 pt-2">
+            <span className="text-[12px] font-black text-prylom-gold uppercase">Média Brasil:</span>
+            <span className="text-[12px] font-bold text-white">62 sacas/ha</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    /* BLOCO ORIGINAL PARA VENDA */
+    <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+      <h4 className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.4em]">🧭 Casos de Uso Estratégicos</h4>
+      <ul className="space-y-4">
+        {[{ label: 'Produção própria de grãos' }, { label: 'Ativo patrimonial de longo prazo' }, { label: 'Hedge contra inflação' }].map((item, i) => (
+          <li key={i} className="flex gap-3 items-start">
+            <span className="text-prylom-gold mt-1 font-bold">✔</span>
+            <p className="text-[10px] font-bold text-gray-600 uppercase">{item.label}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
         </aside>
       </div>
 

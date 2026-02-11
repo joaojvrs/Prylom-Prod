@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
@@ -24,6 +25,7 @@ interface Product {
   aviao_data?: any;
   grao_data?: any;
   coords?: [number, number];
+  codigo?: string;
 }
 
 interface Props {
@@ -34,10 +36,36 @@ interface Props {
   currency: AppCurrency;
 }
 
+
+const getStatusLabel = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'vendido': return 'Indisponível';
+    case 'ativo': return 'Disponível';
+    default: return 'Em Negociação';
+  }
+};
+
+
+
+const getStatusTextColor = (status: string) => {
+  switch (status) {
+    case 'ativo':
+      return 'text-green-600';
+    case 'vendido':
+      return 'text-gray-400';
+    case 'reservado':
+      return 'text-yellow-600';
+    default:
+      return 'text-gray-400';
+  }
+};
+
+
+
 const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, currency }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [transactionType, setTransactionType] = useState<'all' | 'venda' | 'arrendamento'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'map' | 'off'>('grid');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -448,16 +476,35 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
             <div className="flex bg-gray-100 p-1 rounded-full">
                 <button onClick={() => setViewMode('grid')} className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'grid' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}>{t.viewGrid}</button>
                 <button onClick={() => setViewMode('map')} className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'map' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}>{t.viewMap}</button>
+                <button onClick={() => setViewMode('off')}className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'off'?'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`} > OFF MARKETING </button>
             </div>
             <button onClick={() => setShowFilters(!showFilters)} className={`bg-white border-2 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${showFilters ? 'border-prylom-gold text-prylom-gold' : 'border-gray-100 text-prylom-dark'}`}>
               {showFilters ? t.hideFilters : t.advancedFilters}
             </button>
-            <button onClick={onBack} className="bg-white text-prylom-dark border-2 border-gray-100 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-prylom-gold transition-all">{t.btnBack}</button>
+<button
+  onClick={onBack}
+  className="
+    bg-white
+    text-prylom-dark
+    border-2 border-prylom-gold
+    px-8 py-3.5
+    rounded-full
+    text-[10px] font-black uppercase tracking-widest
+    shadow-md
+    hover:bg-prylom-gold
+    hover:text-white
+    transition-all
+  "
+>
+  ← {t.btnBack}
+</button>
+
+
         </div>
       </div>
 
       {showFilters && (
-        <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-gray-100 shadow-2xl animate-fadeIn space-y-10 max-h-[75vh] overflow-y-auto no-scrollbar scroll-smooth">
+        <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-gray-100 shadow-sm animate-fadeIn space-y-10 max-h-[75vh] overflow-y-auto no-scrollbar scroll-smooth">
           {/* SEÇÃO 1: FILTROS UNIVERSAIS */}
           <div className="space-y-6">
             <h4 className="text-[11px] font-black text-prylom-dark uppercase tracking-[0.3em] flex items-center gap-4">
@@ -708,24 +755,55 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
                   <div key={p.id} onClick={() => onSelectProduct(p.id)} className="bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl transition-all cursor-pointer flex flex-col group">
                     <div className="h-64 relative overflow-hidden bg-gray-50">
                       <img src={p.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800'} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                      <div className="absolute top-6 left-6 flex gap-2">
-                        <span className="bg-prylom-dark/80 backdrop-blur-md text-white text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                          {p.tipo_transacao === 'venda' ? t.transactionSale : t.transactionLease}
-                        </span>
-                        {p.certificacao && <span className="bg-prylom-gold text-white text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg">{t.verifiedLabel}</span>}
-                      </div>
                     </div>
                     <div className="p-8 flex flex-col flex-1">
-                      <h3 className="text-2xl font-black text-prylom-dark mb-1 tracking-tight line-clamp-1 group-hover:text-prylom-gold uppercase">{p.titulo}</h3>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-6">{p.cidade} - {p.estado}</p>
+                      <h2 className="flex flex-wrap items-baseline gap-3 text-2xl font-black tracking-tight line-clamp-2 uppercase">
+                        <span className="text-prylom-dark group-hover:text-prylom-gold transition-colors">
+                          {p.titulo} 
+                        </span>
+                      </h2>
+                      <span className={`text-[11px] font-black uppercase tracking-widest ${getStatusTextColor(p.status)}`}>
+                        {getStatusLabel(p.status)}
+                      </span>
+
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-gray-400 font-bold uppercase mb-6">
+                        <span>Argila: <strong className="font-black">{p.fazenda_data?.teor_argila || '-'}%</strong></span>
+                        <span>Aptidão: <strong className="font-black">{p.fazenda_data?.aptidao || '-'}</strong></span>  
+
+                        <span>Pluviom.: <strong className="font-black">{p.fazenda_data?.precipitacao_mm || '-'} mm</strong></span>
+                        <span>Altitude: <strong className="font-black">{p.fazenda_data?.altitude_m || '-'} m</strong></span>
+
+                        <span>Área Total: <strong className="font-black">{p.fazenda_data?.area_total_ha || '-'} ha</strong></span>
+                        <span>Área Prod.: <strong className="font-black">{p.fazenda_data?.area_lavoura_ha || '-'} ha</strong></span>
+
+                        <span className="col-span-2">
+                          Código: <strong className="font-black">{p.codigo}</strong>
+                        </span>
+                      </div>
                       <div className="mt-auto p-6 bg-gray-50 rounded-3xl border border-gray-100">
                         <p className="text-[9px] font-black text-prylom-gold uppercase tracking-widest mb-1">{p.tipo_transacao === 'arrendamento' ? t.transactionLease : t.transactionSale}</p>
-                        <div className="flex items-baseline justify-between">
-                          <p className="text-3xl font-black text-prylom-dark">{price.symbol} {price.value}</p>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xl font-black text-prylom-dark">
+                              {price.symbol}
+                            </span>
+                            <span className="text-2xl font-black text-prylom-dark tabular-nums">
+                              {price.value}
+                            </span>
+                          </div>
+
                           {p.area_total_ha && (
-                            <p className="text-[9px] font-black text-gray-400 uppercase">
-                              {getSymbol()} {formatPriceParts(p.valor! / p.area_total_ha).value} <span className="opacity-60">{t.priceHectare}</span>
-                            </p>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-lg font-black text-gray-400/70">
+                                {getSymbol()}
+                              </span>
+                              <span className="text-2xl font-black text-gray-400/70 tabular-nums">
+                                {formatPriceParts(p.valor! / p.area_total_ha).value}
+                              </span>
+                              <span className="text-sm font-black text-gray-400/60">
+                                /ha
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>

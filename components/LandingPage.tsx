@@ -107,28 +107,28 @@ const LandingPage: React.FC<Props> = ({
       color: "bg-white",
       span: "md:col-span-2"
     },
+        { 
+      click: onSelectTools, 
+      icon: "🛠️", 
+      label: t.btnTools, 
+      desc: "Cálculos de barter, logística e viabilidade econômica.",
+      color: "bg-white",
+      span: "md:col-span-1"
+    },
+        { 
+      click: onSelectLegal, 
+      icon: "📑", 
+      label: t.btnLegal, 
+      desc: "Suporte técnico por IA em agronomia, zootecnia e jurídico.",
+      color: "bg-gray-50",
+      span: "md:col-span-1"
+    },
     { 
       click: onSelectMarket, 
       icon: "📈", 
       label: t.btnMarket, 
       desc: "Terminal em tempo real com preços CBOT e radar global.",
       color: "bg-gray-50",
-      span: "md:col-span-1"
-    },
-    { 
-      click: onSelectLegal, 
-      icon: "📑", 
-      label: t.btnLegal, 
-      desc: "Segurança documental e conformidade ambiental consultiva.",
-      color: "bg-gray-50",
-      span: "md:col-span-1"
-    },
-    { 
-      click: onSelectTools, 
-      icon: "🛠️", 
-      label: t.btnTools, 
-      desc: "Cálculos de barter, logística e viabilidade econômica.",
-      color: "bg-white",
       span: "md:col-span-1"
     },
     { 
@@ -171,8 +171,8 @@ const LandingPage: React.FC<Props> = ({
             Conectamos o ecossistema do agronegócio através de um terminal consultivo de alta tecnologia, segurança documental e inteligência de mercado.
           </p>
           <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-            <button onClick={onSelectOwner} className="group bg-prylom-gold text-white font-black px-16 py-7 rounded-full text-[11px] uppercase tracking-[0.3em] shadow-3xl hover:bg-white hover:text-prylom-dark transition-all duration-500 w-full md:w-auto transform hover:-translate-y-2 flex items-center justify-center gap-3">
-              {t.btnAnnounce}
+            <button onClick={onSelectTools} className="group bg-prylom-gold text-white font-black px-16 py-7 rounded-full text-[11px] uppercase tracking-[0.3em] shadow-3xl hover:bg-white hover:text-prylom-dark transition-all duration-500 w-full md:w-auto transform hover:-translate-y-2 flex items-center justify-center gap-3">
+              Inteligência Agro
               <span className="group-hover:translate-x-1 transition-transform">→</span>
             </button>
             <button onClick={onSelectShopping} className="bg-white/10 backdrop-blur-md text-white border border-white/30 font-black px-16 py-7 rounded-full text-[11px] uppercase tracking-[0.3em] hover:bg-white hover:text-prylom-dark transition-all duration-500 w-full md:w-auto transform hover:-translate-y-2">
