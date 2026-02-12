@@ -65,31 +65,30 @@ fazendas: [
   { key: 'area_total_ha', label: 'Área Total (ha)', type: 'number', required: true },
   { key: 'area_lavoura_ha', label: 'Área de Lavoura (ha)', type: 'text' },
   { key: 'valor_ha', label: 'Valor por Hectare (BRL)', type: 'number' },
-  { key: 'aptidao', label: 'Aptidão (Solo/Clima)', type: 'text' },
-  { key: 'tipo_solo', label: 'Tipo de Solo', type: 'text' },
+  { key: 'aptidao', label: 'Aptidão', type: 'select' },
   { key: 'teor_argila', label: 'Teor de Argila %', type: 'text' },
-  { key: 'topografia', label: 'Topografia (Plana/Ondulada)', type: 'text' },
-  
-  // ✅ NOVOS CAMPOS - GEO E LEGAL
-  { key: 'geo', label: 'Coordenadas Geo (lat,lng)', type: 'text' },
-  { key: 'matricula', label: 'Matrícula do Imóvel', type: 'text' },
-  { key: 'analise_solo', label: 'Análise de Solo', type: 'text' },
-  
-  // ✅ CAMPOS COMERCIAIS
-  { key: 'proprietario', label: 'Proprietário', type: 'text' },
-  { key: 'corretor', label: 'Corretor Responsável', type: 'text' },
-  { key: 'comissao', label: 'Comissão %', type: 'number' },
-  { key: 'telefone', label: 'Telefone Contato', type: 'text' },
-  { key: 'email', label: 'Email Contato', type: 'email' },
-  { key: 'plantacao', label: 'Plantação Atual', type: 'text' },
-  
-  // Campos restantes
-  { key: 'altitude_m', label: 'Altitude (m)', type: 'number' },
-  { key: 'vocacao', label: 'Vocação Principal', type: 'text' },
-  { key: 'documentacao_ok', label: 'Documentação OK (Sim/Não)', type: 'text' },
+  { key: 'topografia', label: 'Topografia', type: 'select' },
   { key: 'precipitacao_mm', label: 'Precipitação Anual (mm)', type: 'number' },
-  { key: 'regiao_produtiva', label: 'Microrregião / Polo', type: 'text' },
-  { key: 'condicoes_negocio', label: 'Condições de Pagto/Arrend.', type: 'text' },
+  { key: 'altitude_m', label: 'Altitude (m)', type: 'number' },
+  { key: 'km_asfalto', label: 'KM do Asfalto', type: 'text' },
+  { key: 'reserva_legal', label: 'Reserva Legal (%)', type: 'select' },
+  { key: 'permuta', label: 'Aceita Permuta?', type: 'select' },
+  { key: 'comissao', label: 'Comissão', type: 'select' },
+{ key: 'sit_doc', label: 'Situação Documentação', type: 'select' },
+
+  { key: 'proprietario', label: 'Proprietário', type: 'text' },
+  { key: 'telefone_proprietario', label: 'Telefone Proprietário', type: 'text' },
+  { key: 'email_proprietario', label: 'Email Proprietário', type: 'email' },
+  { key: 'nome_fazenda', label: 'Nome da Fazenda', type: 'text' },
+  { key: 'corretor', label: 'Corretor Responsável', type: 'text' },
+  { key: 'telefone_corretor', label: 'Telefone Corretor', type: 'text' },
+  { key: 'email_corretor', label: 'Email Corretor', type: 'email' },
+  { key: 'estado_corretor', label: 'Estado Corretor', type: 'text' },
+{ key: 'tipo_anuncio', label: 'Tipo de Anúncio', type: 'select' },
+{ key: 'relevancia_anuncio', label: 'Relevância do Anúncio', type: 'select' },
+{ key: 'portal_parceiro', label: 'Portais Parceiros', type: 'select' },
+
+
 ],
 
     maquinas: [
@@ -199,12 +198,13 @@ const filteredAssets = useMemo(() => {
     if (filters.cidade && !asset.cidade?.toLowerCase().includes(filters.cidade.toLowerCase())) return false;
 
     // 🌱 Aptidão (fazendas)
-    if (filters.aptidao && asset.fazendas?.aptidao !== filters.aptidao) return false;
+    if (filters.aptidao) {
+       if (!asset.fazendas || asset.fazendas.aptidao !== filters.aptidao) return false;
+    }
 
     // 🧱 Teor de Argila
-    const argila = Number(asset.fazendas?.teor_argila ?? 0);
-    if (filters.teorArgilaMin && argila < Number(filters.teorArgilaMin)) return false;
-    if (filters.teorArgilaMax && argila > Number(filters.teorArgilaMax)) return false;
+const argila = asset.fazendas?.teor_argila ? Number(asset.fazendas.teor_argila) : null;
+    if (filters.teorArgilaMin && (argila === null || argila < Number(filters.teorArgilaMin))) return false;
 
     // 📌 Status (checkbox múltiplo)
     if (filters.status.length && !filters.status.includes(asset.status)) {
@@ -587,6 +587,83 @@ const SITUACAO_OPTIONS = [
   { value: 'em_regularizacao', label: 'Em regularização' },
 ];
 
+const APTIDAO_OPTIONS = [
+  'Agricultura',
+  'Pecuaria',
+  'Dupla Aptidão',
+  'Avicultura',
+  'Suinocultura',
+  'Piscicultura',
+  'Silvicultura',
+  'Agrofloresta',
+  'Carbon Sequestration',
+  'Preservação Ambiental'
+];
+
+const TOPOGRAFIA_OPTIONS = [
+  'Plana',
+  'Plana - ondulada',
+  'Suave ondulada',
+  'Ondulada',
+  'Forte ondulada',
+  'Montanhosa'
+];
+
+const COMISSAO_OPTIONS = [
+  '3%',
+  '4%',
+  '5%',
+  '6%'
+];
+
+const PERMUTA_OPTIONS = ['Sim', 'Não'];
+
+const SITUACAO_DOC_OPTIONS = [
+  'Regular',
+  'Irregular',
+  'Em análise',
+  'Em Regularização'
+];
+
+const TIPO_ANUNCIO_OPTIONS = [
+  'Open Marketing',
+  'Off Marketing',
+  'Prylom Selected'
+];
+
+const RELEVANCIA_OPTIONS = [
+  'Prylom Selected',
+  'Prylom Verified',
+  'Marketplace'
+];
+
+const PORTAIS_OPTIONS = [
+  'Chãozão',
+  'E-Agro',
+  'Agrofy',
+  'MF Rural',
+  'Imóvel Web'
+];
+
+const RESERVALEGAL_OPTIONS = [
+  '80%',
+  '35%',
+  '20%'
+];
+
+const SELECT_FIELDS = {
+  aptidao: APTIDAO_OPTIONS,
+  topografia: TOPOGRAFIA_OPTIONS,
+  comissao: COMISSAO_OPTIONS,
+  permuta: PERMUTA_OPTIONS,
+  sit_doc: SITUACAO_DOC_OPTIONS,
+  tipo_anuncio: TIPO_ANUNCIO_OPTIONS,
+  relevancia_anuncio: RELEVANCIA_OPTIONS,
+  reserva_legal: RESERVALEGAL_OPTIONS,
+  portal_parceiro: PORTAIS_OPTIONS
+};
+
+
 const formatDateBR = (isoString: string | null | undefined): string => {
   if (!isoString) return '---';
   
@@ -658,7 +735,57 @@ const handleToggleVendidoPrylom = async (
   }
 };
 
+const [estados, setEstados] = useState<{ id: number; sigla: string; nome: string }[]>([]);
+const [cidades, setCidades] = useState<{ id: number; nome: string }[]>([]);
 
+const [cidadesFiltro, setCidadesFiltro] = useState<{ id: number; nome: string }[]>([]);
+const [cidadesCadastro, setCidadesCadastro] = useState<{ id: number; nome: string }[]>([]);
+
+useEffect(() => {
+  fetchEstados();
+}, []);
+
+const fetchEstados = async () => {
+  try {
+    const res = await fetch(
+      'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
+    );
+    const data = await res.json();
+    setEstados(data);
+  } catch (err) {
+    console.error('Erro ao buscar estados:', err);
+  }
+};
+
+
+
+// 1. Busca para o FILTRO (Tela Principal)
+useEffect(() => {
+  if (!filters.estado) {
+    setCidadesFiltro([]);
+    return;
+  }
+  const fetchCidadesFiltro = async () => {
+    const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${filters.estado}/municipios`);
+    const data = await res.json();
+    setCidadesFiltro(data);
+  };
+  fetchCidadesFiltro();
+}, [filters.estado]);
+
+// 2. Busca para o CADASTRO (Modal)
+useEffect(() => {
+  if (!newAsset.estado) {
+    setCidadesCadastro([]);
+    return;
+  }
+  const fetchCidadesCadastro = async () => {
+    const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${newAsset.estado}/municipios`);
+    const data = await res.json();
+    setCidadesCadastro(data);
+  };
+  fetchCidadesCadastro();
+}, [newAsset.estado]);
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-[#FDFCFB]">
       {/* SIDEBAR */}
@@ -720,19 +847,43 @@ const handleToggleVendidoPrylom = async (
       <option value="arrendamento">Arrendamento</option>
     </select>
 
-    <input
-      placeholder="Estado (UF)"
-      value={filters.estado}
-      onChange={e => setFilters(f => ({ ...f, estado: e.target.value.toUpperCase() }))}
-      className="border rounded-md px-3 py-2 bg-gray-50 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-prylom-gold"
-    />
+<div className="grid grid-cols-2 gap-2">
+  {/* ESTADO - FILTRO (Usa filters.estado) */}
+  <select
+    value={filters.estado}
+    onChange={e => {
+      setFilters(prev => ({
+        ...prev,
+        estado: e.target.value,
+        cidade: '' // Limpa cidade ao trocar estado no filtro
+      }));
+    }}
+    className="w-full py-4 px-4 bg-gray-50 rounded-xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold"
+  >
+    <option value="">UF</option>
+    {estados.map(uf => (
+      <option key={uf.id} value={uf.sigla}>
+        {uf.sigla} - {uf.nome}
+      </option>
+    ))}
+  </select>
 
-    <input
-      placeholder="Município"
-      value={filters.cidade}
-      onChange={e => setFilters(f => ({ ...f, cidade: e.target.value }))}
-      className="border rounded-md px-3 py-2 bg-gray-50 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-prylom-gold"
-    />
+  {/* CIDADE - FILTRO (Usa filters.cidade e cidadesFiltro) */}
+  <select
+    value={filters.cidade}
+    onChange={e => setFilters(prev => ({ ...prev, cidade: e.target.value }))}
+    disabled={!filters.estado}
+    className="w-full py-4 px-4 bg-gray-50 rounded-xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold"
+  >
+    <option value="">Município</option>
+    {cidadesFiltro.map(cidade => (
+      <option key={cidade.id} value={cidade.nome}>
+        {cidade.nome}
+      </option>
+    ))}
+  </select>
+</div>
+
 
     <input
       placeholder="Aptidão"
@@ -1008,10 +1159,8 @@ const handleToggleVendidoPrylom = async (
 
   {/* 🗑️ EXCLUIR */}
   <button
-    onClick={() => {
-      if (confirm(`Tem certeza que deseja excluir o ativo "${asset.titulo}"? Essa ação é irreversível.`)) {
-        handleDeleteConfirmed(asset);
-      }
+    onClick={() => { 
+        handleDeleteConfirmed(asset);      
     }}
     className="w-12 h-12 flex items-center justify-center rounded-2xl
                bg-red-50 text-red-600
@@ -1112,35 +1261,112 @@ const handleToggleVendidoPrylom = async (
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Localização (UF / Cidade) *</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input required placeholder="UF" value={newAsset.estado} onChange={e => setNewAsset({...newAsset, estado: e.target.value.toUpperCase()})} className="w-full py-4 px-4 bg-gray-50 rounded-xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold" maxLength={2} />
-                      <input required placeholder="Município" value={newAsset.cidade} onChange={e => setNewAsset({...newAsset, cidade: e.target.value})} className="w-full py-4 px-4 bg-gray-50 rounded-xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold" />
-                    </div>
+<div className="grid grid-cols-2 gap-2">
+
+ 
+    {/* ESTADO - CADASTRO (Usa newAsset.estado) */}
+    <select
+      required
+      value={newAsset.estado}
+      onChange={e => {
+        setNewAsset({
+          ...newAsset,
+          estado: e.target.value,
+          cidade: '' // Limpa cidade ao trocar estado no cadastro
+        });
+      }}
+      className="w-full py-4 px-6 bg-gray-50 rounded-2xl font-bold text-prylom-dark outline-none border-2 border-transparent focus:border-prylom-gold"
+    >
+      <option value="">UF</option>
+      {estados.map(uf => (
+        <option key={uf.id} value={uf.sigla}>
+          {uf.sigla} - {uf.nome}
+        </option>
+      ))}
+    </select>
+
+    {/* CIDADE - CADASTRO (Usa newAsset.cidade e cidadesCadastro) */}
+    <select
+      required
+      value={newAsset.cidade}
+      onChange={e => setNewAsset({ ...newAsset, cidade: e.target.value })}
+      disabled={!newAsset.estado}
+      className="w-full py-4 px-6 bg-gray-50 rounded-2xl font-bold text-prylom-dark outline-none border-2 border-transparent focus:border-prylom-gold"
+    >
+      <option value="">Município</option>
+      {cidadesCadastro.map(cidade => (
+        <option key={cidade.id} value={cidade.nome}>
+          {cidade.nome}
+        </option>
+      ))}
+    </select>
+
+</div>
+
                   </div>
                 </div>
               </div>
 
-              {/* SEÇÃO 3: DADOS TÉCNICOS (PREENCHE SUB-TABELAS) */}
-              <div className="space-y-6 animate-fadeIn">
-                <div className="flex items-center gap-4">
-                  <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-widest whitespace-nowrap">📋 Dossiê Técnico: {newAsset.categoria.toUpperCase()}</h4>
-                  <div className="h-px flex-1 bg-gray-100"></div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {camposPorCategoria[newAsset.categoria].map(campo => (
-                    <div key={campo.key} className="space-y-2">
-                      <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{campo.label} {campo.required ? '*' : ''}</label>
-                      <input 
-                        type={campo.type} 
-                        required={campo.required}
-                        value={dadosEspecificos[campo.key] || ''}
-                        onChange={e => setDadosEspecificos({...dadosEspecificos, [campo.key]: e.target.value})}
-                        className="w-full py-4 px-6 bg-gray-100/50 rounded-2xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all" 
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+{/* SEÇÃO 3: DADOS TÉCNICOS (LIMPO E MINIMALISTA) */}
+<div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6">
+  {camposPorCategoria[newAsset.categoria].map(campo => {
+    const options = SELECT_FIELDS[campo.key as keyof typeof SELECT_FIELDS];
+    const isSelect = !!options;
+
+    return (
+      <div key={campo.key} className="space-y-2">
+        {/* O Label superior já é suficiente para identificar o campo */}
+        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">
+          {campo.label} {campo.required ? '*' : ''}
+        </label>
+
+        {isSelect ? (
+          <div className="relative">
+            <select
+              required={campo.required}
+              value={dadosEspecificos[campo.key] || ''}
+              onChange={e =>
+                setDadosEspecificos({
+                  ...dadosEspecificos,
+                  [campo.key]: e.target.value
+                })
+              }
+              // Removido placeholders e mantido estilo limpo
+              className="w-full h-[56px] py-4 px-6 bg-gray-100/50 rounded-2xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all appearance-none cursor-pointer"
+            >
+              {/* Opção vazia sem texto para manter o campo limpo até a seleção */}
+              <option value=""></option> 
+              {options.map(opt => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        ) : (
+          <input
+            type={campo.type}
+            required={campo.required}
+            value={dadosEspecificos[campo.key] || ''}
+            onChange={e =>
+              setDadosEspecificos({
+                ...dadosEspecificos,
+                [campo.key]: e.target.value
+              })
+            }
+            // Removido o atributo placeholder para limpar o interior do input
+            className="w-full h-[56px] py-4 px-6 bg-gray-100/50 rounded-2xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all"
+          />
+        )}
+      </div>
+    );
+  })}
+</div>
 
               {/* SEÇÃO 4: GALERIA DE IMAGENS (UPLOAD DE ARQUIVOS) */}
               <div className="space-y-6">
