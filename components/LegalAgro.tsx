@@ -110,6 +110,7 @@ Sucessão é a transferência do patrimônio rural aos herdeiros. No agro, a fal
       return;
     }
 
+<<<<<<< HEAD
     setLoadingTopic(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -121,6 +122,46 @@ Sucessão é a transferência do patrimônio rural aos herdeiros. No agro, a fal
     } finally {
       setLoadingTopic(false);
     }
+=======
+    // FALLBACK PARA IA SE NÃO FOR TÓPICO FIXO
+setLoadingTopic(true);
+try {
+  const prompt = `
+Você é um consultor jurídico especializado em agronegócio brasileiro,
+com experiência prática em fiscalização ambiental, crédito rural e risco regulatório.
+
+Explique de forma objetiva e direta:
+"${topic}"
+
+Regras obrigatórias:
+- Linguagem simples, usada por produtores rurais
+- Foco em risco, multa, embargo e impacto financeiro
+- Evite juridiquês e formalidades
+- Use bullets curtos
+- Traga valores e cenários reais
+- SEJA DIRETO E DINAMICO, USANDO POUCAS PALAVRAS
+- Tom consultivo e estratégico, não acadêmico
+- Idioma: ${lang}
+
+Finalize com:
+⚠️ Este insight é orientativo e não substitui consulta jurídica.
+`;
+
+  const response = await fetch('http://localhost:3333/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+
+  const data = await response.json();
+  setTopicContent(data.text || 'Informação indisponível.');
+} catch (e) {
+  setTopicContent('Erro ao acessar terminal legal.');
+} finally {
+  setLoadingTopic(false);
+}
+
+>>>>>>> 920cd96 (Ajustes no Dashboard e novos componentes)
   };
 
   const sendToLegalAi = async (e: React.FormEvent) => {
@@ -130,16 +171,41 @@ Sucessão é a transferência do patrimônio rural aos herdeiros. No agro, a fal
     setAiMessage('');
     setChatHistory(prev => [...prev, { role: 'user', text: userText }]);
     setLoadingAi(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Consultor Jurídico Prylom. Usuário: "${userText}". Responda em ${lang}, técnico mas acessível. Inclua aviso de que não substitui advogado.`;
-      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-      setChatHistory(prev => [...prev, { role: 'bot', text: response.text || 'Erro na análise.' }]);
-    } catch (e) {
-      setChatHistory(prev => [...prev, { role: 'bot', text: 'Erro de conexão.' }]);
-    } finally {
-      setLoadingAi(false);
-    }
+try {
+
+  const prompt = `
+Você é um consultor jurídico especializado em agronegócio brasileiro,
+com experiência prática em fiscalização ambiental, crédito rural e risco regulatório.
+
+Explique de forma objetiva e direta:
+"${userText}"
+
+Regras obrigatórias:
+- Linguagem simples, usada por produtores rurais
+- Foco em risco, multa, embargo e impacto financeiro
+- Evite juridiquês e formalidades
+- Use bullets curtos
+- Traga valores e cenários reais
+- Tom consultivo e estratégico, não acadêmico
+- SEJA DIRETO E DINAMICO, USANDO POUCAS PALAVRAS
+- Idioma: ${lang}
+
+Finalize com:
+⚠️ Este insight é orientativo e não substitui consulta jurídica.
+`;
+
+  const response = await fetch('http://localhost:3333/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+
+  const data = await response.json();
+  setChatHistory(prev => [...prev, { role: 'bot', text: data.text || 'Erro na análise.' }]);
+} catch (e) {
+  setChatHistory(prev => [...prev, { role: 'bot', text: 'Erro de conexão.' }]);
+}
+
   };
 
   return (

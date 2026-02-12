@@ -23,6 +23,8 @@ const OwnerWizard: React.FC<Props> = ({ onComplete, onBack, t, lang }) => {
     whatsapp: ''
   });
 
+  
+
   const totalSteps = 5;
 
   const handleNext = () => {
