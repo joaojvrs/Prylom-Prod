@@ -110,19 +110,7 @@ Sucessão é a transferência do patrimônio rural aos herdeiros. No agro, a fal
       return;
     }
 
-<<<<<<< HEAD
-    setLoadingTopic(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Atue como Consultor Jurídico Sênior do Ecossistema Prylom. Forneça um guia técnico sobre: "${topic}". Foco: O que o profissional ou produtor rural precisa saber para evitar riscos. Use tópicos. Idioma: ${lang}. Aviso final padrão: ⚠️ Este insight é orientativo e não substitui consulta jurídica.`;
-      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-      setTopicContent(response.text || 'Informação indisponível.');
-    } catch (e) {
-      setTopicContent('Erro ao acessar terminal legal.');
-    } finally {
-      setLoadingTopic(false);
-    }
-=======
+
     // FALLBACK PARA IA SE NÃO FOR TÓPICO FIXO
 setLoadingTopic(true);
 try {
@@ -161,7 +149,7 @@ Finalize com:
   setLoadingTopic(false);
 }
 
->>>>>>> 920cd96 (Ajustes no Dashboard e novos componentes)
+
   };
 
   const sendToLegalAi = async (e: React.FormEvent) => {

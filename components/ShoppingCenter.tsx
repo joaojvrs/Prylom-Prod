@@ -52,7 +52,7 @@ const getStatusTextColor = (status: string) => {
     case 'ativo':
       return 'text-green-600';
     case 'vendido':
-      return 'text-gray-400';
+      return 'text-red-600';
     case 'reservado':
       return 'text-yellow-600';
     default:
@@ -84,6 +84,11 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   const [minAreaTotal, setMinAreaTotal] = useState<string>('');
   const [maxAreaTotal, setMaxAreaTotal] = useState<string>('');
   const [minAreaLavoura, setMinAreaLavoura] = useState<string>('');
+  // Filtros Inteligentes (Fazendas) - ADICIONE ESTES:
+  const [minAreaProdutiva, setMinAreaProdutiva] = useState<string>('');
+  const [maxAreaProdutiva, setMaxAreaProdutiva] = useState<string>('');
+  const [minPluviometria, setMinPluviometria] = useState<string>('');
+  const [minAltitude, setMinAltitude] = useState<string>('');
   const [soilType, setSoilType] = useState<string>('');
   const [clayContent, setClayContent] = useState<string>('');
   const [topography, setTopography] = useState<string>('');
@@ -235,6 +240,55 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
     }
   };
 
+  // ... dentro do componente ShoppingCenter
+const [favorites, setFavorites] = useState<string[]>([]);
+
+// Efeito para carregar os favoritos do usuário ao abrir a página
+useEffect(() => {
+  const loadFavorites = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from('favorites')
+        .select('asset_id')
+        .eq('user_id', user.id);
+      
+      if (data) setFavorites(data.map(f => f.asset_id));
+    }
+  };
+  loadFavorites();
+}, []);
+
+const toggleFavorite = async (e: React.MouseEvent, assetId: string) => {
+  e.stopPropagation(); // Impede que o clique abra os detalhes do produto
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    alert("Você precisa estar logado para curtir!");
+    return;
+  }
+
+  const isFav = favorites.includes(assetId);
+
+  if (isFav) {
+    // Remover curtida
+    const { error } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('asset_id', assetId);
+
+    if (!error) setFavorites(prev => prev.filter(id => id !== assetId));
+  } else {
+    // Adicionar curtida
+    const { error } = await supabase
+      .from('favorites')
+      .insert([{ user_id: user.id, asset_id: assetId }]);
+
+    if (!error) setFavorites(prev => [...prev, assetId]);
+  }
+};
+
   const filteredProducts = useMemo(() => {
     let filtered = products;
 
@@ -259,24 +313,68 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
       else filtered = filtered.filter(p => p.status === filterStatus);
     }
 
-    if (minPrice || maxPrice) {
-      filtered = filtered.filter(p => {
-        if (p.tipo_transacao === 'arrendamento') return true;
-        if (!p.valor) return false;
-        let valueToCompare = p.valor;
-        if (priceMode === 'hectare' && p.area_total_ha) {
-          valueToCompare = p.valor / p.area_total_ha;
-        }
-        if (minPrice && valueToCompare < Number(minPrice)) return false;
-        if (maxPrice && valueToCompare > Number(maxPrice)) return false;
-        return true;
-      });
+if (minPrice || maxPrice) {
+  filtered = filtered.filter(p => {
+    if (p.tipo_transacao === 'arrendamento') return true;
+    if (!p.valor) return false;
+
+    let valueToCompare = Number(p.valor);
+
+    // Se o modo Hectare estiver ativo, comparamos o PREÇO/HA e não o PREÇO TOTAL
+    if (priceMode === 'hectare') {
+      // Limpeza da área (salva como text no banco)
+      const areaRaw = String(p.area_total_ha || "").replace(/\s/g, "").replace(",", ".");
+      const area = parseFloat(areaRaw);
+
+      if (!isNaN(area) && area > 0) {
+        valueToCompare = valueToCompare / area; // Ex: 55.000.000 / 957 = 57.471,26
+      } else {
+        return false; 
+      }
     }
+
+    const min = minPrice !== '' ? Number(minPrice) : 0;
+    const max = maxPrice !== '' ? Number(maxPrice) : Infinity;
+
+    return valueToCompare >= min && valueToCompare <= max;
+  });
+}
 
     // Filtros Técnicos Fazendas
     if (activeCategory === 'fazendas' || activeCategory === 'all') {
-      if (minAreaTotal) filtered = filtered.filter(p => p.area_total_ha && p.area_total_ha >= Number(minAreaTotal));
-      if (maxAreaTotal) filtered = filtered.filter(p => p.area_total_ha && p.area_total_ha <= Number(maxAreaTotal));
+if (minAreaTotal || maxAreaTotal) {
+    filtered = filtered.filter(p => {
+      const area = parseFloat(String(p.area_total_ha || "").replace(",", "."));
+      const min = minAreaTotal ? Number(minAreaTotal) : 0;
+      const max = maxAreaTotal ? Number(maxAreaTotal) : Infinity;
+      return !isNaN(area) && area >= min && area <= max;
+    });
+  }
+
+  if (minPluviometria) {
+    filtered = filtered.filter(p => {
+      const mm = Number(p.fazenda_data?.precipitacao_mm);
+      return mm >= Number(minPluviometria);
+    });
+  }
+
+  // Área Produtiva (ha)
+  if (minAreaProdutiva || maxAreaProdutiva) {
+    filtered = filtered.filter(p => {
+      const areaProd = parseFloat(String(p.fazenda_data?.area_lavoura_ha || "").replace(",", "."));
+      const min = minAreaProdutiva ? Number(minAreaProdutiva) : 0;
+      const max = maxAreaProdutiva ? Number(maxAreaProdutiva) : Infinity;
+      return !isNaN(areaProd) && areaProd >= min && areaProd <= max;
+    });
+  }
+
+  if (minAltitude) {
+    filtered = filtered.filter(p => {
+      const m = Number(p.fazenda_data?.altitude_m);
+      return m >= Number(minAltitude);
+    });
+  }
+
       if (minAreaLavoura) filtered = filtered.filter(p => p.fazenda_data?.area_lavoura_ha && p.fazenda_data?.area_lavoura_ha >= Number(minAreaLavoura));
       if (soilType) filtered = filtered.filter(p => p.fazenda_data?.tipo_solo?.toLowerCase().includes(soilType.toLowerCase()));
       if (clayContent) filtered = filtered.filter(p => p.fazenda_data?.teor_argila?.includes(clayContent));
@@ -399,22 +497,28 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
                      <p class="text-xs font-bold text-white truncate">${hasMultiple ? `${firstItem.cidade}, ${firstItem.estado}` : firstItem.titulo}</p>
                   </div>
                   <div class="max-h-48 overflow-y-auto no-scrollbar p-2 space-y-1">
-                     ${items.map(p => {
-                       const pd = formatPriceParts(p.valor);
-                       return `
-                       <div 
-                         class="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-2xl cursor-pointer transition-colors border border-transparent hover:border-gray-200"
-                         onclick="window.dispatchEvent(new CustomEvent('prylom-navigate', { detail: '${p.id}' }))"
-                       >
-                          <div class="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                             <img src="${p.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=100'}" class="w-full h-full object-cover" />
-                          </div>
-                          <div class="flex-1 min-w-0">
-                             <p class="text-[10px] font-black text-prylom-dark truncate uppercase tracking-tighter">${p.titulo}</p>
-                             <p class="text-[10px] font-bold text-prylom-gold">${pd.symbol} ${pd.value}</p>
-                          </div>
-                       </div>
-                     `}).join('')}
+${items.map(p => {
+  const pd = formatPriceParts(p.valor);
+  
+  // Lógica de exibição condicional para o Mapa
+  const mapPriceHtml = p.tipo_transacao === 'arrendamento' 
+    ? `<span class="text-[10px] font-black">${p.valor} SC / HA</span>` 
+    : `<span class="text-[10px] font-bold">${pd.symbol} ${pd.value}</span>`;
+
+  return `
+  <div 
+    class="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-2xl cursor-pointer transition-colors border border-transparent hover:border-gray-200"
+    onclick="window.dispatchEvent(new CustomEvent('prylom-navigate', { detail: '${p.id}' }))"
+  >
+     <div class="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+        <img src="${p.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=100'}" class="w-full h-full object-cover" />
+     </div>
+     <div class="flex-1 min-w-0">
+        <p class="text-[10px] font-black text-prylom-dark truncate uppercase tracking-tighter">${p.titulo}</p>
+        <p class="text-[10px] font-bold text-prylom-gold">${mapPriceHtml}</p>
+     </div>
+  </div>
+`;}).join('')}
                   </div>
                   ${hasMultiple ? '' : `
                      <div class="p-3 bg-gray-50 border-t border-gray-100 text-center">
@@ -505,97 +609,273 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
 
       {showFilters && (
         <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-gray-100 shadow-sm animate-fadeIn space-y-10 max-h-[75vh] overflow-y-auto no-scrollbar scroll-smooth">
-          {/* SEÇÃO 1: FILTROS UNIVERSAIS */}
-          <div className="space-y-6">
-            <h4 className="text-[11px] font-black text-prylom-dark uppercase tracking-[0.3em] flex items-center gap-4">
-              📌 {t.advancedFilters} Universais
-              <div className="h-px flex-1 bg-gray-100"></div>
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="space-y-2">
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.locationLabel}</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <select value={filterState} onChange={e => {setFilterState(e.target.value); setFilterCity('');}} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                    <option value="">{t.stateAll}</option>
-                    {availableStates.map(st => <option key={st} value={st}>{st}</option>)}
-                  </select>
-                  <select value={filterCity} onChange={e => setFilterCity(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                    <option value="">{t.cityAll}</option>
-                    {availableCities.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1 mb-1">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider leading-tight">{t.priceRange}</label>
-                  <div className="flex bg-gray-100 p-0.5 rounded-lg text-[8px] font-black uppercase">
-                    <button onClick={() => setPriceMode('total')} className={`px-2 py-1 rounded-md ${priceMode === 'total' ? 'bg-white shadow-sm text-prylom-dark' : 'text-gray-400'}`}>{t.priceTotal}</button>
-                    <button onClick={() => setPriceMode('hectare')} className={`px-2 py-1 rounded-md ${priceMode === 'hectare' ? 'bg-white shadow-sm text-prylom-dark' : 'text-gray-400'}`}>{t.priceHectare}</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" placeholder={t.areaMin} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
-                  <input type="number" placeholder={t.areaMax} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.transactionType}</label>
-                <select value={transactionType} onChange={e => setTransactionType(e.target.value as any)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                  <option value="all">{t.transactionAll}</option>
-                  <option value="venda">{t.transactionSale}</option>
-                  <option value="arrendamento">{t.transactionLease}</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1 leading-tight">{t.statusLabel}</label>
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none appearance-none border border-transparent focus:border-prylom-gold transition-all">
-                  <option value="all">{t.statusAll}</option>
-                  <option value="ativo">{t.statusAvailable}</option>
-                  <option value="negociacao">{t.statusNegotiating}</option>
-                  <option value="verified">{t.verifiedLabel}</option>
-                </select>
-              </div>
-            </div>
-          </div>
+<section className="space-y-10">
+  {/* HEADER PRINCIPAL */}
+  <header className="flex items-center gap-6 group">
+    <div className="flex items-center gap-4">
+      <div className="w-12 h-12 bg-prylom-dark text-white rounded-2xl flex items-center justify-center shadow-xl shadow-prylom-dark/20 transition-transform group-hover:scale-105">
+        <span className="text-xl">📍</span>
+      </div>
+      <div className="flex flex-col">
+        <h4 className="text-[13px] font-black text-prylom-dark uppercase tracking-[0.25em]">
+          {t.advancedFilters} <span className="text-prylom-gold">Universais</span>
+        </h4>
+        <div className="h-1 w-8 bg-prylom-gold rounded-full mt-1"></div>
+      </div>
+    </div>
+    <div className="h-px flex-1 bg-gradient-to-r from-gray-200 via-gray-100 to-transparent"></div>
+  </header>
 
-          {/* SEÇÃO 2: FILTROS TÉCNICOS POR CATEGORIA */}
-          {activeCategory === 'fazendas' && (
-            <div className="space-y-6 animate-fadeIn">
-              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
-                🌱 {t.techFiltersFarm}
-                <div className="h-px flex-1 bg-gray-100"></div>
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.soilAptitude}</label>
-                  <input placeholder={t.soilType} value={soilType} onChange={e => setSoilType(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold transition-all" />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.clayContent}</label>
-                  <select value={clayContent} onChange={e => setClayContent(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
-                    <option value="">{t.catAll}</option>
-                    <option value="15-25">15% - 25%</option>
-                    <option value="25-35">25% - 35%</option>
-                    <option value="35+">35% + (Alta Argila)</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">{t.topographyLabel}</label>
-                  <select value={topography} onChange={e => setTopography(e.target.value)} className="w-full py-4 px-5 bg-gray-50 rounded-2xl text-[11px] font-bold text-prylom-dark outline-none border border-transparent focus:border-prylom-gold">
-                    <option value="">{t.topographyAll}</option>
-                    <option value="plana">{t.topographyFlat}</option>
-                    <option value="ondulada">{t.topographyWavy}</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                   <label className="flex items-center gap-3 cursor-pointer p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-prylom-gold transition-all w-full">
-                      <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} className="w-4 h-4 accent-prylom-gold" />
-                      <span className="text-[10px] font-black text-prylom-dark uppercase tracking-widest">{t.docOk}</span>
-                   </label>
-                </div>
-              </div>
-            </div>
-          )}
+  {/* GRID DE FILTROS - ALINHAMENTO CORRIGIDO */}
+  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 items-end">
+    
+    {/* 1. LOCALIZAÇÃO */}
+    <div className="group flex flex-col gap-3">
+      <div className="min-h-[32px] flex items-end ml-1">
+        <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
+          <span className="opacity-70 text-xs"></span> {t.locationLabel}
+        </label>
+      </div>
+      <div className="flex flex-col justify-between h-[85px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all duration-300 hover:border-gray-200 focus-within:ring-4 focus-within:ring-prylom-gold/5 focus-within:border-prylom-gold shadow-sm">
+        <select 
+          value={filterState} 
+          onChange={e => {setFilterState(e.target.value); setFilterCity('');}} 
+          className="w-full h-[36px] bg-gray-50/50 rounded-lg px-3 text-[11px] font-bold text-gray-500 outline-none cursor-pointer appearance-none hover:bg-gray-100 transition-colors"
+        >
+          <option value="">Todos os Estados (UF)</option>
+          {availableStates.map(st => <option key={st} value={st}>{st}</option>)}
+        </select>
+        <div className="relative h-[36px]">
+          <select 
+            value={filterCity} 
+            onChange={e => setFilterCity(e.target.value)} 
+            disabled={!filterState}
+            className="w-full h-full bg-white px-3 pr-8 text-[13px] font-black text-prylom-dark outline-none cursor-pointer appearance-none truncate disabled:opacity-40"
+          >
+            <option value="">{t.cityAll}</option>
+            {availableCities.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+          </select>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
+             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M19 9l-7 7-7-7" /></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<div className="group flex flex-col gap-3 relative"> {/* Adicionado relative aqui */}
+  <div className="min-h-[32px] flex justify-between items-end px-1">
+    <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
+      <span className="opacity-70 text-xs">💰</span> {t.priceRange}
+    </label>
+    <div className="flex bg-gray-100 p-0.5 rounded-lg scale-90 origin-bottom-right mb-0.5">
+      {['total', 'hectare'].map((mode) => (
+        <button
+          key={mode}
+          onClick={() => setPriceMode(mode as 'total' | 'hectare')}
+          className={`px-2.5 py-1 rounded-md text-[8px] font-black transition-all ${priceMode === mode ? 'bg-white text-prylom-dark shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          {mode === 'total' ? 'Total' : '/ha'}
+        </button>
+      ))}
+    </div>
+  </div>
+  
+  <div className="flex items-center h-[85px] bg-white border-2 border-gray-100 rounded-2xl p-2 transition-all duration-300 focus-within:ring-4 focus-within:ring-prylom-gold/5 focus-within:border-prylom-gold shadow-sm">
+    <div className="relative flex-1 h-full">
+      <span className="absolute left-3 top-2 text-[8px] font-black text-gray-300">
+        {priceMode === 'total' ? 'VALOR MÍNIMO' : 'VALOR/HA MÍNIMO'}
+      </span>
+      <div className="flex items-center h-full pt-3 px-3">
+        <span className="text-[12px] font-black text-gray-300 mr-1">{getSymbol()}</span>
+        <input 
+          type="text" 
+          inputMode="numeric"
+          placeholder="0,00"
+          value={minPrice} 
+          onChange={e => setMinPrice(e.target.value.replace(/\D/g, ""))} 
+          className="w-full h-full bg-transparent text-[14px] font-black text-prylom-dark outline-none placeholder:text-gray-200"
+        />
+      </div>
+    </div>
+
+    <div className="w-px h-10 bg-gray-100 mx-2"></div>
+
+    <div className="relative flex-1 h-full">
+      <span className="absolute left-3 top-2 text-[8px] font-black text-gray-300">
+        {priceMode === 'total' ? 'VALOR MÁXIMO' : 'VALOR/HA MÁXIMO'}
+      </span>
+      <div className="flex items-center h-full pt-3 px-3">
+        <span className="text-[12px] font-black text-gray-300 mr-1">{getSymbol()}</span>
+        <input 
+          type="text" 
+          inputMode="numeric"
+          placeholder="∞"
+          value={maxPrice} 
+          onChange={e => setMaxPrice(e.target.value.replace(/\D/g, ""))} 
+          className="w-full h-full bg-transparent text-[14px] font-black text-prylom-dark outline-none placeholder:text-gray-200"
+        />
+      </div>
+    </div>
+  </div>
+  
+  {/* Helper Text em Absolute para não quebrar o alinhamento do Grid */}
+  {(minPrice || maxPrice) && (
+    <div className="absolute -bottom-5 left-0 w-full px-2 flex justify-between animate-fadeIn pointer-events-none">
+      <p className="text-[8px] font-bold text-prylom-gold uppercase truncate max-w-[45%]">
+        {minPrice && `Min: ${getSymbol()} ${Number(minPrice).toLocaleString('pt-BR')}${priceMode === 'hectare' ? '/ha' : ''}`}
+      </p>
+      <p className="text-[8px] font-bold text-prylom-gold uppercase truncate max-w-[45%]">
+        {maxPrice && `Max: ${getSymbol()} ${Number(maxPrice).toLocaleString('pt-BR')}${priceMode === 'hectare' ? '/ha' : ''}`}
+      </p>
+    </div>
+  )}
+</div>
+
+    {/* 3. TIPO DE TRANSAÇÃO */}
+    <div className="group flex flex-col gap-3">
+      <div className="min-h-[32px] flex items-end ml-1">
+        <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
+          <span className="opacity-70 text-xs"></span> {t.transactionType}
+        </label>
+      </div>
+      <div className="relative h-[85px]">
+        <select 
+          value={transactionType} 
+          onChange={e => setTransactionType(e.target.value as any)} 
+          className="w-full h-full bg-white border-2 border-gray-100 rounded-2xl px-5 pr-12 text-[15px] font-black text-prylom-dark outline-none appearance-none cursor-pointer transition-all hover:border-gray-200 focus:ring-4 focus:ring-prylom-gold/5 focus:border-prylom-gold shadow-sm"
+        >
+          <option value="all">{t.transactionAll}</option>
+          <option value="venda">{t.transactionSale}</option>
+          <option value="arrendamento">{t.transactionLease}</option>
+        </select>
+        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+        </div>
+      </div>
+    </div>
+
+    {/* 4. STATUS & SELO */}
+    <div className="group flex flex-col gap-3">
+      <div className="min-h-[32px] flex items-end ml-1">
+        <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
+          <span className="opacity-70 text-xs"></span> {t.statusLabel}
+        </label>
+      </div>
+      <div className="relative h-[85px]">
+        <select 
+          value={filterStatus} 
+          onChange={e => setFilterStatus(e.target.value)} 
+          className="w-full h-full bg-white border-2 border-gray-100 rounded-2xl px-5 pr-12 text-[15px] font-black text-prylom-dark outline-none appearance-none cursor-pointer transition-all hover:border-gray-200 focus:ring-4 focus:ring-prylom-gold/5 focus:border-prylom-gold shadow-sm"
+        >
+          <option value="all">{t.statusAll}</option>
+          <option value="ativo">{t.statusAvailable}</option>
+          <option value="negociacao">{t.statusNegotiating}</option>
+          <option value="verified">{t.verifiedLabel}</option>
+        </select>
+        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
+           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{activeCategory === 'fazendas' && (
+  <div className="space-y-8 animate-slideUp bg-blue-50/30 p-8 rounded-[2.5rem] border border-blue-100/50">
+    <header className="flex items-center gap-4">
+      <div className="w-10 h-10 bg-prylom-dark text-white rounded-xl flex items-center justify-center shadow-lg">
+        <span className="text-xl"></span>
+      </div>
+      <h4 className="text-[12px] font-black text-prylom-dark uppercase tracking-[0.2em]">
+        {t.techFiltersFarm} <span className="text-blue-600">Específicos</span>
+      </h4>
+      <div className="h-px flex-1 bg-gradient-to-r from-blue-200 to-transparent"></div>
+    </header>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+      
+      {/* 1. ÁREA TOTAL (Módulo Vertical) */}
+      <div className="group flex flex-col gap-2.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 transition-colors group-focus-within:text-prylom-gold">
+          📏 Área Total
+        </label>
+        <div className="flex items-center h-[60px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all focus-within:border-prylom-gold shadow-sm">
+          <input type="text" inputMode="numeric" placeholder="Min" value={minAreaTotal} onChange={e => setMinAreaTotal(e.target.value.replace(/\D/g, ""))} className="w-1/2 h-full bg-gray-50/50 rounded-xl px-3 text-[13px] font-bold text-prylom-dark outline-none" />
+          <span className="px-2 text-gray-300 font-bold text-[10px]">ha</span>
+          <input type="text" inputMode="numeric" placeholder="Max" value={maxAreaTotal} onChange={e => setMaxAreaTotal(e.target.value.replace(/\D/g, ""))} className="w-1/2 h-full bg-gray-50/50 rounded-xl px-3 text-[13px] font-bold text-prylom-dark outline-none" />
+        </div>
+      </div>
+
+      {/* 2. ÁREA PRODUTIVA */}
+      <div className="group flex flex-col gap-2.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          🚜 Área Produtiva
+        </label>
+        <div className="flex items-center h-[60px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all focus-within:border-prylom-gold shadow-sm">
+          <input type="text" inputMode="numeric" placeholder="Min" value={minAreaProdutiva} onChange={e => setMinAreaProdutiva(e.target.value.replace(/\D/g, ""))} className="w-full h-full bg-gray-50/50 rounded-xl px-3 text-[13px] font-bold text-prylom-dark outline-none" />
+          <span className="px-3 text-gray-300 font-bold text-[10px]">ha</span>
+        </div>
+      </div>
+
+      {/* 3. ARGILA & SOLO (Combinados para economizar espaço) */}
+      <div className="group flex flex-col gap-2.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          🧬 Argila & Solo
+        </label>
+        <div className="flex items-stretch h-[60px] bg-white border-2 border-gray-100 rounded-2xl overflow-hidden transition-all focus-within:border-prylom-gold shadow-sm">
+          <select value={clayContent} onChange={e => setClayContent(e.target.value)} className="w-[45%] bg-transparent pl-4 text-[12px] font-bold text-prylom-dark outline-none border-r border-gray-50">
+            <option value="">Argila%</option>
+            <option value="15-25">15-25%</option>
+            <option value="25-35">25-35%</option>
+            <option value="35+">35%+</option>
+          </select>
+          <input placeholder="Aptidão" value={soilType} onChange={e => setSoilType(e.target.value)} className="flex-1 bg-transparent px-4 text-[12px] font-bold text-prylom-dark outline-none" />
+        </div>
+      </div>
+
+      {/* 4. PLUVIOMETRIA & ALTITUDE */}
+      <div className="group flex flex-col gap-2.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          ☁️ Clima & Relevo
+        </label>
+        <div className="flex items-center h-[60px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all focus-within:border-prylom-gold shadow-sm">
+          <div className="relative flex-1 h-full">
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-black text-gray-300">mm</span>
+            <input placeholder="Pluvio" value={minPluviometria} onChange={e => setMinPluviometria(e.target.value.replace(/\D/g, ""))} className="w-full h-full bg-gray-50/50 rounded-xl pl-3 pr-8 text-[12px] font-bold text-prylom-dark outline-none" />
+          </div>
+          <div className="w-px h-6 bg-gray-100 mx-1"></div>
+          <div className="relative flex-1 h-full">
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-black text-gray-300">m</span>
+            <input placeholder="Altid" value={minAltitude} onChange={e => setMinAltitude(e.target.value.replace(/\D/g, ""))} className="w-full h-full bg-gray-50/50 rounded-xl pl-3 pr-8 text-[12px] font-bold text-prylom-dark outline-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* 5. TOPOGRAFIA & DOCUMENTAÇÃO (Última linha) */}
+      <div className="group flex flex-col gap-2.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+          ⛰️ Topografia
+        </label>
+        <select value={topography} onChange={e => setTopography(e.target.value)} className="w-full h-[60px] bg-white border-2 border-gray-100 rounded-2xl px-5 text-[13px] font-bold text-prylom-dark outline-none appearance-none transition-all hover:border-gray-200 focus:border-prylom-gold shadow-sm cursor-pointer">
+          <option value="">{t.topographyAll}</option>
+          <option value="plana">{t.topographyFlat}</option>
+          <option value="ondulada">{t.topographyWavy}</option>
+        </select>
+      </div>
+
+      <div className="flex items-end h-[60px]">
+        <label className="flex items-center group/check gap-3 cursor-pointer p-4 bg-white rounded-2xl border-2 border-gray-100 hover:border-prylom-gold transition-all w-full shadow-sm">
+          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${docOnlyOk ? 'bg-prylom-gold border-prylom-gold shadow-md' : 'border-gray-200 bg-gray-50'}`}>
+            {docOnlyOk && <div className="w-2.5 h-2.5 bg-white rounded-full scale-110" />}
+          </div>
+          <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} className="hidden" />
+          <span className="text-[10px] font-black text-prylom-dark uppercase tracking-widest">{t.docOk}</span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+)}
 
           {activeCategory === 'maquinas' && (
             <div className="space-y-6 animate-fadeIn">
@@ -755,6 +1035,29 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
                   <div key={p.id} onClick={() => onSelectProduct(p.id)} className="bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl transition-all cursor-pointer flex flex-col group">
                     <div className="h-64 relative overflow-hidden bg-gray-50">
                       <img src={p.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800'} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                    
+                    {/* BOTÃO DE CURTIR - POSICIONAMENTO E ESTILO */}
+    <button 
+      onClick={(e) => toggleFavorite(e, p.id)}
+      className="absolute top-5 right-5 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg transform transition-all active:scale-90 hover:scale-110"
+    >
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        className={`h-5 w-5 transition-colors ${favorites.includes(p.id) ? 'text-red-500 fill-current' : 'text-gray-400'}`} 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke="currentColor"
+      >
+        <path 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          strokeWidth={2} 
+          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+        />
+      </svg>
+    </button>
+                    
+                    
                     </div>
                     <div className="p-8 flex flex-col flex-1">
                       <h2 className="flex flex-wrap items-baseline gap-3 text-2xl font-black tracking-tight line-clamp-2 uppercase">
@@ -780,33 +1083,48 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
                           Código: <strong className="font-black">{p.codigo}</strong>
                         </span>
                       </div>
-                      <div className="mt-auto p-6 bg-gray-50 rounded-3xl border border-gray-100">
-                        <p className="text-[9px] font-black text-prylom-gold uppercase tracking-widest mb-1">{p.tipo_transacao === 'arrendamento' ? t.transactionLease : t.transactionSale}</p>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xl font-black text-prylom-dark">
-                              {price.symbol}
-                            </span>
-                            <span className="text-2xl font-black text-prylom-dark tabular-nums">
-                              {price.value}
-                            </span>
-                          </div>
+<div className="mt-auto p-6 bg-gray-50 rounded-3xl border border-gray-100">
+  <p className="text-[9px] font-black text-prylom-gold uppercase tracking-widest mb-1">
+    {p.tipo_transacao === 'arrendamento' ? 'Arrendamento Disponível' : 'Ativo para Venda'}
+  </p>
+  
+  <div className="flex flex-col gap-1">
+    {p.tipo_transacao === 'arrendamento' ? (
+      /* --- VISÃO ARRENDAMENTO (SACAS) --- */
+      <div className="flex flex-col">
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl font-black text-prylom-dark tabular-nums">
+            {p.valor}
+          </span>
+          <span className="text-sm font-black text-prylom-dark uppercase tracking-tighter">
+            sc {p.arrendamento_info?.cultura_base || 'Soja'} / ha
+          </span>
+        </div>
+        <p className="text-[8px] font-bold text-gray-400 uppercase">Pagamento Anual em Sacas</p>
+      </div>
+    ) : (
+      /* --- VISÃO VENDA (MOEDA) --- */
+      <>
+        <div className="flex items-baseline gap-2">
+          <span className="text-xl font-black text-prylom-dark">{price.symbol}</span>
+          <span className="text-2xl font-black text-prylom-dark tabular-nums">
+            {price.value}
+          </span>
+        </div>
 
-                          {p.area_total_ha && (
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-lg font-black text-gray-400/70">
-                                {getSymbol()}
-                              </span>
-                              <span className="text-2xl font-black text-gray-400/70 tabular-nums">
-                                {formatPriceParts(p.valor! / p.area_total_ha).value}
-                              </span>
-                              <span className="text-sm font-black text-gray-400/60">
-                                /ha
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+        {p.area_total_ha && p.valor && (
+          <div className="flex items-baseline gap-1 opacity-60">
+            <span className="text-sm font-black text-gray-500">{getSymbol()}</span>
+            <span className="text-lg font-black text-gray-500 tabular-nums">
+              {formatPriceParts(p.valor / p.area_total_ha).value}
+            </span>
+            <span className="text-[10px] font-black text-gray-400">/ha</span>
+          </div>
+        )}
+      </>
+    )}
+  </div>
+</div>
                     </div>
                   </div>
                 );
@@ -823,6 +1141,68 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
           )}
         </>
       )}
+
+      {/* RODAPÉ DE COMPLIANCE & LEGAL */}
+<footer className="mt-20 pt-10 border-t border-gray-100 space-y-8 pb-10">
+  <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+    
+    {/* Coluna do Disclaimer */}
+    <div className="md:col-span-8 space-y-4">
+      <h5 className="text-[10px] font-black text-[#000080] uppercase tracking-[0.2em]">
+        Disclaimer Legal & Compliance
+      </h5>
+      <p className="text-[10px] leading-relaxed text-gray-400 font-medium text-justify uppercase tracking-tight">
+A Prylom atua como plataforma de inteligência e conexão para Investidores Qualificados, operada sob
+rigorosa supervisão técnica (CRECI). Os ativos categorizados como "Open Marketing" são publicados
+mediante autorização de terceiros, possuindo caráter estritamente declaratório, sendo a veracidade dos dados
+de responsabilidade exclusiva da fonte informante (Art. 19, Marco Civil da Internet). Ressaltamos que as
+projeções financeiras ("Economics") são estimativas estatísticas sujeitas a variações de mercado, não
+substituindo Laudos Técnicos Oficiais (ABNT) nem assegurando rentabilidade futura. Valores apresentados
+em moedas estrangeiras (USD, CNY, RUB) possuem fins meramente referenciais e baseiam-se em cotações
+estimadas, devendo toda negociação, contratação e liquidação ocorrer obrigatoriamente em moeda nacional
+(BRL). A aquisição de imóveis rurais por pessoas físicas ou jurídicas estrangeiras está rigorosamente sujeita
+aos trâmites da Lei Brasileira nº 5.709/1971. Nossa operação atua em estrita conformidade com a LGPD e
+segue as diretrizes de Prevenção à Lavagem de Dinheiro (PLD/FT), reportando automaticamente operações
+atípicas ao COAF.
+
+      </p>
+    </div>
+
+    {/* Coluna de Links e Selos */}
+    <div className="md:col-span-4 flex flex-col md:items-end gap-6">
+      <div className="flex gap-4">
+        <a href="/terms" className="text-[9px] font-black text-prylom-gold uppercase border-b border-prylom-gold/20 hover:border-prylom-gold transition-all">
+          Termos de Uso
+        </a>
+        <a href="/privacy" className="text-[9px] font-black text-prylom-gold uppercase border-b border-prylom-gold/20 hover:border-prylom-gold transition-all">
+          Política de Privacidade
+        </a>
+      </div>
+      
+      {/* Selo de Segurança Visual */}
+      <div className="flex items-center gap-3 opacity-40 grayscale hover:grayscale-0 transition-all cursor-default">
+        <div className="text-right">
+          <p className="text-[7px] font-black text-prylom-dark uppercase leading-none">Criptografia</p>
+          <p className="text-[9px] font-bold text-prylom-dark">SSL 256-bit</p>
+        </div>
+        <svg className="w-8 h-8 text-[#000080]" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  {/* Linha Final de Copyright */}
+  <div className="pt-8 border-t border-gray-50 flex justify-between items-center">
+    <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">
+      © {new Date().getFullYear()} Prylom Intelligence Ecosystem. Todos os direitos reservados.
+    </p>
+    <div className="flex gap-2">
+       <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+       <span className="text-[8px] font-black text-gray-400 uppercase">System Status: Operational</span>
+    </div>
+  </div>
+</footer>
     </div>
   );
 };

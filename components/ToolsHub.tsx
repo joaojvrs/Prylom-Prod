@@ -493,12 +493,12 @@ const regionalCosts: Record<string, any> = {
        {/* Produção Soja (Imagem 2) */}
        <div className="bg-[#2C5266] p-6 rounded-[2rem] shadow-lg mt-6">
           <div className="text-center mb-4">
-            <p className="text-white font-black text-[13px] uppercase leading-tight">Produção média de Soja</p>
+            <p className="text-white font-black text-[13px] uppercase leading-tight">Estimativa de Produtividade</p>
             <p className="text-white/50 font-bold text-[9px] uppercase tracking-widest">(saca/ha) 2025/26</p>
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-prylom-gold text-[10px] font-black uppercase">{regionalCosts[region].location}:</span>
+              <span className="text-prylom-gold text-[10px] font-black uppercase">(MUN) {regionalCosts[region].location}:</span>
               <span className="text-white font-bold text-xs">{regionalCosts[region].prodLocal} sacas/ha</span>
             </div>
             <div className="flex justify-between items-center opacity-80 pt-2 border-t border-white/10">
