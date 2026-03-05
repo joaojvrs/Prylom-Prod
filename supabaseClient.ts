@@ -1,7 +1,9 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://fqvfwnxfsswbggkzetre.supabase.co';
-const supabaseAnonKey = 'sb_publishable_Pt9h_cYQn3138JBcpcWRVg_9X8UvBAP';
+// O Vite substitui isso automaticamente durante o build
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+console.log("Minha URL:", supabaseUrl);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
