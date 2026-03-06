@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ProductDetails from './ProductDetails';
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/style.css';
 
 // Definindo uma Interface para as Props (Boa prática em TS)
 interface InputLineProps {
@@ -755,7 +757,7 @@ disabled={
         Solicitação em Análise de <br/> 
         <span className="text-[#bba219]">Compliance</span>
       </h3>
-      <p className="text-[10px] font-black text-[#bba219] uppercase tracking-[0.3em] opacity-60">Status: Criptografado & Auditado</p>
+      <p className="text-[10px] font-black text-[#bba219] uppercase tracking-[0.3em] opacity-60">STATUS: CRIPTOGRAFADO E AUTENTICADO</p>
     </div>
 
     <div className="space-y-6 text-sm font-light leading-relaxed max-w-lg opacity-90 uppercase tracking-wide">
@@ -764,8 +766,8 @@ disabled={
         Seus dados foram recebidos e protegidos por criptografia de ponta a ponta.
       </p>
       <div className="bg-black/20 p-6 rounded-lg space-y-2 border border-white/5">
-         <p className="text-[10px] font-bold text-[#bba219] uppercase tracking-widest leading-none">Prazo de liberação técnico:</p>
-         <p className="text-xl font-black italic tracking-tighter text-white">ATÉ 4 HORAS ÚTEIS</p>
+         <p className="text-[10px] font-bold text-[#bba219] uppercase tracking-widest leading-none">SLA DE ANÁLISE DO COMITÊ :</p>
+         <p className="text-xl font-black italic tracking-tighter text-white">ATÉ 24 HORAS ÚTEIS</p>
       </div>
       <p className="text-[10px] text-gray-400 font-medium max-w-xs mx-auto">
         O acesso ao Data Room será enviado via <span className="text-white">E-mail</span> e <span className="text-white">WhatsApp</span> após aprovação do comitê.
@@ -815,21 +817,36 @@ const [subStep, setSubStep] = useState(1);
 
 useEffect(() => {
   const fetchCountries = async () => {
+    // Lista de sanções e restrições FATF (Blacklist)
+    const restrictedCountries = [
+      'Iran', 
+      'North Korea', 
+      'Syria', 
+      'Cuba', 
+      'Russia', 
+      'Myanmar'
+    ];
+
     try {
       const res = await fetch('https://restcountries.com/v3.1/all?fields=name');
       const data = await res.json();
-      // Ordenar alfabeticamente e extrair o nome comum
+      
       const countryList = data
         .map((c: any) => c.name.common)
+        // FILTRO DE SEGURANÇA: Remove países sancionados
+        .filter((name: string) => !restrictedCountries.includes(name))
         .sort((a: string, b: string) => a.localeCompare(b));
       
       setCountries(countryList);
     } catch (err) {
-      console.error("Erro ao carregar países, usando lista padrão.");
+      console.error("Erro ao carregar países, usando lista padrão segura.");
+      // Caso a API falhe, garante que a lista padrão também esteja limpa
+      setCountries(['United States', 'China', 'United Kingdom', 'United Arab Emirates', 'Saudi Arabia', 'Germany', 'Switzerland']);
     }
   };
   fetchCountries();
 }, []);
+
   const [ndaAccepted, setNdaAccepted] = useState(false);
 
 // VALIDAÇÃO AUTOMÁTICA DO CÓDIGO (Igual ao Nacional)
@@ -903,14 +920,15 @@ useEffect(() => {
           <header className="space-y-4">
             <h3 className="text-xl font-black uppercase text-[#2c5363]">Due Diligence Pack <span className="text-[#bba219]">(International)</span></h3>
             <p className="text-xs text-gray-500 font-medium leading-relaxed uppercase">
-              This is an audited deal flow environment. Access requires mandatory KYC/AML verification.
+              THIS IS A SECURE AND CURATED DEAL FLOW ENVIRONMENT. ACCESS REQUIRES MANDATORY KYC/AML VERIFICATION.
+
             </p>
           </header>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { t: "1. Legal Structuring Note", d: "Preliminary legal counsel on foreign acquisition (Law 5.709/71)." },
-              { t: "2. EUDR & ESG Compliance", d: "Environmental audit report focused on European regulation (Zero Deforestation)." },
+              { t: "1. Legal Structuring Note", d: "LEGAL FRAMEWORK OVERVIEW ON FOREIGN ACQUISITION (LAW 5.709/71)." },
+              { t: "2. EUDR & ESG Compliance", d: "ENVIRONMENTAL COMPLIANCE OVERVIEW FOCUSED ON EUROPEAN REGULATION (ZERO DEFORESTATION)" },
               { t: "3. USD Financial Valuation", d: "ROI, EBITDA, and land appreciation indexed to Dollar/Commodity." },
               { t: "4. Operator & Leaseback", d: "Management Agreement and Lease options for non-operators." }
             ].map((item, i) => (
@@ -946,20 +964,55 @@ useEffect(() => {
           value={fields.investorType}
           onChange={(e) => setFields({...fields, investorType: e.target.value})}
         />
-        <SelectLine 
-          label="Country of Origin / Tax Residence *" 
-          options={['Select Country...', ...countries]} 
-          value={fields.country}
-          onChange={(e) => setFields({...fields, country: e.target.value})}
-        />
+<div className="space-y-1">
+  <SelectLine 
+    label="Country of Origin / Tax Residence *" 
+    options={['Select Country...', ...countries]} 
+    value={fields.country}
+    onChange={(e) => setFields({...fields, country: e.target.value})}
+  />
+  <p className="text-[10px] text-gray-400 italic">
+    * Countries under international sanctions or FATF blacklist are not eligible for registration.
+  </p>
+</div>
         <InputLine label="Company Name / Full Name *" placeholder="Legal Entity Name" value={fields.companyName} onChange={(e) => setFields({...fields, companyName: e.target.value})} />
         <InputLine label="Tax ID / Registration Number *" placeholder="EIN, VAT, or Registration No." value={fields.taxId} onChange={(e) => setFields({...fields, taxId: e.target.value})} />
-        <SelectLine 
-          label="Do you have CNPJ or representation in Brazil? *" 
-          options={['Select...', 'Yes (Ready structure)', 'No (Need structuring)']} 
-          value={fields.hasBrazilRep}
-          onChange={(e) => setFields({...fields, hasBrazilRep: e.target.value})}
-        />
+<div className="space-y-6">
+  <SelectLine 
+    label="Do you have CNPJ or representation in Brazil? *" 
+    options={['Select...', 'Yes (Ready structure)', 'No (Need structuring)']} 
+    value={fields.hasBrazilRep}
+    onChange={(e) => setFields({...fields, hasBrazilRep: e.target.value})}
+  />
+
+  {/* Campo Condicional para Capital Estrangeiro */}
+  {fields.hasBrazilRep === 'Yes (Ready structure)' && (
+    <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4 animate-fadeIn">
+      <label className="flex items-start gap-4 cursor-pointer group">
+        <div className="relative flex items-center pt-1">
+          <input 
+            type="checkbox" 
+            className="peer h-5 w-5 cursor-pointer appearance-none border-2 border-gray-300 rounded-md checked:bg-[#2c5363] checked:border-[#2c5363] transition-all"
+            required
+            checked={fields.isMajorityForeign}
+            onChange={(e) => setFields({...fields, isMajorityForeign: e.target.checked})}
+          />
+          <svg className="absolute h-3.5 w-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none top-2 left-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[#2c5363] group-hover:text-[#bba219] transition-colors leading-relaxed">
+            Is this Brazilian entity majority-owned by foreign capital? *
+          </span>
+          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight mt-1">
+            (Esta entidade brasileira é controlada majoritariamente por capital estrangeiro?)
+          </span>
+        </div>
+      </label>
+    </div>
+  )}
+</div>
       </div>
     </section>
     
@@ -974,35 +1027,133 @@ useEffect(() => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <InputLine label="Full Name of Representative *" placeholder="Passport Name" value={fields.repName} onChange={(e) => setFields({...fields, repName: e.target.value})} />
+       <div className="space-y-8 animate-fadeIn">
+  {/* Campo Base: Nome do Representante */}
+  <InputLine 
+    label="Full Name of Representative *" 
+    placeholder="Full Legal Name (As in Passport)" 
+    value={fields.repName} 
+    onChange={(e) => setFields({...fields, repName: e.target.value})} 
+  />
 
+  {/* Checkbox de Mandato de Representação */}
+  <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
+    <label className="flex items-start gap-4 cursor-pointer group">
+      <div className="relative flex items-center pt-1">
+        <input 
+          type="checkbox" 
+          className="peer h-5 w-5 cursor-pointer appearance-none border-2 border-gray-300 rounded-md checked:bg-[#2c5363] checked:border-[#2c5363] transition-all"
+          checked={fields.hasMandate}
+          onChange={(e) => setFields({...fields, hasMandate: e.target.checked})}
+        />
+        <svg className="absolute h-3.5 w-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none top-2 left-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+      </div>
+      <span className="text-[10px] font-black uppercase tracking-wider text-[#2c5363] leading-relaxed">
+        REPRESENTATION MANDATE: I hereby legally declare, under penalty of perjury, that I am an authorized signatory, officer, or legally mandated broker holding a valid Power of Attorney (POA) to act and sign on behalf of the Primary Entity.
+      </span>
+    </label>
+  </div>
 
-{/* UPLOAD DE PASSAPORTE / ID */}
-        <div className="flex flex-col gap-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-            Passport Number / ID (Photo Upload) <span className="text-red-500">*</span>
-          </label>
-          <div className="relative border-b border-gray-200 py-2 group">
-            <input 
-              type="file" 
-              accept="image/*,.pdf"
-              onChange={(e) => setFields({...fields, passportFile: e.target.files ? e.target.files[0] : null})}
-              className="w-full text-[10px] font-bold text-[#2c5363] file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[9px] file:font-black file:bg-gray-100 file:text-[#2c5363] hover:file:bg-[#2c5363] hover:file:text-white transition-all cursor-pointer"
-            />
-            {fields.passportFile && (
-              <span className="absolute right-0 bottom-3 text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                ID Attached
-              </span>
-            )}
-          </div>
+  {/* Seleção de Capacidade (Só aparece se o Mandato for aceito) */}
+  {fields.hasMandate && (
+    <div className="space-y-6 pt-4 animate-slideDown">
+      <SelectLine 
+        label="Representative Capacity *" 
+        options={[
+          'Select...', 
+          'Corporate Officer / Director', 
+          'Authorized Signatory (Power of Attorney - POA)', 
+          'External Broker / Advisor (Mandated)'
+        ]} 
+        value={fields.repCapacity}
+        onChange={(e) => setFields({...fields, repCapacity: e.target.value})}
+      />
+
+      {/* CENÁRIO A: Funcionário Direto ou Procurador Oficial */}
+      {(fields.repCapacity === 'Corporate Officer / Director' || 
+        fields.repCapacity === 'Authorized Signatory (Power of Attorney - POA)') && (
+        <div className="animate-fadeIn">
+          <InputLine 
+            label="Company / Fund You Directly Represent *" 
+            placeholder="Ex: BlackRock Inc., Sovereign Wealth Fund" 
+            value={fields.directCompany}
+            onChange={(e) => setFields({...fields, directCompany: e.target.value})}
+          />
         </div>
+      )}
+
+      {/* CENÁRIO B: Corretor Externo (A Grande Sacada) */}
+      {fields.repCapacity === 'External Broker / Advisor (Mandated)' && (
+        <div className="space-y-6 p-6 bg-[#2c5363]/5 border-l-4 border-[#2c5363] animate-fadeIn">
+          <InputLine 
+            label="1. Advisory Firm / Brokerage Name *" 
+            placeholder="Ex: JLL, CBRE, Independent Advisor" 
+            value={fields.advisoryFirm}
+            onChange={(e) => setFields({...fields, advisoryFirm: e.target.value})}
+          />
+          <InputLine 
+            label="2. End-Buyer / Fund Represented *" 
+            placeholder="Ex: Name of the exact Fund or Buyer holding the capital" 
+            value={fields.endBuyer}
+            onChange={(e) => setFields({...fields, endBuyer: e.target.value})}
+          />
+          <p className="text-[9px] font-bold text-gray-400 uppercase">
+            Note: The NDA will cover both the Advisory Firm and the End-Buyer.
+          </p>
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
+
+<div className="flex flex-col gap-2 relative"> 
+  {/* Aviso de Segurança Flutuante - Agora fora do fluxo para não empurrar o label */}
+  <div className="absolute -top-3 left-0 w-full pointer-events-none">
+    <span className="text-[7px] font-black text-[#bba219] uppercase tracking-[0.2em] opacity-80 block whitespace-nowrap">
+      Encrypted upload • GDPR & LGPD Compliant
+    </span>
+  </div>
+
+  {/* O Label agora começa no exato topo da div, igual aos outros campos ao lado */}
+  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+    Passport Number / ID (Photo Upload) <span className="text-red-500">*</span>
+  </label>
+
+  <div className="relative border-b border-gray-200 py-2 group">
+    <input
+      type="file"
+      id="passport-upload"
+      accept="image/*,.pdf"
+      onChange={(e) => setFields({ ...fields, passportFile: e.target.files ? e.target.files[0] : null })}
+      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+    />
+
+    <div className="flex items-center gap-4">
+      <div className="py-1 px-3 rounded-full bg-gray-100 text-[#2c5363] text-[9px] font-black uppercase tracking-widest group-hover:bg-[#2c5363] group-hover:text-white transition-all">
+        Choose File
+      </div>
+      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight truncate max-w-[120px]">
+        {fields.passportFile ? fields.passportFile.name : "No file selected"}
+      </span>
+    </div>
+
+    {fields.passportFile && (
+      <span className="absolute right-0 bottom-3 text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+        ID Attached
+      </span>
+    )}
+  </div>
+</div>
         <InputLine label="Official Corporate E-mail *" placeholder="name@company.com" type="email" value={fields.email} onChange={(e) => setFields({...fields, email: e.target.value})} />
         
         {/* WHATSAPP COM VALIDAÇÃO 2FA INTEGRADA */}
         <div className="space-y-4">
           <div className="relative">
-            <InputLine label="Phone / WhatsApp *" placeholder="+00 000 0000-0000" value={fields.phone} onChange={(e) => setFields({...fields, phone: e.target.value})} />
+            <InputLine label="VERIFY PHONE (WHATSAPP) TO PROCEED*" placeholder="+00 000 0000-0000" value={fields.phone} onChange={(e) => setFields({...fields, phone: e.target.value})} />
             {!smsSent && fields.phone.length > 8 && (
               <button onClick={handleSendCode} className="absolute right-0 bottom-2 text-[9px] font-black text-[#bba219] uppercase hover:underline">
                 {isVerifying ? "Sending..." : "Validate WhatsApp"}
@@ -1039,40 +1190,156 @@ useEffect(() => {
           value={fields.ticketSize}
           onChange={(e) => setFields({...fields, ticketSize: e.target.value})}
         />
-        <SelectLine 
-          label="Source of Funds *" 
-          options={['Select...', 'Equity (Own Capital)', 'Debt / Financing']} 
-          value={fields.sourceFunds}
-          onChange={(e) => setFields({...fields, sourceFunds: e.target.value})}
+<SelectLine 
+  label="Source of Funds *" 
+  options={[
+    'Select...', 
+    'Equity / Cash (Recursos Próprios à vista)', 
+    'Bank Financing / Leverage (Financiamento Bancário)', 
+    'Committed Capital', 
+    'Sovereign Wealth (Fundo Soberano / State Funds)'
+  ]} 
+  value={fields.sourceFunds}
+  onChange={(e) => setFields({...fields, sourceFunds: e.target.value})}
+/>
+<div className="space-y-8">
+  {/* Campo: Investment Thesis */}
+  <SelectLine 
+    label="Investment Thesis *" 
+    options={[
+      'Select...', 
+      'Land Appreciation (Asset Wealth)', 
+      'Production / Commodity Trading', 
+      'Yield / Leaseback Strategy', 
+      'Carbon Credits / Preservation'
+    ]} 
+    value={fields.thesis}
+    onChange={(e) => setFields({...fields, thesis: e.target.value})}
+  />
+
+  {/* Bloco: PEP Declaration */}
+  <div className="pt-4 border-t border-gray-100">
+
+    
+    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-4">
+      Are you a Politically Exposed Person (PEP) or closely related to one? <span className="text-red-500">*</span>
+    </label>
+    
+    <div className="flex gap-8">
+      {['No', 'Yes'].map((option) => (
+        <label key={option} className="flex items-center gap-3 cursor-pointer group">
+          <div className="relative flex items-center">
+            <input 
+              type="radio"
+              name="pep-declaration"
+              value={option}
+              checked={fields.pep === option}
+              onChange={(e) => setFields({...fields, pep: e.target.value})}
+              className="peer h-5 w-5 cursor-pointer appearance-none border-2 border-gray-300 rounded-full checked:border-[#2c5363] transition-all"
+            />
+            <div className="absolute w-2.5 h-2.5 bg-[#2c5363] rounded-full scale-0 peer-checked:scale-100 left-1.25 top-1.25 transition-transform mx-auto inset-0 my-auto"></div>
+          </div>
+          <span className={`text-[11px] font-bold uppercase tracking-widest transition-colors ${fields.pep === option ? 'text-[#2c5363]' : 'text-gray-400 group-hover:text-[#bba219]'}`}>
+            {option}
+          </span>
+        </label>
+      ))}
+    </div>
+
+    {/* Alerta Visual de Compliance se selecionar Yes */}
+    {fields.pep === 'Yes' && (
+      <div className="mt-4 p-4 bg-red-50 border-l-2 border-red-500 animate-slideDown">
+        <p className="text-[10px] font-bold text-red-700 uppercase tracking-tight leading-relaxed">
+          <strong className="block mb-1">Enhanced Due Diligence Required:</strong>
+          As a PEP, your application will undergo a specialized compliance review by our legal committee in accordance with international AML standards.
+        </p>
+      </div>
+    )}
+
+    
+  </div>
+
+<hr className="border-gray-200" />
+
+{/* NDA SCOPE SELECTION (Final Step before Agreement) */}
+<section className="space-y-6 bg-gray-50/50 p-6 rounded-xl border border-dashed border-gray-200">
+  <div className="border-l-4 border-[#bba219] pl-4">
+    <h3 className="text-sm font-black uppercase tracking-widest text-[#2c5363]">NDA Scope & Coverage</h3>
+    <p className="text-[10px] font-bold text-gray-400 uppercase">Define the legal reach of this confidentiality protocol</p>
+  </div>
+
+  <div className="grid grid-cols-1 gap-4">
+    {/* OPTION 1: ALL FAVORITES */}
+    <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'FAVORITES' ? 'bg-[#2c5363] border-[#2c5363] shadow-xl' : 'bg-white border-gray-200 hover:border-[#bba219]'}`}>
+      <div className="mt-1">
+        <input 
+          type="radio" 
+          name="nda_scope"
+          checked={fields.scope === 'FAVORITES'}
+          onChange={() => setFields({...fields, scope: 'FAVORITES'})}
+          className="sr-only"
         />
-        <SelectLine 
-          label="Investment Thesis *" 
-          options={[
-            'Select...', 
-            'Land Appreciation (Asset Wealth)', 
-            'Production / Commodity Trading', 
-            'Carbon Credits / Preservation'
-          ]} 
-          value={fields.thesis}
-          onChange={(e) => setFields({...fields, thesis: e.target.value})}
+        <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'FAVORITES' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-300'}`}>
+          {fields.scope === 'FAVORITES' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'FAVORITES' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
+          Portfolio Coverage: All Favorites
+        </span>
+        <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'FAVORITES' ? 'text-white/90' : 'text-gray-500'}`}>
+          I wish to include all assets currently saved in my favorites list under this single Non-Disclosure Agreement (NDA). This streamlines the due diligence process and accelerates the release of preliminary reports for the entire selection.
+        </p>
+      </div>
+    </label>
+
+    {/* OPTION 2: SINGLE ASSET */}
+    <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'SINGLE' ? 'bg-[#2c5363] border-[#2c5363] shadow-xl' : 'bg-white border-gray-200 hover:border-[#bba219]'}`}>
+      <div className="mt-1">
+        <input 
+          type="radio" 
+          name="nda_scope"
+          checked={fields.scope === 'SINGLE'}
+          onChange={() => setFields({...fields, scope: 'SINGLE'})}
+          className="sr-only"
         />
+        <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'SINGLE' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-300'}`}>
+          {fields.scope === 'SINGLE' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'SINGLE' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
+          Specific Coverage: This Asset Only (ID: {product?.codigo || '---'})
+        </span>
+        <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'SINGLE' ? 'text-white/90' : 'text-gray-500'}`}>
+          I wish to proceed with a Confidentiality Agreement restricted exclusively to this specific asset. Information related to other portfolio items will require separate protocols.
+        </p>
+      </div>
+    </label>
+  </div>
+</section>
+</div>
+
+
       </div>
     </section>
 
-    <button 
-      onClick={() => setSubStep(3)}
-      disabled={
-        !isCodeValid || // Obrigatório validar Zap
-        !fields.ticketSize || fields.ticketSize === 'Select range...' ||
-        !fields.thesis || fields.thesis === 'Select...' ||
-        !fields.email.includes('@')
-      }
-      className={`w-full py-5 font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-lg
-        ${isCodeValid ? 'bg-[#2c5363] text-white hover:bg-[#bba219]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-      `}
-    >
-      {isCodeValid ? "Next Step: NCND Agreement" : "Verify WhatsApp to Proceed"}
-    </button>
+<button 
+  onClick={() => setSubStep(3)}
+  disabled={
+    !fields.nome || 
+    (!fields.pofFile && !fields.pofDuringScreening) || 
+    !isCodeValid || 
+    !fields.meetingDate
+  }
+  className={`w-full py-6 font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
+    ${(!fields.nome || (!fields.pofFile && !fields.pofDuringScreening) || !isCodeValid || !fields.meetingDate) 
+      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+      : 'bg-[#2c5363] text-white hover:bg-[#bba219] active:scale-95'}
+  `}
+>
+  {!isCodeValid ? "Verify WhatsApp to Proceed" : "Generate NCND Agreement"}
+</button>
   </div>
 )}
 
@@ -1156,17 +1423,18 @@ useEffect(() => {
         <div className="py-16 px-6 text-center space-y-8 bg-[#2c5363] text-white rounded-xl animate-fadeIn">
           <div className="w-20 h-20 border-2 border-[#bba219]/30 rounded-full flex items-center justify-center mx-auto relative">
              <div className="absolute inset-0 border-t-2 border-[#bba219] rounded-full animate-spin"></div>
-             <span className="text-xs">OFAC</span>
+             <span className="text-xs">KYC/AM</span>
           </div>
           <div className="space-y-2">
             <h3 className="text-2xl font-black uppercase tracking-tighter">Under Compliance Review</h3>
-            <p className="text-[9px] text-[#bba219] font-black uppercase tracking-[0.3em]">Checking Global Sanctions Lists...</p>
+            <p className="text-[9px] text-[#bba219] font-black uppercase tracking-[0.3em]">EXECUTING KYC & COMPLIANCE CLEARANCE...
+</p>
           </div>
           <p className="text-xs font-light leading-relaxed max-w-sm mx-auto opacity-70 uppercase tracking-widest">
-            Thank you. Our international desk is validating your accreditation. Estimated time: 1 Business Day.
+            Thank you. Our international desk is validating your accreditation. ESTIMATED CLEARANCE TIME: 24 TO 48 HOURS.
           </p>
           <button onClick={onBack} className="bg-white text-[#2c5363] px-8 py-3 font-black text-[10px] uppercase tracking-widest hover:bg-[#bba219] hover:text-white transition-all">
-            Finish and Exit
+            RETURN TO PORTFOLIO
           </button>
         </div>
       )}
@@ -1178,16 +1446,87 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
   const [subStep, setSubStep] = useState(1);
   const [acceptedConditions, setAcceptedConditions] = useState(false);
   const [privateOrigin, setPrivateOrigin] = useState<'BR' | 'INT' | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+const [smsSent, setSmsSent] = useState(false);
+const [smsCode, setSmsCode] = useState("");
+const [isCodeValid, setIsCodeValid] = useState(false);
+const [codeError, setCodeError] = useState(false);
+
+const handleSendCode = async () => {
+  if (!fields.phone || fields.phone.length < 8) return;
+  setIsVerifying(true);
+  try {
+    await fetch("https://webhook.saveautomatik.shop/webhook/validaWhatsapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        telefone: fields.phone.replace(/\D/g, ""),
+        nome: fields.nome, // Usando fields.nome que já existe
+        projeto: "Prylom Global Desk"
+      }),
+    });
+    setSmsSent(true);
+  } catch (e) { 
+    setSmsSent(true); // Fallback para testes
+  } finally { 
+    setIsVerifying(false); 
+  }
+};
   
-  const [fields, setFields] = useState({
-    nome: '',
-    email: '',
-    telefone: '',
-    pofFile: null as File | null,
-    meetingTime: '',
-    meetingDate: '',
-    company: ''
-  });
+
+ const [fields, setFields] = useState({
+  nome: '',
+  email: '',
+  phone: '', // Unificado para 'phone'
+  pofFile: null as File | null,
+  pofDuringScreening: false, // Adicionado
+  meetingTime: '',
+  meetingDate: '',
+  company: '',
+  scope: 'STANDARD', // Valor inicial para não travar o botão
+  countryCode: 'us'
+});
+
+useEffect(() => {
+  const verificarCodigo = async () => {
+    // 1. Verifica se tem 6 dígitos
+    if (smsCode.length === 6) {
+      setIsVerifying(true);
+      setCodeError(false);
+      
+      try {
+        const response = await fetch("https://webhook.saveautomatik.shop/webhook/validaCodigo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // 2. IMPORTANTE: Usar fields.phone (o mesmo do PhoneInput)
+            telefone: fields.phone.replace(/\D/g, ""), 
+            codigo: smsCode
+          }),
+        });
+
+        const data = await response.json();
+        // 3. Normalização da resposta do n8n
+        const isValid = String(data.valid).toLowerCase() === "true";
+
+        if (isValid) {
+          setIsCodeValid(true);
+          setCodeError(false);
+        } else {
+          setIsCodeValid(false);
+          setCodeError(true);
+          setSmsCode(""); // Limpa o código para nova tentativa
+          alert("Invalid code. Please check your WhatsApp.");
+        }
+      } catch (error) {
+        console.error("Validation error:", error);
+      } finally {
+        setIsVerifying(false);
+      }
+    }
+  };
+  verificarCodigo();
+}, [smsCode, fields.phone]); // Dependência corrigida para phone
 
   return (
     <div className="animate-fadeIn space-y-12 text-left text-[#2c5363] max-w-4xl mx-auto">
@@ -1215,7 +1554,7 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
               Não vendemos apenas terra; entregamos inteligência estratégica para validação do ativo:
             </p>
             <div className="space-y-2 text-[10px] font-black uppercase text-[#2c5363]">
-              <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Jurídico Sênior: Due Diligence & Tributário</p>
+              <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> COORDENAÇÃO ESTRATÉGICA DE DUE DILIGENCE LEGAL & TRIBUTÁRIA</p>
               <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Engenharia Agronômica: Solo & Produtividade</p>
               <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Zootecnia Estratégica: Suporte & Infra</p>
               <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Relatórios: Mapas de Argila & Pluviometria</p>
@@ -1230,12 +1569,18 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
           </h4>
           <div className="flex-1 space-y-4">
             <p className="text-gray-400 text-[10px] font-bold uppercase leading-relaxed">
-              Sua única preocupação deve ser a decisão. Assumimos 100% dos custos operacionais:
+              Sua única preocupação deve ser a decisão. A Prylom estrutura e financia 100% da sua jornada de vistoria técnica:
+
             </p>
             <div className="space-y-2 text-[10px] font-black uppercase text-[#2c5363]">
               <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Nacional: Transfer de base ou aeroporto</p>
-              <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Internacional: Receptivo blindado & aéreo</p>
+              <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Internacional: Receptivo blindado & aéreo (Deslocamento de aeronave executiva se for necessário)</p>
               <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Visita técnica "Door-to-Farm" sem custos</p>
+              <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Nacional & Internacional: Receptivo aeroportuário, veículos blindados e deslocamento via aeronave executiva (sob demanda).
+</p>
+              <p className="flex items-start gap-2"><span className="text-[#bba219]">•</span> Alinhamento de Risco: A PRYLOM arca integralmente com os custos operacionais e logísticos
+durante o período de busca. Este investimento será abatido exclusivamente do Success Fee
+(comissão) apenas após o fechamento do negócio.</p>
             </div>
           </div>
         </section>
@@ -1256,42 +1601,45 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
         </section>
       </div>
 
-      {/* COMMAND CENTER - OCUPA A LARGURA TODA ABAIXO DOS CARDS */}
-      <section className="w-full space-y-4 p-8 bg-gray-50 border-l-4 border-[#bba219] shadow-inner">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h4 className="font-black uppercase text-[13px] text-[#2c5363] flex items-center gap-2 tracking-tighter">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
-            4. "Command Center": Inspeção Remota High-Tech
-          </h4>
-          <span className="text-[9px] font-black bg-[#2c5363] text-white px-3 py-1 rounded-full uppercase tracking-widest">
-            Conexão Satelital Starlink
-          </span>
-        </div>
+{/* COMMAND CENTER - OCUPA A LARGURA TODA ABAIXO DOS CARDS */}
+<section className="w-full space-y-4 p-8 bg-gray-50 border-l-4 border-[#bba219] shadow-inner">
+  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <h4 className="font-black uppercase text-[13px] text-[#2c5363] flex items-center gap-2 tracking-tighter">
+      <span className="relative flex h-3 w-3">
+        {/* Alterado de red-400 para green-400 */}
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+        {/* Alterado de red-500 para green-500 */}
+        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+      </span>
+      4. "Command Center": Inspeção Remota High-Tech
+    </h4>
+    <span className="text-[9px] font-black bg-[#2c5363] text-white px-3 py-1 rounded-full uppercase tracking-widest">
+      Conexão Satelital Starlink
+    </span>
+  </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
-          <div className="space-y-3">
-            <p className="text-gray-600 text-[11px] font-semibold leading-relaxed uppercase">
-              Tecnologia a serviço da sua Due Diligence. Vistoria via Drone em tempo real com narração técnica.
-            </p>
-            <ul className="space-y-2 text-[10px] text-gray-500 font-bold uppercase tracking-tight">
-              <li className="flex gap-2"><span className="text-[#bba219] font-black">›</span> <span>Vistoria Técnica Narrada por Engenheiro Agrônomo.</span></li>
-              <li className="flex gap-2"><span className="text-[#bba219] font-black">›</span> <span>Interatividade Total: Você direciona o voo remotamente.</span></li>
-              <li className="flex gap-2 text-red-700 font-black"><span className="text-[#bba219]">›</span> <span>Zero Filtro: Realidade nua e crua do ativo.</span></li>
-            </ul>
-          </div>
-          <div className="space-y-3 bg-white/50 p-4 rounded border border-gray-200">
-            <p className="text-[10px] text-gray-400 font-bold uppercase leading-tight">
-              Eliminamos a "visita exploratória". A visita presencial torna-se apenas uma etapa de <span className="text-[#2c5363]">Confirmação e Fechamento</span>.
-            </p>
-            <p className="text-[9px] font-black text-[#bba219] uppercase italic pt-2">
-              Resultado: Certeza de negócio antes da alocação aérea/terrestre.
-            </p>
-          </div>
-        </div>
-      </section>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+    <div className="space-y-3">
+      <p className="text-gray-600 text-[11px] font-semibold leading-relaxed uppercase">
+        Tecnologia a serviço da sua Due Diligence. Vistoria via Drone em tempo real com narração técnica.
+      </p>
+      <ul className="space-y-2 text-[10px] text-gray-500 font-bold uppercase tracking-tight">
+        <li className="flex gap-2"><span className="text-[#bba219] font-black">›</span> <span>Vistoria Técnica Narrada por Engenheiro Agrônomo.</span></li>
+        <li className="flex gap-2"><span className="text-[#bba219] font-black">›</span> <span>Interatividade Total: Você direciona o voo remotamente.</span></li>
+        {/* Alterado de text-red-700 para text-green-700 */}
+        <li className="flex gap-2 text-green-700 font-black"><span className="text-[#bba219]">›</span> <span>Zero Filtro: Realidade nua e crua do ativo.</span></li>
+      </ul>
+    </div>
+    <div className="space-y-3 bg-white/50 p-4 rounded border border-gray-200">
+      <p className="text-[10px] text-gray-400 font-bold uppercase leading-tight">
+        Eliminamos a "visita exploratória". A visita presencial torna-se apenas uma etapa de <span className="text-[#2c5363]">Confirmação e Fechamento</span>.
+      </p>
+      <p className="text-[9px] font-black text-[#bba219] uppercase italic pt-2">
+        Resultado: Certeza de negócio antes da alocação aérea/terrestre.
+      </p>
+    </div>
+  </div>
+</section>
 
       {/* CONDIÇÕES DO MANDATO */}
 {/* CONDIÇÕES DO MANDATO - DESIGN REFINADO */}
@@ -1312,7 +1660,8 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
         <h6 className="text-[10px] font-black uppercase text-[#2c5363]">Exclusividade</h6>
       </div>
       <p className="text-[10px] text-gray-500 font-bold uppercase leading-relaxed">
-        A Prylom atuará como sua <span className="text-[#2c5363]">única mandatária</span> na região alvo durante o período de 90 dias para busca e negociação.
+        A Prylom atuará como sua <span className="text-[#2c5363]">única mandatária</span> PARA BUSCA E ESTRUTURAÇÃO DE ATIVOS DENTRO
+DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
       </p>
     </div>
 
@@ -1322,7 +1671,7 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
         <h6 className="text-[10px] font-black uppercase text-[#2c5363]">Proof of Funds</h6>
       </div>
       <p className="text-[10px] text-gray-500 font-bold uppercase leading-relaxed">
-        Ativação condicionada à aprovação de <span className="text-[#2c5363]">Compliance Financeiro</span>, com liquidez compatível ao ticket (R$ 13MM+).
+        Ativação condicionada à aprovação de <span className="text-[#2c5363]">Compliance Financeiro</span>, com liquidez compatível ao ticket (R$ 30MM+).
       </p>
     </div>
 
@@ -1405,8 +1754,101 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
       {/* CAMPOS DE DADOS (COMUNS E ESPECÍFICOS) */}
       <InputLine label="Nome Completo / Full Name *" placeholder="Identification" value={fields.nome} onChange={(e) => setFields({...fields, nome: e.target.value})} />
       <InputLine label="E-mail Corporativo *" placeholder="name@office.com" type="email" value={fields.email} onChange={(e) => setFields({...fields, email: e.target.value})} />
-      <InputLine label="WhatsApp Direto *" placeholder="+00 00 00000-0000" value={fields.telefone} onChange={(e) => setFields({...fields, telefone: e.target.value})} />
-      <InputLine label="Family Office / Fundo *" placeholder="Entity Name" value={fields.company} onChange={(e) => setFields({...fields, company: e.target.value})} />
+<div className="space-y-4">
+  {/* WHATSAPP COM SELETOR DE BANDEIRAS */}
+  <div className="space-y-2 group animate-fadeIn">
+    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-focus-within:text-[#bba219] transition-colors">
+      Direct WhatsApp (Verified) *
+    </label>
+    
+    <div className="relative border-b border-gray-200 focus-within:border-[#bba219] transition-all pb-1 flex items-center">
+      <PhoneInput
+        country={fields.countryCode?.toLowerCase() || 'us'} 
+        value={fields.phone}
+        onChange={(phone) => setFields({...fields, phone: '+' + phone})}
+        enableSearch={true}
+        placeholder="Enter phone number"
+        containerClass="prylom-phone-container"
+        inputClass="prylom-phone-input"
+        buttonClass="prylom-phone-button"
+        dropdownClass="prylom-phone-dropdown"
+        specialLabel=""
+      />
+
+      {/* Botão de Validação 2FA */}
+      {!smsSent && fields.phone?.length > 8 && (
+        <button 
+          onClick={handleSendCode} 
+          className="absolute right-0 bottom-2 text-[9px] font-black text-[#bba219] uppercase hover:underline z-10 bg-white pl-2"
+        >
+          {isVerifying ? "Sending..." : "Validate WhatsApp"}
+        </button>
+      )}
+    </div>
+  </div>
+
+  {/* INTERFACE DE CÓDIGO 2FA (Aparece logo abaixo do seletor) */}
+  {smsSent && (
+    <div className={`animate-fadeIn p-6 rounded-lg border transition-all duration-500 ${isCodeValid ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'} space-y-4`}>
+      <div className="flex justify-between items-center">
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2c5363]">
+          Verification Code
+        </label>
+
+        {isCodeValid ? (
+          <span className="text-[9px] font-black text-green-600 uppercase tracking-widest flex items-center gap-1">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+            WhatsApp Verified
+          </span>
+        ) : (
+          <span className="text-[9px] font-bold text-[#bba219] uppercase">Check your WhatsApp for the code</span>
+        )}
+      </div>
+
+      <div className="relative">
+        <input
+          maxLength={6}
+          disabled={isCodeValid || isVerifying}
+          value={smsCode}
+          onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ""))}
+          placeholder={isVerifying ? "..." : "000000"}
+          className={`w-full py-4 text-center text-xl font-black tracking-[0.5em] outline-none transition-all
+            ${isCodeValid ? 'bg-transparent text-green-700' : 'bg-white border border-gray-200 focus:border-[#bba219] text-[#2c5363]'}
+            ${codeError ? 'border-red-500 animate-shake' : ''}
+          `}
+        />
+
+        {isVerifying && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/50">
+            <div className="w-5 h-5 border-2 border-[#bba219] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+      </div>
+
+      {!isCodeValid && (
+        <p className="text-[9px] text-gray-400 font-medium uppercase text-center">
+          Didn't receive it? <button type="button" onClick={handleSendCode} className="text-[#bba219] font-bold hover:underline">Resend Code</button>
+        </p>
+      )}
+    </div>
+  )}
+
+  {/* Estilização Global para o PhoneInput */}
+  <style jsx global>{`
+    .prylom-phone-container { width: 100% !important; border: none !important; }
+    .prylom-phone-input {
+      width: 100% !important; border: none !important; background: transparent !important;
+      font-size: 13px !important; font-weight: 700 !important; color: #2c5363 !important;
+      padding-left: 45px !important;
+    }
+    .prylom-phone-button { border: none !important; background: transparent !important; }
+    .prylom-phone-dropdown {
+      font-size: 11px !important; text-transform: uppercase !important;
+      font-weight: 700 !important; color: #2c5363 !important;
+    }
+  `}</style>
+</div>
+      <InputLine label="EMPRESA / GRUPO ECONÔMICO / FAMILY OFFICE (OPCIONAL) *" placeholder="Entity Name" value={fields.company} onChange={(e) => setFields({...fields, company: e.target.value})} />
 
       {privateOrigin === 'BR' && (
         <InputLine label="CPF / CNPJ *" placeholder="000.000.000-00" value={fields.doc} onChange={(e) => setFields({...fields, doc: e.target.value})} />
@@ -1419,27 +1861,81 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
         </>
       )}
 
-      {/* UPLOAD DE POF */}
-      <div className="md:col-span-2 space-y-4 bg-gray-50 p-8 rounded-sm border border-dashed border-gray-300">
-         <label className="text-[10px] font-black uppercase text-[#2c5363] flex items-center justify-center gap-2">
-           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-           Proof of Funds (POF) *
-         </label>
-         <p className="text-[9px] text-gray-400 uppercase font-bold text-center italic">Anexe um documento de capacidade de aporte (Extrato, Carta de Banco ou Custódia).</p>
-         <div className="flex justify-center">
-           <input 
-            type="file" 
-            required
-            className="text-[10px] font-bold text-gray-500 file:mr-4 file:py-2 file:px-6 file:rounded-full file:border-0 file:text-[9px] file:font-black file:bg-[#2c5363] file:text-white hover:file:bg-[#bba219] cursor-pointer transition-all"
-            onChange={(e) => setFields({...fields, pofFile: e.target.files ? e.target.files[0] : null})}
-           />
-         </div>
+<div className="md:col-span-2 space-y-4 bg-gray-50 p-8 rounded-sm border border-dashed border-gray-200 relative pt-10">
+  
+  {/* Absolute Security Badge */}
+  <div className="absolute top-4 left-0 w-full flex justify-center pointer-events-none">
+    <span className="text-[7px] font-black text-[#bba219] uppercase tracking-[0.2em] opacity-80">
+      Encrypted upload • Tier 1 Financial Privacy
+    </span>
+  </div>
+
+  <label className="text-[10px] font-black uppercase text-[#2c5363] flex items-center justify-center gap-2">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    Proof of Funds (POF) *
+  </label>
+  
+  <p className="text-[9px] text-gray-400 uppercase font-bold text-center italic leading-relaxed">
+    ATTACH PROOF OF INVESTMENT CAPACITY (STATEMENT, BANK LETTER, OR CUSTODY REPORT).
+  </p>
+
+  {/* CUSTOM FILE UPLOAD UI */}
+  <div className={`flex justify-center transition-all duration-500 ${fields.pofDuringScreening ? 'opacity-20 grayscale pointer-events-none' : 'opacity-100'}`}>
+    <div className="relative group">
+      <input 
+        type="file" 
+        id="pof-upload"
+        accept=".pdf,image/*"
+        required={!fields.pofDuringScreening}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+        onChange={(e) => setFields({...fields, pofFile: e.target.files ? e.target.files[0] : null})}
+      />
+      
+      <div className="flex items-center gap-4 bg-white border border-gray-200 py-2 px-6 rounded-full shadow-sm group-hover:border-[#bba219] transition-all">
+        <div className="bg-[#2c5363] text-white text-[9px] font-black uppercase px-3 py-1 rounded-full group-hover:bg-[#bba219]">
+          Choose File
+        </div>
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight truncate max-w-[150px]">
+          {fields.pofFile ? fields.pofFile.name : "No file selected"}
+        </span>
       </div>
+
+      {fields.pofFile && (
+        <span className="absolute -right-24 top-2 text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+          Attached
+        </span>
+      )}
+    </div>
+  </div>
+
+  {/* SCREENING OPTION */}
+  <div className="pt-4 border-t border-gray-200 mt-4">
+    <label className="flex items-center justify-center gap-3 cursor-pointer group">
+      <div className="relative flex items-center">
+        <input 
+          type="checkbox" 
+          className="peer h-4 w-4 cursor-pointer appearance-none border-2 border-gray-300 rounded-sm checked:bg-[#bba219] checked:border-[#bba219] transition-all"
+          checked={fields.pofDuringScreening}
+          onChange={(e) => setFields({...fields, pofDuringScreening: e.target.checked})}
+        />
+        <svg className="absolute h-3 w-3 text-[#2c5363] opacity-0 peer-checked:opacity-100 pointer-events-none left-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <span className="text-[9px] font-black uppercase tracking-tight text-[#2c5363] group-hover:text-[#bba219] transition-colors text-center">
+        I opt to present my proof of funds confidentially to the Board <br className="hidden md:block"/> during the Screening Meeting.
+      </span>
+    </label>
+  </div>
+</div>
 
       {/* AGENDAMENTO ROBUSTO COM DATA LIVRE */}
       <div className="md:col-span-2 space-y-6">
         <label className="text-[10px] font-black uppercase tracking-widest text-[#2c5363]">
-          Agendamento de Entrevista (Screening com Diretoria) *
+          AGENDAMENTO DE ALINHAMENTO ESTRATÉGICO (COM A DIRETORIA) *
         </label>
         
         <div className="bg-white border border-gray-200 p-8 rounded-sm shadow-sm grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -1484,17 +1980,31 @@ const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void
       </div>
     </div>
 
-    <button 
-      onClick={() => setSubStep(3)}
-      disabled={!fields.nome || !fields.pofFile || !fields.meetingTime || !fields.meetingDate}
-      className={`w-full py-6 font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
-        ${(!fields.pofFile || !fields.meetingTime || !fields.meetingDate) 
-          ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-          : 'bg-[#2c5363] text-white hover:bg-[#bba219] active:scale-95'}
-      `}
-    >
-      {(!fields.meetingDate || !fields.meetingTime) ? "Selecione Data e Horário" : "Assinar Mandato e Solicitar Alocação"}
-    </button>
+<button 
+  onClick={() => setSubStep(3)}
+  disabled={
+    // Verifica se o nome existe (em qualquer uma das variáveis possíveis)
+    (!fields.companyName && !fields.nome) || 
+    // Verifica se tem POF ou se optou pelo Screening
+    (!fields.pofFile && !fields.pofDuringScreening) || 
+    // Verifica se o Zap foi validado
+    !isCodeValid || 
+    // Verifica se o escopo foi escolhido
+    !fields.scope
+  }
+  className={`w-full py-6 font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
+    ${((!fields.companyName && !fields.nome) || (!fields.pofFile && !fields.pofDuringScreening) || !isCodeValid || !fields.scope) 
+      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+      : 'bg-[#2c5363] text-white hover:bg-[#bba219] active:scale-95'}
+  `}
+>
+  {/* O texto do botão agora serve como um guia de erros em tempo real */}
+  {(!fields.companyName && !fields.nome) ? "Enter Company Name" : 
+   (!fields.pofFile && !fields.pofDuringScreening) ? "Attach POF or Select Screening" :
+   !isCodeValid ? "Verify WhatsApp to Proceed" :
+   !fields.scope ? "Select NDA Scope" : 
+   "Generate NCND Agreement"}
+</button>
   </div>
 )}
     </div>
