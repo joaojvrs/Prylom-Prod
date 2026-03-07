@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import ProductDetails from './ProductDetails';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
+import logoPrylom from "../assets/logo-prylom.png";
 
 // Definindo uma Interface para as Props (Boa prática em TS)
 interface InputLineProps {
@@ -91,7 +92,8 @@ const NationalProtocol = ({ product, onComplete, onBack }: {
   hectares: '',
   estadosAtuacao: '',
   pep: 'Não',
-  creciOab: '' // Para representantes
+  creciOab: '',
+  scope: null
   });
 
   const [docStatus, setDocStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
@@ -649,7 +651,7 @@ disabled={
 )}
 
 {subStep === 3 && (
-  <div className="space-y-8 animate-fadeIn text-[#2c5363] text-left">
+<div className="space-y-8 animate-fadeIn text-[#2c5363] text-left">
     {/* Cabeçalho do Documento */}
     <div className="flex justify-between items-start border-b-2 border-gray-100 pb-6">
       <div className="space-y-1">
@@ -657,46 +659,67 @@ disabled={
         <p className="text-[9px] font-bold text-[#bba219] uppercase tracking-[0.2em]">Acordo de Confidencialidade e Não Divulgação (NDA)</p>
       </div>
       <div className="hidden md:block text-right">
-        <span className="text-[8px] font-black bg-red-50 text-red-600 px-3 py-1 rounded-sm uppercase tracking-widest border border-red-100 italic">
+        <span className="text-[8px] font-black bg-green-50 text-green-600 px-3 py-1 rounded-sm uppercase tracking-widest border border-green-100 italic">
           Documento Auditado
         </span>
       </div>
     </div>
 
-    {/* O "Papel Timbrado" do NDA */}
+    {/* O "Papel Timbrado" com Injeção de Dados Dinâmicos */}
     <div className="bg-white p-8 md:p-12 border border-gray-200 shadow-inner rounded-sm relative overflow-hidden group">
-      {/* Marca d'água decorativa */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none group-hover:opacity-[0.05] transition-opacity">
         <span className="text-[120px] font-black tracking-tighter uppercase italic">PRYLOM</span>
       </div>
 
       <div className="relative z-10 space-y-6 text-[11px] md:text-[12px] text-gray-600 leading-relaxed font-medium">
-        <p className="text-center font-black text-[#2c5363] mb-8 underline decoration-[#bba219] underline-offset-8">
-          TERMO DE CONFIDENCIALIDADE E VERACIDADE (NDA)
-        </p>
         
+        {/* QUALIFICAÇÃO COMPLETA DAS PARTES */}
+        <div className="p-4 bg-gray-50 border-l-2 border-[#bba219] space-y-4 mb-6">
+          <p className="text-[10px] leading-relaxed">
+            <strong className="text-[#2c5363] block mb-1">PARTE REVELADORA / INTERMEDIADORA:</strong>
+            PRYLOM AGRONEGÓCIOS, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 45.685.251/0001-95, com supervisão técnica sob o CRECI nº 16344 - MS, sediada na R. Centenário, 470 - Vila Rosa Pires - Campo Grande - MS, CEP 79004-510.
+          </p>
+
+          <p className="text-[10px] leading-relaxed">
+            <strong className="text-[#2c5363] block mb-1">PARTE RECEPTORA / SIGNATÁRIA:</strong>
+            Pelo presente instrumento, eu, <span className="font-black text-[#2c5363] underline">{fields.nome || "[NOME NÃO PREENCHIDO]"}</span>, 
+            devidamente inscrito(a) no <span className="font-black text-[#2c5363] underline">{fields.doc || "[DOCUMENTO NÃO PREENCHIDO]"}</span>, 
+            na qualidade de <span className="font-black text-[#2c5363] underline uppercase">{fields.perfil || "INTERESSADO"}</span>, 
+            declaro aceite formal, irrevogável e irretratável aos termos de confidencialidade abaixo, estabelecendo este vínculo jurídico direto com a PRYLOM em relação à curadoria e apresentação do(s) ativo(s). 
+            O signatário está coberto pelo sigilo e regras de não-aliciamento (Non-Circumvention) referentes exclusivamente aos ativos: 
+            <span className="font-black text-[#bba219] ml-1 uppercase">
+              {fields.scope === 'FAVORITES' ? "LISTA DE FAVORITOS CONSOLIDADA" : `CÓDIGO: ${product?.codigo || '---'}`}
+            </span>
+          </p>
+        </div>
+
+        {/* CLAUSULADO TÉCNICO */}
         <div className="space-y-6">
           <p>
-            <strong className="text-[#2c5363] font-bold">1. SIGILO:</strong> Comprometo-me formalmente a não divulgar, copiar, fotografar ou compartilhar mapas, matrículas, nomes de proprietários e dados produtivos deste dossiê com terceiros não autorizados pela <span className="font-bold">PRYLOM</span>, sob pena de multa contratual imediata de <span className="text-red-600 font-black">10% (dez por cento)</span> sobre o valor total de avaliação do ativo.
+            <strong className="text-[#2c5363] font-bold">1. SIGILO E NÃO-ALICIAMENTO (NON-CIRCUMVENTION):</strong> Comprometo-me formalmente a manter sigilo absoluto sobre mapas, matrículas e quaisquer dados sensíveis. Fica terminantemente proibido contatar direta ou indiretamente os proprietários, intervir, tentar adquirir ou estruturar negócios com os ativos listados sem a intermediação expressa da PRYLOM. O descumprimento acarretará multa contratual imediata equivalente ao valor integral da comissão de intermediação, sem prejuízo de reparação por danos morais e lucros cessantes.
           </p>
 
           <p>
-            <strong className="text-[#2c5363] font-bold">2. DECLARAÇÃO DE VERACIDADE:</strong> Declaro, sob as penas da Lei, especificamente sob o <span className="italic">Artigo 299 do Código Penal Brasileiro (Falsidade Ideológica)</span>, que todas as informações prestadas neste credenciamento são verdadeiras e representam a realidade da minha qualificação civil e financeira.
+            <strong className="text-[#2c5363] font-bold">2. VIGÊNCIA E RESPONSABILIDADE SOLIDÁRIA:</strong> As obrigações deste instrumento possuem validade irrevogável de 36 (trinta e seis) meses a partir do aceite. Caso atue como Representante Legal, assumo responsabilidade solidária integral por eventuais quebras de sigilo praticadas por meu cliente final.
           </p>
 
           <p>
-            <strong className="text-[#2c5363] font-bold">3. INVESTIGAÇÃO DE COMPLIANCE:</strong> Autorizo expressamente a <span className="font-bold uppercase">PRYLOM</span> a realizar consultas do meu CPF/CNPJ em órgãos de proteção ao crédito, tribunais de justiça estaduais e federais, e listas de sanções internacionais para aprovação do meu cadastro técnico.
+            <strong className="text-[#2c5363] font-bold">3. VERACIDADE (CÓDIGO PENAL):</strong> Declaro, sob as penas da Lei (Art. 299 do Código Penal), que todas as informações prestadas são estritamente verdadeiras.
+          </p>
+
+          <p>
+            <strong className="text-[#2c5363] font-bold">4. COMPLIANCE E LGPD:</strong> Autorizo a consulta de meus dados em órgãos de proteção ao crédito e listas de sanções KYC/AML, em conformidade com a LGPD (Lei 13.709/18).
           </p>
         </div>
         
         <div className="pt-8 border-t border-gray-50 flex flex-col md:flex-row justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-[9px] uppercase font-black text-gray-400">IP de Registro:</p>
-            <p className="text-[10px] font-mono text-gray-500">187.21.XX.XX (Auditado via SSL)</p>
+            <p className="text-[9px] uppercase font-black text-gray-400">IP DE REGISTRO E AUTENTICAÇÃO:</p>
+            <p className="text-[10px] font-mono text-gray-500">HASH_ID: {Math.random().toString(36).substring(7).toUpperCase()} (Auditado via SSL)</p>
           </div>
           <div className="text-right space-y-1">
-            <p className="text-[9px] uppercase font-black text-gray-400">Data do Aceite:</p>
-            <p className="text-[10px] font-mono text-gray-500">{new Date().toLocaleDateString('pt-BR')}</p>
+            <p className="text-[9px] uppercase font-black text-gray-400">DATA DO ACEITE DIGITAL:</p>
+            <p className="text-[10px] font-mono text-gray-500">{new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
           </div>
         </div>
       </div>
@@ -1327,13 +1350,20 @@ useEffect(() => {
 <button 
   onClick={() => setSubStep(3)}
   disabled={
-    !fields.nome || 
-    (!fields.pofFile && !fields.pofDuringScreening) || 
+    !fields.investorType || 
+    !fields.country || 
+    !fields.companyName || 
+    !fields.taxId ||
+    !fields.repName ||
+    !fields.passportFile || // Garante que o upload foi feito
     !isCodeValid || 
-    !fields.meetingDate
+    !fields.ticketSize ||
+    !fields.sourceFunds ||
+    !fields.thesis ||
+    !fields.scope // Garante que escolheu o escopo do NDA
   }
   className={`w-full py-6 font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
-    ${(!fields.nome || (!fields.pofFile && !fields.pofDuringScreening) || !isCodeValid || !fields.meetingDate) 
+    ${(!fields.investorType || !fields.country || !fields.companyName || !fields.taxId || !fields.repName || !fields.passportFile || !isCodeValid || !fields.ticketSize || !fields.sourceFunds || !fields.thesis || !fields.scope) 
       ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
       : 'bg-[#2c5363] text-white hover:bg-[#bba219] active:scale-95'}
   `}
@@ -1348,44 +1378,72 @@ useEffect(() => {
     {/* Cabeçalho de Autoridade Internacional */}
     <div className="flex justify-between items-end border-b border-gray-100 pb-4">
       <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#bba219]">NCND & Compliance Protocol</h4>
-      <span className="text-[9px] font-bold text-gray-400">ID: {fields.passport || 'AUDITED'}</span>
+      <span className="text-[9px] font-bold text-gray-400">ID: {fields.passport || 'AUTHENTICATED'}</span>
     </div>
 
-    {/* O Documento NCND */}
-    <div className="bg-white p-8 md:p-12 border border-gray-200 shadow-inner rounded-sm space-y-8 relative overflow-hidden">
-      {/* Selo d'água decorativo */}
-      <div className="absolute top-5 right-5 opacity-10">
-        <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
+    <div className="bg-white p-8 md:p-12 border border-gray-200 shadow-inner rounded-sm relative overflow-hidden group">
+      {/* Marca d'água */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none">
+        <span className="text-[120px] font-black tracking-tighter uppercase italic">PRYLOM</span>
       </div>
 
-      <h4 className="text-center font-black text-sm uppercase tracking-tighter text-[#2c5363] underline decoration-[#bba219] underline-offset-8">
-        CONFIDENTIALITY & COMPLIANCE AGREEMENT
-      </h4>
-      
-      <div className="text-[11px] text-gray-600 uppercase leading-relaxed font-semibold space-y-6">
-        <p>
-          <span className="text-[#2c5363] font-black mr-2">1. NON-DISCLOSURE:</span> 
-          I hereby undertake to maintain absolute secrecy regarding maps, satellite data, ownership details, and financial projections of the asset 
-          <span className="text-[#bba219] font-black ml-1">"{product?.nome || "PRYLOM SECURE ASSET"}"</span>.
-        </p>
+      <div className="relative z-10 space-y-6 text-[11px] md:text-[12px] text-gray-600 leading-relaxed font-medium uppercase">
         
-        <p>
-          <span className="text-[#2c5363] font-black mr-2">2. ANTI-CORRUPTION & AML:</span> 
-          I declare that the funds for this potential acquisition DO NOT originate from any illegal activities and that my conduct is in full compliance with the 
-          <span className="text-[#2c5363] font-bold"> FCPA (USA)</span>, <span className="text-[#2c5363] font-bold">UK Bribery Act</span>, and the <span className="text-[#2c5363] font-bold">Brazilian Anti-Corruption Law (12.846/13)</span>.
-        </p>
-        
-        <p>
-          <span className="text-[#2c5363] font-black mr-2">3. SANCTIONS SCREENING:</span> 
-          I expressly authorize <span className="text-[#2c5363] font-black">PRYLOM</span> to conduct background checks of my name/entity against global sanctions lists, including but not limited to 
-          <span className="text-red-700"> OFAC, UN, EU Sanctions List, and INTERPOL</span>, for compliance and accreditation purposes.
-        </p>
-      </div>
+        {/* IDENTIFICATION OF THE PARTIES */}
+        <div className="p-4 bg-gray-50 border-l-2 border-[#bba219] space-y-4 mb-6">
+          <p className="text-[10px] leading-relaxed">
+            <strong className="text-[#2c5363] block mb-1">DISCLOSING PARTY / INTERMEDIARY:</strong>
+            PRYLOM AGRONEGÓCIOS, a private legal entity, registered under CNPJ No. 45.685.251/0001-95, under technical supervision CRECI No. 16344 - MS, headquartered at R. Centenário, 470 - Vila Rosa Pires - Campo Grande - MS, Zip Code 79004-510, Brazil.
+          </p>
 
-      {/* Rastro Digital */}
-      <div className="pt-6 border-t border-gray-50 flex justify-between items-center text-[8px] font-mono text-gray-400">
-        <span>DIGITAL SIGNATURE LOG: {new Date().toISOString()}</span>
-        <span>IP: AUDITED_VIA_SECURE_GATEWAY</span>
+          <p className="text-[10px] leading-relaxed">
+            <strong className="text-[#2c5363] block mb-1">RECEIVING PARTY / SIGNATORY:</strong>
+            By this instrument, I, <span className="font-black text-[#2c5363] underline">{fields.companyName || fields.repName || "[NAME NOT PROVIDED]"}</span>, 
+            duly registered under <span className="font-black text-[#2c5363] underline">{fields.taxId || fields.passport || "[ID NOT PROVIDED]"}</span>, 
+            acting in the capacity of <span className="font-black text-[#2c5363] underline">{fields.repCapacity || fields.investorType || "INVESTOR"}</span> 
+            {fields.advisoryFirm ? ` (MANDATED BY ${fields.advisoryFirm})` : ""}, 
+            declare my formal, irrevocable, and unalterable acceptance of the confidentiality terms below, establishing this direct legal bond with PRYLOM regarding the curation and presentation of the asset(s). 
+            The signatory is bound by the confidentiality and non-circumvention rules referring exclusively to the assets: 
+            <span className="font-black text-[#bba219] ml-1">
+              {fields.scope === 'FAVORITES' ? "CONSOLIDATED PORTFOLIO (FAVORITES LIST)" : `SPECIFIC ASSET ID: ${product?.codigo || '---'}`}
+            </span>.
+          </p>
+        </div>
+
+        {/* CLAUSES */}
+        <div className="space-y-6">
+          <p>
+            <strong className="text-[#2c5363] font-bold">1. NON-DISCLOSURE AND NON-CIRCUMVENTION (NCND):</strong> I formally commit to maintaining absolute secrecy regarding maps, registry documents, and any sensitive data. It is strictly forbidden to contact the property owners directly or indirectly, intervene, attempt to acquire, or structure deals involving the listed assets without the express intermediation of PRYLOM. Breach will result in an immediate contractual penalty equivalent to the full value of the commission, without prejudice to legal action for damages and loss of profits.
+          </p>
+
+          <p>
+            <strong className="text-[#2c5363] font-bold">2. TERM AND JOINT LIABILITY:</strong> The obligations of this instrument are irrevocably valid for 36 months. If acting as a Representative, Intermediary, or Broker, I assume full joint, several, and financial liability for any breaches or "by-pass" practices committed by my end-client.
+          </p>
+
+          <p>
+            <strong className="text-[#2c5363] font-bold">3. TRUTHFULNESS AND ANTI-FRAUD:</strong> I declare, under penalty of perjury and specifically under Article 299 of the Brazilian Penal Code, that all information, titles, and capacities provided in this accreditation are strictly true.
+          </p>
+
+          <p>
+            <strong className="text-[#2c5363] font-bold">4. COMPLIANCE, AML, AND DATA PROTECTION:</strong> I expressly authorize PRYLOM to cross-reference my data with international KYC/AML sanction lists (OFAC, UN, EU), as well as the processing of my data in strict compliance with the Brazilian LGPD and the European GDPR.
+          </p>
+        </div>
+
+        {/* Digital Traceability Footer */}
+        <div className="pt-8 border-t border-gray-50 flex flex-col md:flex-row justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-[9px] font-black text-gray-400">AUTHENTICATION HASH:</p>
+            <p className="text-[10px] font-mono text-gray-500 uppercase">
+              GLOBAL_ID_{Math.random().toString(36).substring(4).toUpperCase()} / {fields.country || 'INTL'}
+            </p>
+          </div>
+          <div className="text-right space-y-1">
+            <p className="text-[9px] font-black text-gray-400">DIGITAL ACCEPTANCE DATE:</p>
+            <p className="text-[10px] font-mono text-gray-500">
+              {new Date().toUTCString()}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -2079,27 +2137,39 @@ const isOpenMarket = useMemo(() => {
                     </div>
                   </div>
 
-                  {/* TRAVA OBRIGATÓRIA OPEN MARKET */}
-  {/* ÁREA DE CIÊNCIA OPEN MARKET - SÓ APARECE SE A VERIFICAÇÃO FOR POSITIVA */}
-                  {isOpenMarket && (
-                    <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl space-y-4 animate-slideDown">
-                      <div className="flex items-center gap-2 text-amber-700">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                        <span className="text-[11px] font-black uppercase tracking-widest">Atenção: Ativo Open Market</span>
-                      </div>
-                      <label className="flex items-start gap-4 cursor-pointer group">
-                        <input 
-                          type="checkbox" 
-                          checked={openMarketAccepted}
-                          onChange={(e) => setOpenMarketAccepted(e.target.checked)}
-                          className="mt-1 h-6 w-6 accent-[#2c5363] cursor-pointer"
-                        />
-                        <span className="text-[10px] font-bold text-amber-900 leading-relaxed uppercase">
-                          Estou ciente de que este imóvel se encontra na modalidade de Mercado Aberto (Open Market) e os dados iniciais possuem natureza declaratória. A consolidação do Data Room depende da colaboração do proprietário.
-                        </span>
-                      </label>
-                    </div>
-                  )}
+{isOpenMarket && (
+  <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl space-y-4 animate-slideDown">
+    <div className="flex items-center gap-2 text-amber-700">
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+      <span className="text-[11px] font-black uppercase tracking-widest">
+        Atenção: Ativo Open Market
+      </span>
+    </div>
+    
+    <label className="flex items-start gap-4 cursor-pointer group">
+      <input 
+        type="checkbox" 
+        checked={openMarketAccepted}
+        onChange={(e) => setOpenMarketAccepted(e.target.checked)}
+        className="mt-1 h-5 w-5 shrink-0 accent-amber-700 cursor-pointer"
+      />
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-black text-amber-900 uppercase tracking-tighter">
+          CIÊNCIA DE ATIVO OPEN MARKET
+        </span>
+        <span className="text-[10px] font-bold text-amber-900/80 leading-relaxed uppercase">
+          Estou ciente de que este imóvel se encontra na modalidade de Mercado Aberto (Open Market) 
+          e os dados iniciais possuem natureza declaratória. Compreendo que a consolidação do 
+          Data Room Técnico e a liberação dos relatórios preliminares dependem da colaboração 
+          e do envio de documentos por parte do proprietário ou originador parceiro, podendo 
+          o prazo de entrega ser estendido.
+        </span>
+      </div>
+    </label>
+  </div>
+)}
                 </div>
 
                 <button 
@@ -2212,11 +2282,11 @@ const isOpenMarket = useMemo(() => {
 
     {/* Logo Principal Prylom (Aumentada) */}
     <div className="relative group-hover:scale-105 transition-transform duration-300">
-      <img 
-        src="/assets/logo-prylom.png" 
-        alt="Prylom Logo" 
-        className="h-16 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(187,162,25,0.4)]"
-      />
+<img 
+  src={logoPrylom} // Sem aspas, usando a variável importada
+  alt="Prylom Logo" 
+  className="h-16 w-auto object-contain..."
+/>
     </div>
   </div>
 

@@ -373,6 +373,48 @@ producaoCarne: producaoArrobaHaAno,
     }
   }, [productId, lang]);
 
+const fetchWeather = async (cidade: string) => {
+  try {
+    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt&format=json`);
+    const geoData = await geoRes.json();
+
+    if (geoData.results && geoData.results.length > 0) {
+      const { latitude, longitude } = geoData.results[0];
+      
+      // Adicionamos o parâmetro &daily=... para pegar a previsão dos próximos dias
+      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`);
+      const weatherData = await weatherRes.json();
+      
+      // Agora salvamos o objeto completo (current + daily)
+      setWeather(weatherData);
+    }
+  } catch (error) {
+    console.error("Erro ao carregar clima:", error);
+  }
+};
+  const [weather, setWeather] = useState<any>(null);
+
+  const getWeatherIcon = (code: number) => {
+  if (code === 0) return '☀️'; // Céu limpo
+  if (code <= 3) return '🌤️';  // Parcialmente nublado
+  if (code <= 48) return '☁️'; // Nevoeiro
+  if (code <= 67) return '🌧️'; // Chuva
+  if (code <= 77) return '❄️'; // Neve
+  if (code <= 82) return '🌦️'; // Pancadas de chuva
+  if (code <= 99) return '⛈️'; // Tempestade
+  return '☁️';
+};
+
+const scrollRef = React.useRef<HTMLDivElement>(null);
+
+const scroll = (direction: 'left' | 'right') => {
+  if (scrollRef.current) {
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    const scrollTo = direction === 'left' ? scrollLeft - 200 : scrollLeft + 200;
+    scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+  }
+};
+
   const fetchFullProductData = async () => {
     setLoading(true);
     try {
@@ -381,8 +423,18 @@ producaoCarne: producaoArrobaHaAno,
       const { data: specData } = await supabase.from(baseData.categoria).select('*, corretor:corretores(creci, nome)').eq('produto_id', productId).maybeSingle();
       const { data: imgData } = await supabase.from('produtos_imagens').select('*').eq('produto_id', productId).order('ordem', { ascending: true });
       const { data: audioData } = await supabase.from('produtos_audios').select('*').eq('produto_id', productId);
+      
       setProduct(baseData);
       setSpec(specData);
+
+      if (baseData.cidade) {
+      fetchWeather(baseData.cidade);
+    }
+
+    if (baseData.categoria === 'fazendas') {
+       fetchRegionalAverages(baseData.cidade, baseData.estado, baseData.categoria);
+    }
+
       if (baseData.categoria === 'fazendas') {
         fetchRegionalAverages(baseData.cidade, baseData.estado, baseData.categoria);
 }
@@ -444,6 +496,7 @@ const fetchRelatedProducts = async (currentProd: any) => {
     console.error("Erro ao buscar relacionados multissetoriais:", e);
   }
 };
+
 
   const analyzePrylomScore = async (p: any, s: any) => {
     setAnalyzingScore(true);
@@ -813,83 +866,81 @@ const fetchRelatedProducts = async (currentProd: any) => {
 <div className="space-y-8 animate-fadeIn pt-4">
     <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-gray-100 shadow-sm space-y-8 print-full">
       
-      {/* HEADER REESTRUTURADO */}
-      <header className="flex flex-col gap-6 border-b border-gray-50 pb-8">
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          {/* LADO ESQUERDO: TÍTULO E BADGE DE PROJEÇÃO */}
-          <div className="flex items-center gap-4">
-            <h3 className="text-2xl md:text-3xl font-black text-[#000080] uppercase tracking-tighter flex items-center gap-3">
-              <span className="text-2xl">💰</span> Economics do Ativo
-            </h3>
-            <span className="hidden md:inline-block bg-prylom-gold/10 text-prylom-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.2em]">
-              Projeção Estimada
-            </span>
-          </div>
+{/* HEADER REESTRUTURADO */}
+<header className="flex flex-col gap-6 border-b border-gray-50 pb-8 relative"> 
+  {/* Adicionei 'relative' no header para que o aviso absoluto se posicione em relação a ele */}
+  
+  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    {/* LADO ESQUERDO: TÍTULO E BADGE DE PROJEÇÃO */}
+    <div className="flex items-center gap-4">
+      <h3 className="text-2xl md:text-3xl font-black text-[#000080] uppercase tracking-tighter flex items-center gap-3">
+        <span className="text-2xl">💰</span> Economics do Ativo
+      </h3>
+      <span className="hidden md:inline-block bg-prylom-gold/10 text-prylom-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.2em]">
+        Projeção Estimada
+      </span>
+    </div>
 
-          {/* LADO DIREITO: SELO E SWITCHER (Ações/Status) */}
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            
-            {/* SELO DINÂMICO */}
-            {spec?.relevancia_anuncio && (
-              <span 
-                className={`text-[9px] font-bold px-4 py-2 rounded-full uppercase tracking-wider border transition-all shrink-0 ${
-                  spec.relevancia_anuncio === 'Prylom Selected'
-                    ? 'bg-[#000033] text-prylom-gold border-prylom-gold shadow-lg shadow-gold/20' 
-                    : spec.relevancia_anuncio === 'Prylom Verified'
-                      ? 'bg-[#000080] text-white border-blue-400/30'
-                      : 'bg-gray-50 text-gray-400 border-gray-200'
-                }`}
-              >
-                {spec.relevancia_anuncio === 'Prylom Selected' && <span className="mr-1.5">✦</span>}
-                {spec.relevancia_anuncio === 'Prylom Verified' && <span className="mr-1.5">✓</span>}
-                {spec.relevancia_anuncio}
-              </span>
-            )}
+    {/* LADO DIREITO: SELO E SWITCHER */}
+    <div className="flex items-center gap-3 w-full md:w-auto">
+      {spec?.relevancia_anuncio && (
+        <span 
+          className={`text-[9px] font-bold px-4 py-2 rounded-full uppercase tracking-wider border transition-all shrink-0 ${
+            spec.relevancia_anuncio === 'Prylom Selected'
+              ? 'bg-[#000033] text-prylom-gold border-prylom-gold shadow-lg shadow-gold/20' 
+              : spec.relevancia_anuncio === 'Prylom Verified'
+                ? 'bg-[#000080] text-white border-blue-400/30'
+                : 'bg-gray-50 text-gray-400 border-gray-200'
+          }`}
+        >
+          {spec.relevancia_anuncio === 'Prylom Selected' && <span className="mr-1.5">✦</span>}
+          {spec.relevancia_anuncio === 'Prylom Verified' && <span className="mr-1.5">✓</span>}
+          {spec.relevancia_anuncio}
+        </span>
+      )}
 
-            {/* SWITCHER DE MODALIDADE (Estilo Pílula) */}
-            <div className="flex bg-gray-100 p-1 rounded-full no-print ml-auto">
-              <button 
-                type="button"
-                onClick={() => setEconomicsMode('agricola')}
-                className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                  economicsMode === 'agricola' 
-                  ? 'bg-white text-[#000080] shadow-sm' 
-                  : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                Agrícola
-              </button>
-              <button 
-                type="button"
-                onClick={() => setEconomicsMode('pecuaria')}
-                className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                  economicsMode === 'pecuaria' 
-                  ? 'bg-white text-[#000080] shadow-sm' 
-                  : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                Pecuária
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* VISÍVEL APENAS NO MOBILE: BADGE DE PROJEÇÃO */}
-        <div className="md:hidden">
-            <span className="bg-prylom-gold/10 text-prylom-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
-              Projeção Estimada
-            </span>
-        </div>
-      </header>
-      {/* AVISO METODOLÓGICO PARA OPEN MARKETING */}
-{spec?.relevancia_anuncio === 'Open Market' && (
-  <div className="mt-6 p-4 bg-gray-50 border border-dashed border-gray-200 rounded-2xl">
-    <p className="text-[9px] font-bold text-gray-400 uppercase leading-relaxed tracking-wider text-justify italic">
-      <span className="text-[#000080] not-italic">Nota de Compliance:</span> Para ativos Open Market, este filtro baseia-se exclusivamente em dados declaratórios do anunciante, sem validação da plataforma.
-    </p>
+      <div className="flex bg-gray-100 p-1 rounded-full no-print ml-auto">
+        <button 
+          type="button"
+          onClick={() => setEconomicsMode('agricola')}
+          className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+            economicsMode === 'agricola' ? 'bg-white text-[#000080] shadow-sm' : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          Agrícola
+        </button>
+        <button 
+          type="button"
+          onClick={() => setEconomicsMode('pecuaria')}
+          className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+            economicsMode === 'pecuaria' ? 'bg-white text-[#000080] shadow-sm' : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          Pecuária
+        </button>
+      </div>
+    </div>
   </div>
-)}
+
+  {/* VISÍVEL APENAS NO MOBILE */}
+  <div className="md:hidden">
+      <span className="bg-prylom-gold/10 text-prylom-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+        Projeção Estimada
+      </span>
+  </div>
+
+  {/* AVISO OPEN MARKET: POSIÇÃO ABSOLUTA */}
+  {spec?.relevancia_anuncio === 'Open Market' && (
+    <div className="absolute -bottom-2 left-0 w-full translate-y-full px-0 animate-fadeIn">
+      <div className="p-3 bg-gray-50 border border-dashed border-gray-200 rounded-2xl">
+        <p className="text-[8px] font-bold text-gray-400 uppercase leading-relaxed tracking-wider italic">
+          <span className="text-[#000080] not-italic">Nota de Compliance:</span> Para ativos Open Market, este filtro baseia-se exclusivamente em dados declaratórios do anunciante.
+        </p>
+      </div>
+    </div>
+  )}
+
+</header>
 
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -1290,84 +1341,91 @@ const fetchRelatedProducts = async (currentProd: any) => {
     </div>
   )}
 
-  {/* 2. INSERÇÃO DO COMPARATIVO DE VALUATION E DESCRIÇÃO */}
 {isFarm && !isLease && (
-  /* Reduzi mt-8 para mt-4 e space-y-8 para space-y-4 */
-  <div className="mt-4 space-y-4 animate-fadeIn print:space-y-2">
-    {/* Card: Reduzi p-8 para p-6 e arredondamento para 2rem */}
-    <div className="bg-[#000080]/5 p-6 rounded-[2rem] border border-[#000080]/10 shadow-sm relative overflow-hidden">
-      
-      {/* Header: Reduzi mb-8 para mb-5 */}
-      <div className="mb-5 flex flex-col sm:flex-row justify-between items-start gap-3">
-        <div>
-          <h4 className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.2em] mb-0.5">
-            Inteligência de Mercado Prylom
-          </h4>
-          {/* Reduzi text-lg para text-base */}
-          <p className="text-base font-black text-[#000080] uppercase tracking-tighter leading-tight">
-            Comparativo de Mercado
-          </p>
-        </div>
-        <div className="bg-white/60 backdrop-blur-sm px-2.5 py-1.5 rounded-lg border border-[#000080]/10 shrink-0">
-           <p className="text-[7px] font-black text-gray-400 uppercase leading-none mb-1">Análise em</p>
-           <p className="text-[8px] font-bold text-[#000080]">{new Date().toLocaleDateString('pt-BR')}</p>
-        </div>
-      </div>
+  <div className="mt-4 animate-fadeIn print:mt-2">
+    {/* Cálculo prévio do valor por HA do ativo atual para usar como fallback */}
+    {(() => {
+      const currentAssetValueHa = (product.valor && spec?.area_total_ha) 
+        ? (product.valor / spec.area_total_ha) 
+        : null;
 
-      {/* Lista: Reduzi gap-6 para gap-4 */}
-      <div className="flex flex-col gap-4 w-full">
-        
-        {/* Linha 1: Cidade (Reduzi pb-4 para pb-3 e text-xl para text-lg) */}
-        <div className="flex flex-col gap-1 border-b border-gray-200/50 pb-3">
-          <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest">
-            Estimativa em {product.cidade}
-          </p>
-          <div className="flex items-baseline gap-1">
-            <p className="text-lg font-black text-prylom-dark tracking-tighter">
-              {cityAverageHa ? formatV(cityAverageHa) : '---'}
-            </p>
-            <span className="text-[9px] font-bold opacity-40 whitespace-nowrap">/ ha</span>
+      return (
+        <div className="bg-[#000080]/5 p-6 rounded-[2rem] border border-[#000080]/10 shadow-sm relative overflow-hidden">
+          
+          {/* Header */}
+          <div className="mb-5 flex justify-between items-start gap-3">
+            <div>
+              <h4 className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.2em] mb-0.5">
+                Inteligência de Mercado Prylom
+              </h4>
+              <p className="text-base font-black text-[#000080] uppercase tracking-tighter leading-tight">
+                Comparativo de Mercado
+              </p>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm px-2.5 py-1.5 rounded-lg border border-[#000080]/10 shrink-0">
+               <p className="text-[7px] font-black text-gray-400 uppercase leading-none mb-1">Análise em</p>
+               <p className="text-[8px] font-bold text-[#000080]">{new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+          </div>
+
+          {/* Lista de Comparação */}
+          <div className="flex flex-col gap-4 w-full">
+            
+            {/* Linha 1: Cidade (Se não houver média, usa o valor do ativo) */}
+            <div className="flex flex-col gap-1 border-b border-gray-200/50 pb-3">
+              <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest truncate">
+                Estimativa em {product.cidade || 'Localidade'}
+              </p>
+              <div className="flex items-baseline gap-1 h-6"> 
+                <p className="text-lg font-black text-prylom-dark tracking-tighter leading-none">
+                  {cityAverageHa 
+                    ? formatV(cityAverageHa) 
+                    : (currentAssetValueHa ? formatV(currentAssetValueHa) : '---')}
+                </p>
+                <span className="text-[9px] font-bold opacity-40 whitespace-nowrap">/ ha</span>
+              </div>
+            </div>
+
+            {/* Linha 2: Estado (Se não houver média, usa o valor do ativo) */}
+            <div className="flex flex-col gap-1 border-b border-gray-200/50 pb-3">
+              <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest truncate">
+                Estimativa em {product.estado || 'Estado'}
+              </p>
+              <div className="flex items-baseline gap-1 h-6">
+                <p className="text-lg font-black text-prylom-dark tracking-tighter leading-none">
+                  {stateAverageHa 
+                    ? formatV(stateAverageHa) 
+                    : (currentAssetValueHa ? formatV(currentAssetValueHa) : '---')}
+                </p>
+                <span className="text-[9px] font-bold opacity-40 whitespace-nowrap">/ ha</span>
+              </div>
+            </div>
+
+            {/* Linha 3: O Ativo (Valor Real Pedido) */}
+            <div className="flex flex-col gap-1 pt-1">
+              <p className="text-[8px] font-black text-prylom-gold uppercase tracking-widest">
+                Valor Pedido por Hectares
+              </p>
+              <div className="flex items-baseline gap-1 h-8">
+                <p className="text-2xl font-black text-[#000080] tracking-tighter leading-none">
+                  {currentAssetValueHa ? formatV(currentAssetValueHa) : '---'}
+                </p>
+                <span className="text-xs font-bold opacity-60 text-[#000080] whitespace-nowrap">/ ha</span>
+              </div>
+            </div>
+
+            {/* Rodapé */}
+            <div className="mt-2 pt-3 border-t border-gray-100/50">
+              <p className="text-[7px] font-bold text-gray-400 uppercase leading-tight tracking-wider opacity-70">
+                * Médias baseadas em amostras de anúncios ativos, podendo divergir de transações reais registradas em cartório.
+              </p>
+            </div>
           </div>
         </div>
-
-        {/* Linha 2: Estado (Reduzi pb-4 para pb-3) */}
-        <div className="flex flex-col gap-1 border-b border-gray-200/50 pb-3">
-          <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest">
-            Estimativa em {product.estado}
-          </p>
-          <div className="flex items-baseline gap-1">
-            <p className="text-lg font-black text-prylom-dark tracking-tighter">
-              {stateAverageHa ? formatV(stateAverageHa) : '---'}
-            </p>
-            <span className="text-[9px] font-bold opacity-40 whitespace-nowrap">/ ha</span>
-          </div>
-        </div>
-
-        {/* Linha 3: O Ativo (Reduzi text-3xl para text-2xl) */}
-        <div className="flex flex-col gap-1 pt-1">
-          <p className="text-[8px] font-black text-prylom-gold uppercase tracking-widest">
-            Valor Pedido por Hectares
-          </p>
-          <div className="flex items-baseline gap-1">
-            <p className="text-2xl font-black text-[#000080] tracking-tighter leading-none">
-              {product.valor && spec?.area_total_ha ? formatV(product.valor / spec.area_total_ha) : '---'}
-            </p>
-            <span className="text-xs font-bold opacity-60 text-[#000080] whitespace-nowrap">/ ha</span>
-          </div>
-        </div>
-
-        {/* Rodapé: Reduzi mt-4 para mt-2 */}
-        <div className="mt-2 pt-3 border-t border-gray-100/50">
-          <p className="text-[7px] font-bold text-gray-400 uppercase leading-tight tracking-wider opacity-70">
-            * Médias baseadas em amostras de anúncios ativos, podendo divergir de transações reais registradas em cartório.
-          </p>
-        </div>
-      </div>
-    </div>
+      );
+    })()}
   </div>
 )}
-{/* BLOCO: ANÁLISE DE POTENCIAL DE VENDA */}
-
 
 {isFarm && (
 <div className="px-0 no-print"> 
@@ -1439,6 +1497,117 @@ const fetchRelatedProducts = async (currentProd: any) => {
     </button>
   </div>
 </div>
+
+{isLease && weather && (
+  <div className="w-full pt-20"> {/* DIV DE CONTROLE DE ESPAÇAMENTO EXTERNO */}
+    <section className="p-6 bg-white border border-gray-100 shadow-sm rounded-xl animate-fadeIn">
+      {/* CABEÇALHO */}
+      <div className="flex items-center justify-between border-b border-gray-50 pb-4 mb-6">
+        <div className="border-l-4 border-[#bba219] pl-4">
+          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#2c5363]">
+            Monitoramento Agrometeorológico
+          </h3>
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+            Condições em {product?.cidade} — {product?.estado}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+          </span>
+          <span className="text-[8px] font-black text-gray-400 uppercase italic">Live Data</span>
+        </div>
+      </div>
+
+      {/* DADOS ATUAIS ALINHADOS */}
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  {/* TEMPERATURA - Ajustado para alinhar pela base (items-end) */}
+  <div className="flex flex-col items-start">
+    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Temperatura</p>
+    <div className="flex items-end gap-1.5 h-7"> {/* h-7 define uma altura fixa para garantir o alinhamento */}
+      <span className="text-xl leading-none mb-[1px]">{getWeatherIcon(weather.current?.weather_code)}</span>
+      <p className="text-lg font-black text-[#2c5363] leading-none">
+        {weather.current?.temperature_2m}<span className="text-[10px] ml-0.5">°C</span>
+      </p>
+    </div>
+  </div>
+
+  {/* UMIDADE - Alinhado sem margem extra */}
+  <div className="flex flex-col items-start ml-4">
+    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Umidade</p>
+    <div className="flex items-end h-7">
+      <p className="text-lg font-black text-[#2c5363] leading-none">
+        {weather.current?.relative_humidity_2m}<span className="text-[10px] ml-0.5">%</span>
+      </p>
+    </div>
+  </div>
+
+  {/* VENTO - Alinhado sem margem extra */}
+  <div className="flex flex-col items-start">
+    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Vento (10m)</p>
+    <div className="flex items-end h-7">
+      <p className="text-lg font-black text-[#2c5363] leading-none">
+        {weather.current?.wind_speed_10m}<span className="text-[9px] ml-1 font-bold opacity-60 uppercase">km/h</span>
+      </p>
+    </div>
+  </div>
+
+  {/* PRECIPITAÇÃO - Alinhado sem margem extra */}
+  <div className="flex flex-col items-start">
+    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Precipitação</p>
+    <div className="flex items-end h-7">
+      <p className="text-lg font-black text-[#bba219] leading-none">
+        {weather.current?.precipitation}<span className="text-[9px] ml-1 font-bold opacity-60 uppercase">mm</span>
+      </p>
+    </div>
+  </div>
+</div>
+
+      {/* PREVISÃO SEMANAL COM SETAS DE NAVEGAÇÃO */}
+      <div className="border-t border-gray-50 pt-6 relative group">
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-[9px] font-black text-[#2c5363] uppercase tracking-[0.1em]">
+            Tendência Semanal
+          </p>
+          <div className="flex gap-2">
+            <button onClick={() => scroll('left')} className="p-1 rounded-full border border-gray-200 hover:bg-gray-50 text-[#2c5363] transition-all">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button onClick={() => scroll('right')} className="p-1 rounded-full border border-gray-200 hover:bg-gray-50 text-[#2c5363] transition-all">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
+        
+        <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-4 no-scrollbar scroll-smooth snap-x">
+          {weather.daily?.time.slice(1, 8).map((date, index) => (
+            <div key={date} className="min-w-[130px] snap-start bg-gray-50/50 p-4 rounded-lg border border-gray-100 flex flex-col items-start hover:border-[#bba219] transition-all">
+              <p className="text-[8px] font-black text-[#bba219] uppercase mb-2">
+                {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
+              </p>
+              <span className="text-2xl mb-2">{getWeatherIcon(weather.daily.weather_code?.[index + 1])}</span>
+              <div className="flex flex-col text-left gap-1">
+                <span className="text-[13px] font-black text-[#2c5363]">
+                  {Math.round(weather.daily.temperature_2m_max[index + 1])}° / {Math.round(weather.daily.temperature_2m_min[index + 1])}°
+                </span>
+                <span className="text-[8px] font-bold text-blue-500 uppercase flex items-center gap-1">
+                  <span className="text-[10px]">☔</span> {weather.daily.precipitation_probability_max[index + 1]}% Chuva
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 pt-4 text-left">
+        <p className="text-[8px] text-gray-400 italic font-medium leading-tight uppercase">
+          * Processado via Open-Meteo. Dados estritamente informativos para gestão de ativos Prylom.
+        </p>
+      </div>
+    </section>
+  </div>
+)}
 
     {/* OVERLAY FULLSCREEN VIA PORTAL (Para cobrir a tela inteira de verdade) */}
     {showSelectionModal && createPortal(

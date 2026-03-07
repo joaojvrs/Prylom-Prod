@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
+import logoPrylom from "../assets/logo-prylom.png";
 
 interface FormProps {
   type: 'open' | 'offmarket' | 'selected';
@@ -434,21 +435,21 @@ const formatHectares = (value: string) => {
 
 
 const BackButton = ({ toStep }: { toStep: number }) => (
-    <button
-      onClick={() => setStep(toStep)}
-      className={`
-        flex items-center gap-3 px-8 py-4 rounded-xl font-black uppercase text-[11px] tracking-widest transition-all duration-300 active:scale-95 border-2
-        ${isSelected
-          ? 'bg-black border-prylom-gold/40 text-prylom-gold hover:bg-prylom-gold hover:text-black shadow-[0_0_15px_rgba(212,175,55,0.1)]'
-          : 'bg-white border-gray-200 text-gray-500 hover:border-[#2C5266] hover:text-[#2C5266] hover:bg-gray-50 shadow-sm'}
-      `}
-    >
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
-      </svg>
-      Voltar
-    </button>
-  );
+  <button
+    onClick={() => setStep(toStep)}
+    className={`
+      flex items-center gap-3 px-8 py-4 rounded-xl font-black uppercase text-[11px] tracking-widest transition-all duration-300 active:scale-95 border-2
+      ${isSelected
+        ? 'bg-black border-prylom-gold/40 text-prylom-gold hover:bg-prylom-gold hover:text-black shadow-[0_0_15px_rgba(212,175,55,0.1)]'
+        : 'bg-[#2C5266] border-[#2C5266] text-white hover:bg-white hover:text-[#2C5266] shadow-[0_4px_14px_0_rgba(44,82,102,0.39)]'}
+    `}
+  >
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+    </svg>
+    Voltar
+  </button>
+);
 
   // Validação da Etapa 2 (Proprietário)
 const validateStep2 = () => {
@@ -488,7 +489,7 @@ const validateStep4 = () => {
   const footerStep2 = (
     <footer className={`${isSelected ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} w-full border-t p-8 flex justify-between items-center shrink-0 shadow-2xl`}>
       <BackButton toStep={1} />
-      <button onClick={() => validateStep2() && handleSaveStep2()} disabled={loading} className="bg-prylom-gold text-black px-20 py-4 rounded-xl font-black uppercase text-[12px] tracking-[0.2em] shadow-xl active:scale-95 disabled:opacity-50">
+      <button onClick={() => validateStep3() && handleFinalizeStep3()} disabled={loading} className="bg-prylom-gold text-black px-20 py-4 rounded-xl font-black uppercase text-[12px] tracking-[0.2em] shadow-xl active:scale-95 disabled:opacity-50">
         {loading ? 'Salvando...' : 'Próxima etapa'}
       </button>
     </footer>
@@ -585,8 +586,8 @@ const renderStep2 = () => (
 <h1 className={`${theme.textHeader} text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none mb-4 flex items-center justify-center gap-3 md:gap-5`}>
   {isSelected && (
     <img 
-      src="/assets/logo-prylom.png" 
-      alt="Logo Prylom" 
+src={logoPrylom} // Sem aspas, usando a variável importada
+  alt="Prylom Logo"
       className="h-[1.5em] md:h-[1.8em] w-auto object-contain flex-shrink-0" 
     />
   )}
@@ -777,10 +778,16 @@ PELO RESGUARDO E PAGAMENTO INTEGRAL DOS HONORÁRIOS DEVIDOS À PRYLOM.
 // ETAPA 3: DADOS TÉCNICOS (ADAPTÁVEL PREMIUM)
   const renderStep3 = () => (
 <form 
-    onSubmit={(e) => {
-      e.preventDefault(); // Impede o recarregamento da página
-      if (validateStep2()) handleSaveStep2();
-    }}
+onSubmit={(e) => {
+  e.preventDefault(); 
+  // Se a validação passar, salva os dados e pula para a etapa 3
+  if (validateStep2()) {
+    handleSaveStep2(); // Salva no banco/estado
+    setStep(3);        // COMANDO PARA AVANÇAR (Certifique-se que o nome da função/estado é este)
+  } else {
+    alert("Por favor, preencha todos os campos obrigatórios.");
+  }
+}}
     className={`flex flex-col ${theme.bgPage} animate-fadeIn`}
   >
     <header className={`${theme.bgHeader} py-10 px-10 shrink-0 md:rounded-b-[4rem] shadow-2xl z-10 relative`}>
@@ -791,8 +798,8 @@ PELO RESGUARDO E PAGAMENTO INTEGRAL DOS HONORÁRIOS DEVIDOS À PRYLOM.
 <h1 className={`${theme.textHeader} text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none mb-4 flex items-center justify-center gap-3 md:gap-5`}>
   {isSelected && (
     <img 
-      src="/assets/logo-prylom.png" 
-      alt="Logo Prylom" 
+src={logoPrylom} // Sem aspas, usando a variável importada
+  alt="Prylom Logo"
       className="h-[1.5em] md:h-[1.8em] w-auto object-contain flex-shrink-0" 
     />
   )}
@@ -1033,8 +1040,8 @@ const renderStep4 = () => (
 <h1 className={`${theme.textHeader} text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none mb-4 flex items-center justify-center gap-3 md:gap-5`}>
   {isSelected && (
     <img 
-      src="/assets/logo-prylom.png" 
-      alt="Logo Prylom" 
+src={logoPrylom} // Sem aspas, usando a variável importada
+  alt="Prylom Logo"
       className="h-[1.5em] md:h-[1.8em] w-auto object-contain flex-shrink-0" 
     />
   )}
@@ -1167,7 +1174,8 @@ const renderStepSuccess = () => (
       {/* TEXTO PERSONALIZADO SELECTED */}
    
    {isSelected && (
-        <img src="/assets/logo-prylom.png" alt="Logo" className="h-20 w-auto mb-6 drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]" />
+        <img src={logoPrylom} // Sem aspas, usando a variável importada
+  alt="Prylom Logo" className="h-20 w-auto mb-6 drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]" />
       )}
 
       <div className="bg-prylom-gold text-black px-8 py-2 rounded-full inline-block font-black text-xl md:text-2xl uppercase mb-4 shadow-lg">
@@ -1327,8 +1335,8 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
     
 <h1 className="text-prylom-gold text-2xl md:text-5xl font-black uppercase tracking-tighter leading-none flex items-center gap-3 md:gap-5">
   <img 
-    src="/assets/logo-prylom.png" 
-    alt="Logo Prylom" 
+src={logoPrylom} // Sem aspas, usando a variável importada
+  alt="Prylom Logo"
     className="h-[1.5em] md:h-[1.8em] w-auto object-contain flex-shrink-0" 
   />
   <span>Ecosystem Prylom Selected</span>
@@ -1354,11 +1362,13 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
           <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-3">
             <span className="text-prylom-gold">1.</span> Inteligência e Saúde da Terra
           </h3>
-          <p className="text-sm font-bold mb-4">Para garantir a transparência sobre a saúde do ativo, realizamos auditorias técnicas completas acompanhadas por nossos especialistas:</p>
+          <p className="text-sm font-bold mb-4">Para garantir a transparência sobre a saúde do ativo, coordenamos diligências técnicas (Due
+Diligence Agronômica) executadas por laboratórios e especialistas homologados:</p>
           <ul className="space-y-2 text-xs font-bold uppercase list-disc pl-5 opacity-80">
             <li>Se for Agricultura: Análise Foliar (Tecido Vegetal), Bioanálise de Solo (Saúde do Solo), Análise Granulométrica (Física), Análise de Nematoides, Análise de Água para Irrigação e Diagnóstico de Estrutura do Solo (DRESS).</li>
             <li>Se for Pecuária: Análise de Solo (Base da Produção), Análise de Forragem (Qualidade do Pasto) e Indicadores Zootécnicos (Produção Animal).</li>
-            <li className="text-prylom-gold font-black italic">Custo Zero: Todo este laudo técnico é pago pela Prylom Selected assim que o contrato for iniciado.</li>
+            <li className="text-prylom-gold font-black italic">Custo Zero : Ao assinar o mandato de exclusividade, a Prylom assume 100% dos custos e a
+coordenação deste pacote de inteligência agronômica.</li>
           </ul>
         </div>
 
@@ -1370,7 +1380,7 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
           <ul className="space-y-3 text-xs font-bold uppercase opacity-80">
             <li>• <span className="text-[#2C5266]">Vídeo Narrado:</span> Produção com Drone narrada por nosso agrônomo ou zootecnista, detalhando cada ponto técnico da propriedade.</li>
             <li>• <span className="text-[#2C5266]">Visita Acompanhada:</span> Todas as visitas são guiadas por nossos especialistas (agrônomo se for agricultura ou zootecnista na pecuária) para apresentar os dados produtivos reais aos interessados.</li>
-            <li>• <span className="text-[#2C5266]">Dossiê Jurídico e Financeiro:</span> ORGANIZAÇÃO DOCUMENTAL ESTRATÉGICA PARA MONTAR A APRESENTAÇÃO TÉCNICA (certidões ambientais e dossiê de transferência), além de análise financeira, estudo de viabilidade e avaliação mercadológica.</li>
+            <li>• <span className="text-[#2C5266]">ORGANIZAÇÃO DOCUMENTAL E FINANCEIRA:</span> ORGANIZAÇÃO DOCUMENTAL ESTRATÉGICA PARA MONTAR A APRESENTAÇÃO TÉCNICA (certidões ambientais e dossiê de transferência), além de análise financeira, estudo de viabilidade e avaliação mercadológica.</li>
           </ul>
         </div>
 
@@ -1382,13 +1392,16 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
             </div>
             <div className="bg-gray-50 p-8 rounded-[2.5rem] border border-gray-100">
                 <h3 className="text-lg font-black uppercase mb-4">4. Conexões de Negócios</h3>
-                <p className="text-[10px] uppercase font-bold leading-relaxed opacity-80">Apresentação direta para Grupo de Compradores Selected, integração ao Ecossistema Prylom (Fintech/Grãos) e envio automático para Fundos de Investimento e Family Offices.</p>
+                <p className="text-[10px] uppercase font-bold leading-relaxed opacity-80">Apresentação sob medida (Tailor-Made) para o nosso grupo de compradores
+qualificados, com integração ao ecossistema Prylom e apresentação ativa e sigilosa para Fundos de
+Investimento e Family Offices mediante assinatura prévia de NDA
+</p>
             </div>
         </div>
 
         <div className="bg-[#2C5266] p-8 rounded-[2.5rem] text-white shadow-xl">
           <h3 className="text-prylom-gold text-xl font-black uppercase mb-4 flex items-center gap-3">5. Transparência e Segurança</h3>
-          <p className="text-xs font-bold uppercase mb-2">• Selo de Qualidade Prylom: Certificação de ativo validado (Due Diligence Preliminar).</p>
+          <p className="text-xs font-bold uppercase mb-2">• Selo de Qualidade Prylom: QUALIFICAÇÃO TÉCNICA E COMERCIAL (Due Diligence Preliminar).</p>
           <p className="text-xs font-bold uppercase">• Relatório Mensal de Prospecção: Você recebe o "Termômetro do Mercado" com feedbacks reais de fundos.</p>
         </div>
 
@@ -1398,8 +1411,13 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-[10px] font-bold uppercase opacity-70">
             <p>• Documentação Obrigatória: Fornecimento de Matrículas, CAR, GEO, CCIR e Arquivos Digitais .</p>
             <p>• Regularização: Propriedades com pendências só serão aprovadas se houver processo jurídico em curso. Não cobrimos custos de regularização.</p>
-            <p>• Precificação Comercial e Prazos: Preço de mercado = 6 meses mínimo. Fora de preço = 12 meses mínimo.</p>
-            <p>• Exclusividade: O contrato inicia após a retirada de todas as divulgações paralelas de terceiros.</p>
+            <p>• PRECIFICAÇÃO COMERCIAL: ATIVOS NO VALOR DE MERCADO = MANDATO DE 6
+MESES. ATIVOS COM VALUATION PREMIUM (ÁGIO ESPECULATIVO) = MANDATO DE 12
+MESES</p>
+            <p>• Exclusividade: O MANDATO ENTRA EM VIGOR NO ATO DA ASSINATURA. O PROPRIETÁRIO TEM
+O PRAZO DE 72 HORAS PARA EXIGIR A RETIRADA DE QUALQUER ANÚNCIO DE TERCEIROS
+E ENVIAR A COMPROVAÇÃO FORMAL DESSA SOLICITAÇÃO PARA A PRYLOM, SOB PENA DE
+QUEBRA CONTRATUAL.</p>
           </div>
         </div>
 
@@ -1440,7 +1458,7 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
             Modo Selected Off Market
           </p>
           <p className={`text-[11px] leading-relaxed font-medium ${selectedModality === 'off' ? 'text-gray-400' : 'text-gray-400'}`}>
-            Foco em **discrição absoluta**. Seu ativo será apresentado exclusivamente ao nosso Círculo Restrito de Compradores e Fundos via inteligência de matching e tráfego anônimo.
+            Foco em **discrição absoluta**. Seu ativo será apresentado exclusivamente ao nosso Círculo Restrito de Compradores e Fundos via inteligência de matching, originação direta e abordagens ativas sigilosas.
           </p>
         </div>
       </button>
@@ -1470,7 +1488,9 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
             Modo Selected Open Market
           </p>
           <p className={`text-[11px] leading-relaxed font-medium ${selectedModality === 'open' ? 'text-white/70' : 'text-gray-400'}`}>
-            Foco em **alcance máximo**. Exposição em destaque em todos os portais parceiros, redes sociais estratégicas (LinkedIn/YouTube) e campanhas agressivas de tráfego pago.
+            Foco em **alcance máximo**. Exposição em destaque em portais premium do agronegócio, redes sociais corporativas
+(LinkedIn/YouTube)
+ e campanhas de tráfego pago de alta precisão (direcionadas a investidores qualificados).
           </p>
         </div>
       </button>
@@ -1478,30 +1498,37 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
   </section>
 
 
-          {/* CHECKBOXES DE TERMOS */}
-          <section className="space-y-4 bg-gray-50 p-8 rounded-[3rem]">
-            <h4 className="text-xs font-black uppercase text-center mb-6">2. Termos e Condições do Protocolo Selected</h4>
-            <div className="space-y-4">
-              {[
-                { key: 'exclusividade', text: 'Exclusividade Digital: Entendo que a inteligência Prylom monitorará a web e o contrato inicia na assinatura...' },
-                { key: 'valuation', text: 'Valuation e Prazo: Aceito o prazo de contrato (6 ou 12 meses) baseado na avaliação mercadológica...' },
-                { key: 'custos', text: 'Custos de Laudo: Compreendo que a Prylom custeia os laudos... reembolsável apenas em caso de desistência...' },
-                { key: 'semCusto', text: 'Exclusividade Sem Custo: Compreendo que a modalidade Selected não possui custos de adesão ou taxas de publicidade...' },
-                { key: 'laudosGratis', text: 'Laudos Técnicos Gratuitos: Confirmo que estou ciente de que os laudos são custeados integralmente pela Prylom...' },
-                { key: 'regularizacao', text: 'Regularização e Documentos: Entendo que a Prylom não cobre custos de taxas governamentais ou cartórios...' }
-              ].map((term) => (
-                <label key={term.key} className="flex items-start gap-3 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedTerms[term.key as keyof typeof selectedTerms]}
-                    onChange={(e) => setSelectedTerms({...selectedTerms, [term.key]: e.target.checked})}
-                    className="w-5 h-5 mt-1 accent-prylom-gold shrink-0" 
-                  />
-                  <span className="text-[9px] font-bold uppercase leading-snug group-hover:text-black transition-colors">{term.text}</span>
-                </label>
-              ))}
-            </div>
-          </section>
+<section className="space-y-4 bg-gray-50 p-8 rounded-[3rem]">
+  <h4 className="text-xs font-black uppercase text-center mb-6">2. Termos e Condições do Protocolo Selected</h4>
+  <div className="space-y-4">
+    {[
+      { 
+        key: 'exclusividade', 
+        text: 'EXCLUSIVIDADE & COMPLIANCE: Entendo que o mandato entra em vigor na assinatura e que a Inteligência Prylom monitorará o mercado. Aceito o prazo de exclusividade (6 ou 12 meses) condicionado à adequação do Valuation (preço) ao mercado.' 
+      },
+      { 
+        key: 'investimento', 
+        text: 'INVESTIMENTO PRYLOM (DUE DILIGENCE): Compreendo que a Prylom financiará integralmente o pacote de inteligência agronômica para agregar valor ao meu ativo. Este investimento será ressarcido pelo proprietário exclusivamente em casos de desistência da venda DURANTE A VIGÊNCIA DO CONTRATO, quebra de exclusividade ou omissão dolosa de passivos da área.' 
+      },
+      { 
+        key: 'responsabilidade', 
+        text: 'RESPONSABILIDADE DOCUMENTAL: Confirmo que a regularização fundiária (taxas governamentais, cartórios e passivos) é de minha inteira responsabilidade, não sendo coberta pela estrutura financeira da Prylom.' 
+      }
+    ].map((term) => (
+      <label key={term.key} className="flex items-start gap-3 cursor-pointer group">
+        <input 
+          type="checkbox" 
+          checked={selectedTerms[term.key as keyof typeof selectedTerms]}
+          onChange={(e) => setSelectedTerms({...selectedTerms, [term.key]: e.target.checked})}
+          className="w-5 h-5 mt-1 accent-prylom-gold shrink-0" 
+        />
+        <span className="text-[9px] font-bold uppercase leading-snug group-hover:text-black transition-colors">
+          {term.text}
+        </span>
+      </label>
+    ))}
+  </div>
+</section>
 
           {/* CONCORDÂNCIA FINAL */}
           <div className="pt-8 flex flex-col items-center gap-6">
@@ -1522,7 +1549,13 @@ prepara seu ativo para uma negociação célere quando o comprador ideal surgir.
     <footer className="w-full bg-white border-t border-gray-200 p-8 flex justify-end shrink-0 shadow-2xl">
       <button 
         onClick={() => setStep(2)}
-        disabled={!selectedTerms.concordoGeral || !selectedModality}
+        disabled={
+      !selectedTerms.concordoGeral || 
+      !selectedTerms.exclusividade || 
+      !selectedTerms.investimento || 
+      !selectedTerms.responsabilidade || 
+      !selectedModality
+    }
         className="bg-prylom-gold text-[#2C5266] px-20 py-5 rounded-xl font-black uppercase text-[12px] tracking-[0.2em] shadow-xl hover:bg-[#d4b386] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       >
         Iniciar Cadastro Selected

@@ -557,6 +557,116 @@ ${items.map(p => {
   const availableStates = useMemo(() => Array.from(new Set(products.map(p => p.estado))).sort(), [products]);
   const availableCities = useMemo(() => Array.from(new Set(products.filter(p => !filterState || p.estado === filterState).map(p => p.cidade))).sort(), [products, filterState]);
 
+const OffMarketView = ({ t }) => (
+  <div className="w-full py-16 px-6 bg-[#F4F5F7] min-h-screen flex items-center justify-center animate-fadeIn font-sans">
+    <div className="max-w-5xl mx-auto bg-white rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.06)] border border-white relative overflow-hidden">
+      
+      {/* Glow Decorativo de Fundo */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-prylom-gold/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+      {/* 1. Header Section */}
+      <div className="p-12 md:p-20 text-center space-y-6">
+        <div className="inline-flex items-center gap-2 bg-prylom-gold/10 border border-prylom-gold/20 px-4 py-1.5 rounded-full mb-4">
+          <span className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.3em]">Acesso Exclusivo</span>
+        </div>
+        
+        <h1 className="text-4xl md:text-6xl font-[950] text-prylom-dark leading-[0.9] tracking-tighter uppercase">
+          O Mercado <span className="text-prylom-gold italic">Invisível</span> de <br/>
+          Fazendas de Alto Padrão
+        </h1>
+        
+        <p className="text-gray-500 text-lg md:text-xl font-medium max-w-3xl mx-auto leading-relaxed">
+          Discrição absoluta para Investidores que buscam os melhores ativos no agronegócio <span className="text-prylom-dark font-bold underline decoration-prylom-gold/30">antes que cheguem ao público.</span>
+        </p>
+      </div>
+
+      {/* 2. Seção Comparativa (Problema vs Solução) */}
+      <div className="grid md:grid-cols-2 gap-px bg-gray-100 border-y border-gray-100">
+        <div className="bg-white p-12 md:p-16 space-y-6">
+          <h3 className="text-prylom-dark/40 font-black uppercase text-sm tracking-widest">O Mercado Tradicional</h3>
+          <p className="text-gray-400 font-medium leading-relaxed">
+            O mercado tradicional pulveriza o valor. O grande capital exige silêncio, curadoria e alinhamento de interesses.
+          </p>
+        </div>
+        <div className="bg-prylom-dark p-12 md:p-16 space-y-6 relative group overflow-hidden">
+          <div className="relative z-10">
+            <h3 className="text-prylom-gold font-black uppercase text-sm tracking-widest">A Solução Off-Market</h3>
+            <ul className="mt-6 space-y-4">
+              {['Assessoria Sigilosa de M&A', 'Sem Especulação Pública', 'Ativos de Alta Produtividade'].map((item, i) => (
+                <li key={i} className="flex items-center gap-3 text-white font-bold text-sm uppercase tracking-wide">
+                  <div className="w-1.5 h-1.5 bg-prylom-gold rounded-full"></div>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {/* Sutil brilho no hover */}
+          <div className="absolute inset-0 bg-prylom-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        </div>
+      </div>
+
+      {/* 3. Seção: Como Funciona (Processo 3 Etapas) */}
+      <div className="p-12 md:p-20 bg-gray-50/50">
+        <h2 className="text-center text-prylom-dark font-black uppercase tracking-[0.2em] text-sm mb-16">O Processo de Homologação</h2>
+        
+        <div className="grid md:grid-cols-3 gap-12 relative">
+          {/* Linha Conectora Desktop */}
+          <div className="hidden md:block absolute top-10 left-1/4 right-1/4 h-[1px] bg-gray-200"></div>
+
+          {/* Etapa 1 */}
+          <div className="relative flex flex-col items-center text-center space-y-4 group">
+            <div className="w-20 h-20 bg-white border border-gray-200 rounded-3xl flex items-center justify-center shadow-sm group-hover:border-prylom-gold transition-colors duration-300">
+              <span className="text-3xl">👤</span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-prylom-gold font-black text-[10px] uppercase">Passo 01</span>
+              <h4 className="text-prylom-dark font-black text-xs uppercase tracking-wider">Qualificação Restrita</h4>
+            </div>
+          </div>
+
+          {/* Etapa 2 */}
+          <div className="relative flex flex-col items-center text-center space-y-4 group">
+            <div className="w-20 h-20 bg-white border border-gray-200 rounded-3xl flex items-center justify-center shadow-sm group-hover:border-prylom-gold transition-colors duration-300">
+              <span className="text-3xl">📄</span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-prylom-gold font-black text-[10px] uppercase">Passo 02</span>
+              <h4 className="text-prylom-dark font-black text-xs uppercase tracking-wider">Assinatura de NDA</h4>
+            </div>
+          </div>
+
+          {/* Etapa 3 */}
+          <div className="relative flex flex-col items-center text-center space-y-4 group">
+            <div className="w-20 h-20 bg-white border border-gray-200 rounded-3xl flex items-center justify-center shadow-sm group-hover:border-prylom-gold transition-colors duration-300">
+              <span className="text-3xl">📊</span>
+            </div>
+            <div className="space-y-1">
+              <span className="text-prylom-gold font-black text-[10px] uppercase">Passo 03</span>
+              <h4 className="text-prylom-dark font-black text-xs uppercase tracking-wider">Apresentação do Portfólio</h4>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Rodapé e CTA */}
+      <div className="p-12 md:p-16 text-center bg-white border-t border-gray-100">
+        <button className="bg-prylom-dark text-white hover:bg-prylom-gold hover:text-prylom-dark px-14 py-6 rounded-2xl text-[13px] font-[900] uppercase tracking-[0.25em] transition-all duration-300 shadow-xl shadow-prylom-dark/10 active:scale-95 mb-8">
+          Solicitar acesso ao círculo fechado!
+        </button>
+        
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">
+            NÃO CONFIGURA OFERTA DE VALORES MOBILIÁRIOS
+          </p>
+          <div className="h-px w-12 bg-gray-200"></div>
+          <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest italic">Prylom Ecosystem © 2024</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+);
+
   return (
     <div className="max-w-7xl mx-auto w-full px-4 py-8 md:py-16 animate-fadeIn pb-40 flex flex-col gap-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -580,7 +690,16 @@ ${items.map(p => {
             <div className="flex bg-gray-100 p-1 rounded-full">
                 <button onClick={() => setViewMode('grid')} className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'grid' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}>{t.viewGrid}</button>
                 <button onClick={() => setViewMode('map')} className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'map' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}>{t.viewMap}</button>
-                <button onClick={() => setViewMode('off')}className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'off'?'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`} > OFF MARKETING </button>
+                <button 
+  onClick={() => setViewMode('off')}
+  className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+    viewMode === 'off' 
+    ? 'bg-prylom-dark text-prylom-gold shadow-lg ring-2 ring-prylom-gold/20' 
+    : 'text-gray-400 hover:text-prylom-dark'
+  }`}
+> 
+  OFF MARKET
+</button>
             </div>
             <button onClick={() => setShowFilters(!showFilters)} className={`bg-white border-2 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${showFilters ? 'border-prylom-gold text-prylom-gold' : 'border-gray-100 text-prylom-dark'}`}>
               {showFilters ? t.hideFilters : t.advancedFilters}
@@ -1019,15 +1138,20 @@ ${items.map(p => {
         </div>
       )}
 
-      {loading ? (
-        <div className="py-20 text-center"><div className="w-12 h-12 border-4 border-prylom-gold border-t-transparent rounded-full animate-spin mx-auto mb-4"></div><p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">{t.marketSync}</p></div>
-      ) : (
-        <>
-          {filteredProducts.length === 0 ? (
-            <div className="py-20 text-center bg-white rounded-[3rem] border border-gray-100 shadow-sm">
-              <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">{t.marketEmpty}</p>
-            </div>
-          ) : viewMode === 'grid' ? (
+{loading ? (
+  <div className="py-20 text-center">
+    <div className="w-12 h-12 border-4 border-prylom-gold border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+    <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">{t.marketSync}</p>
+  </div>
+) : (
+  <>
+    {viewMode === 'off' ? (
+      <OffMarketView t={t} />
+    ) : filteredProducts.length === 0 ? (
+      <div className="py-20 text-center bg-white rounded-[3rem] border border-gray-100 shadow-sm">
+        <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">{t.marketEmpty}</p>
+      </div>
+    ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredProducts.map(p => {
                 const price = formatPriceParts(p.valor);
