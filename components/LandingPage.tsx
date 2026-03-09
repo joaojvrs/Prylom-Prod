@@ -217,78 +217,168 @@ const LandingPage: React.FC<Props> = ({
       </section>
 
       {/* SECTION 3: THE JOURNEY */}
-      <section className="py-32 px-6 bg-[#F8F9FA] relative overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <div className="space-y-10">
-              <header className="space-y-4">
-                <span className="text-prylom-gold font-black uppercase text-[11px] tracking-[0.5em] block">How it Works</span>
-                <h3 className="text-5xl md:text-6xl font-black text-[#000080] tracking-tighter leading-tight uppercase">
-                  A Jornada do <br/> <span className="text-prylom-gold">Ativo Prylom</span>
-                </h3>
-              </header>
-              <div className="space-y-12">
-                {[
-                  { step: "01", title: "Auditoria Técnica", desc: "Coletamos dados geo-climáticos, solo e documentação para gerar um dossiê de viabilidade real." },
-                  { step: "02", title: "Conexão de Valor", desc: "Apresentamos o ativo a investidores qualificados ou traders no modelo on-market ou confidencial." },
-                  { step: "03", title: "Liquidez Estratégica", desc: "Acompanhamos o fechamento com suporte jurídico e econômico, garantindo a rentabilidade do produtor." }
-                ].map((item, i) => (
-                  <div key={i} className="flex gap-8 group">
-                    <div className="text-4xl font-black text-prylom-gold opacity-30 group-hover:opacity-100 transition-opacity">{item.step}</div>
-                    <div className="space-y-2">
-                      <h4 className="text-2xl font-black text-prylom-dark uppercase tracking-tighter">{item.title}</h4>
-                      <p className="text-gray-500 font-medium leading-relaxed">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
+<section className="py-32 px-6 bg-[#F8F9FA] relative overflow-hidden">
+  <div className="max-w-7xl mx-auto">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+      <div className="space-y-10">
+        <header className="space-y-4">
+          <span className="text-prylom-gold font-black uppercase text-[11px] tracking-[0.5em] block">Deal Flow</span>
+          <h3 className="text-5xl md:text-6xl font-black text-[#000080] tracking-tighter leading-tight uppercase">
+            A Jornada do <br/> <span className="text-prylom-gold">Ativo Prylom</span>
+          </h3>
+          <p className="text-prylom-gold font-bold text-lg">Ciclo de M&A e Originação Estratégica</p>
+        </header>
+
+        <div className="space-y-12">
+          {[
+            { 
+              step: "01", 
+              title: "Curadoria e Inteligência Agronômica", 
+              desc: "O ativo entra em nossa esteira passando por um rigoroso pente-fino de dados geoclimáticos, capacidade de solo e conformidade documental primária (Due Diligence inicial). Transformamos informações declaratórias em uma Tese de Propriedade Rural sólida e estruturada." 
+            },
+            { 
+              step: "02", 
+              title: "Exposição Institucional (Deep Market)", 
+              desc: "Com o Teaser e o Data Room formatados, o ativo sai da obscuridade e é apresentado de forma ativa — e sob rigoroso protocolo de sigilo (Master NDA) — exclusivamente a Fundos de Private Equity, Family Offices e Capital Estrangeiro através do nosso International Desk." 
+            },
+            { 
+              step: "03", 
+              title: "Liquidez Estratégica (M&A e Closing)", 
+              desc: "Nossa Mesa de Operações assume a linha de frente (Takeover). Coordenamos o fluxo de negociação, alinhamento de valuation e a estruturação transacional final, convertendo a tese do ativo em liquidez com máxima segurança corporativa para ambas as partes." 
+            }
+          ].map((item, i) => (
+            <div key={i} className="flex gap-8 group">
+              <div className="text-4xl font-black text-prylom-gold opacity-30 group-hover:opacity-100 transition-opacity">{item.step}</div>
+              <div className="space-y-2">
+                <h4 className="text-2xl font-black text-prylom-dark uppercase tracking-tighter">{item.title}</h4>
+                <p className="text-gray-500 font-medium leading-relaxed text-sm md:text-base">{item.desc}</p>
               </div>
             </div>
-            <div className="relative">
-              <div className="bg-white rounded-[5rem] overflow-hidden shadow-3xl border border-gray-100 aspect-square lg:aspect-auto lg:h-[650px]">
-                <img src="https://images.unsplash.com/photo-1595113316349-9fa4eb24f884?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover" alt="Processo Prylom" />
-                <div className="absolute inset-0 bg-gradient-to-t from-prylom-dark/80 via-transparent to-transparent"></div>
-                <div className="absolute bottom-16 left-16 right-16">
-                  <div className="p-8 bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20">
-                    <p className="text-white text-xl font-bold leading-relaxed">"Transformamos terras em ativos financeiros de alta performance."</p>
-                  </div>
-                </div>
-              </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="bg-white rounded-[5rem] overflow-hidden shadow-3xl border border-gray-100 aspect-square lg:aspect-auto lg:h-[650px]">
+          {/* A imagem do Unsplash que você escolheu é boa, mas esta abaixo remete mais ao "Trator + Business" da foto original */}
+          <img src="https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover" alt="Processo Prylom" />
+          <div className="absolute inset-0 bg-gradient-to-t from-prylom-dark/80 via-transparent to-transparent"></div>
+          <div className="absolute bottom-16 left-16 right-16">
+            <div className="p-8 bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20">
+              <p className="text-white text-lg font-bold leading-relaxed text-center">
+                "Não intermediamos terras. <span className="text-prylom-gold">Elevamos o agronegócio brasileiro ao padrão de exigência do capital institucional global.</span>"
+              </p>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* SECTION 4: INSTITUCIONAL & CEO */}
-      <section className="py-40 px-6 bg-white border-t border-gray-100">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-24 items-center">
-          <div className="lg:col-span-6 space-y-12">
-             <div className="space-y-6">
-                <span className="text-prylom-gold font-black uppercase text-[11px] tracking-[0.5em] block">{t.aboutMainTitle}</span>
-                <h3 className="text-5xl md:text-7xl font-black text-[#000080] tracking-tighter leading-none uppercase">Visão <br/> <span className="italic font-light text-prylom-dark">Soberana</span></h3>
-             </div>
-             <p className="text-xl text-[#000080]/70 leading-relaxed font-medium max-w-xl">{t.aboutMainDesc}</p>
-             <div className="flex gap-4">
-                <button onClick={onSelectLegal} className="text-prylom-gold font-black text-[11px] uppercase tracking-widest border-b-2 border-prylom-gold pb-1 hover:text-prylom-dark hover:border-prylom-dark transition-all">Compliance & Ética</button>
-                <button onClick={onSelectValuation} className="text-prylom-gold font-black text-[11px] uppercase tracking-widest border-b-2 border-prylom-gold pb-1 hover:text-prylom-dark hover:border-prylom-dark transition-all ml-8">Métodos de Auditoria</button>
-             </div>
-          </div>
-          <div className="lg:col-span-6">
-             <div className="relative group overflow-hidden rounded-[5.5rem] shadow-4xl aspect-[4/5] lg:aspect-auto lg:h-[750px] border border-gray-200">
-                <img src="https://raw.githubusercontent.com/ai-gen-images/prylom/main/jairo-founder.png" alt="Founder Jairo Alves" className="absolute inset-0 w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-1000" onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1200"; }} />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#000080] via-transparent to-transparent opacity-60"></div>
-                <div className="absolute inset-0 p-16 flex flex-col justify-end">
-                  <div className="space-y-6 max-w-md">
-                    <div>
-                      <span className="text-prylom-gold font-black uppercase text-[11px] tracking-[0.5em] block mb-4">{t.ceoRole}</span>
-                      <h4 className="text-6xl font-black text-white tracking-tighter leading-none">{t.ceoName}</h4>
-                    </div>
-                    <p className="text-white/80 text-lg leading-relaxed font-bold italic border-l-4 border-prylom-gold pl-6">"Nossa tecnologia não substitui o aperto de mão, ela o torna mais valioso e seguro para quem produz."</p>
-                  </div>
-                </div>
-             </div>
+{/* SECTION 4: INSTITUCIONAL - QUEM SOMOS */}
+<section className="py-24 px-6 bg-white border-t border-gray-100">
+  <div className="max-w-7xl mx-auto">
+    {/* Título Principal Centralizado ou Alinhado ao Topo */}
+    <h2 className="text-3xl font-black text-[#000080] mb-16 text-center lg:text-left tracking-widest uppercase">
+      QUEM SOMOS:
+    </h2>
+
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-start">
+      
+      {/* COLUNA ESQUERDA: HISTÓRIA E MISSÃO */}
+      <div className="space-y-10">
+        <div>
+          <h3 className="text-2xl font-bold text-prylom-gold mb-6">
+            A Nossa História é a Sua
+          </h3>
+          <div className="text-gray-600 leading-relaxed space-y-4 text-justify">
+            <p>
+              O agronegócio é feito de suor, de sol e de dedicação. É a história de mãos calejadas que plantam e colhem, 
+              de famílias que constroem seu futuro no campo, tijolo por tijolo. Mas, em meio a toda essa paixão e trabalho 
+              duro, os negócios se tornaram complexos.
+            </p>
+            <p>
+              Onde encontrar o maquinário certo? Como vender a fazenda sem dor de cabeça? Como comercializar a safra 
+              ou negociar sem perder o sono?
+            </p>
+            <p>
+              Foi para responder a essas perguntas e simplificar a sua vida que a <strong>Prylom Agronegócios</strong> nasceu. 
+              Tudo em um único lugar. Nós não somos apenas uma empresa; somos o seu parceiro de confiança, um hub de 
+              conexão no agronegócio. Acreditamos que a confiança é o nosso maior ativo, e a segurança, o nosso principal produto.
+            </p>
           </div>
         </div>
-      </section>
+
+        <div className="space-y-4">
+          <h3 className="text-xl font-black text-prylom-gold uppercase tracking-wider">
+            NOSSO PROPÓSITO E VALORES
+          </h3>
+          <ul className="space-y-4 text-gray-600">
+            <li>
+              <strong className="text-prylom-dark">Nossa Missão:</strong> Ser o parceiro estratégico do agronegócio, unindo a expertise de nosso ecossistema de soluções para garantir negócios sólidos, seguros e altamente rentáveis para você.
+            </li>
+            <li>
+              <strong className="text-prylom-dark">Nossa Visão:</strong> Ser a principal referência do agronegócio, reconhecida por centralizar e simplificar todas as etapas de negociação e otimização de investimentos, consolidando-se como o ecossistema mais confiável do setor.
+            </li>
+            <li>
+              <strong className="text-prylom-dark">Nossos Valores:</strong> Confiança, Segurança, Expertise, Ética e Tradição.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {/* COLUNA DIREITA: ECOSSISTEMA E CICLO */}
+      <div className="space-y-10">
+        <div>
+          <h3 className="text-2xl font-bold text-[#000080] mb-6 uppercase">
+            O ECOSSISTEMA PRYLOM
+          </h3>
+          <div className="text-gray-600 leading-relaxed space-y-4 text-justify">
+            <p>
+              Enquanto o mercado atua de forma fragmentada, a Prylom se posiciona como um verdadeiro ecossistema integrado de negócios. 
+              Nosso maior patrimônio não é apenas o que negociamos, mas quem nós conectamos. Nós unimos o capital produtivo à expertise 
+              operacional, gerando valor e oportunidades em todas as etapas da cadeia do agronegócio.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xl font-bold text-prylom-gold mb-4">
+            O Ciclo do Ativo:
+          </h3>
+          <div className="text-gray-600 leading-relaxed space-y-4 text-justify">
+            <p>
+              Pense na jornada de um grande ativo rural. Quando um investidor ou um produtor consolida a negociação de uma propriedade 
+              através da nossa mesa, a nossa atuação vai muito além do aperto de mão. Nós ativamos a nossa rede estratégica para conectar 
+              essa nova fazenda a tudo o que ela precisa para iniciar ou expandir sua produção.
+            </p>
+            <p>
+              Do mapeamento e inteligência agronômica até as conexões com as melhores tecnologias de maquinário e vias de comercialização de safra, 
+              nós intermediamos o relacionamento entre o proprietário e os parceiros mais sólidos do mercado.
+            </p>
+            <p>
+              Para os nossos clientes, isso significa previsibilidade e força corporativa. É um ciclo contínuo de confiança: nós mapeamos a oportunidade, 
+              estruturamos a transação e integramos as pontas certas para que o seu negócio atinja a máxima performance operacional. Tudo centralizado em um único Hub.
+            </p>
+          </div>
+        </div>
+
+        {/* BOTÕES DE AÇÃO INFERIORES */}
+        <div className="flex flex-wrap gap-8 pt-6">
+          <button className="text-prylom-gold font-black text-sm uppercase tracking-widest border-b-2 border-prylom-gold pb-1 hover:text-prylom-dark hover:border-prylom-dark transition-all">
+            Inteligência Agro
+          </button>
+          <button className="text-prylom-gold font-black text-sm uppercase tracking-widest border-b-2 border-prylom-gold pb-1 hover:text-prylom-dark hover:border-prylom-dark transition-all">
+            Explorar Ativo
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
 
       {/* SECTION 5: BELLE — AGENTE DE IA (ABAIXO DE VISÃO SOBERANA) */}
       <section className="py-32 px-6 bg-[#FDFCFB] border-t border-gray-100">

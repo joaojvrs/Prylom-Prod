@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
 import L from 'leaflet';
-
+import { useParams, useNavigate } from 'react-router-dom';
 interface Product {
   id: string;
   categoria: string;
@@ -71,7 +71,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   const [showFilters, setShowFilters] = useState(false);
   
   const geoCache = useRef<Record<string, L.LatLng>>({});
-
+const navigate = useNavigate();
   // Filtros Universais
   const [filterState, setFilterState] = useState<string>('');
   const [filterCity, setFilterCity] = useState<string>('');
@@ -84,6 +84,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   const [minAreaTotal, setMinAreaTotal] = useState<string>('');
   const [maxAreaTotal, setMaxAreaTotal] = useState<string>('');
   const [minAreaLavoura, setMinAreaLavoura] = useState<string>('');
+  const [selectedTipoAnuncio, setSelectedTipoAnuncio] = useState(null);
   // Filtros Inteligentes (Fazendas) - ADICIONE ESTES:
   const [minAreaProdutiva, setMinAreaProdutiva] = useState<string>('');
   const [maxAreaProdutiva, setMaxAreaProdutiva] = useState<string>('');
@@ -313,6 +314,13 @@ const toggleFavorite = async (e: React.MouseEvent, assetId: string) => {
       else filtered = filtered.filter(p => p.status === filterStatus);
     }
 
+    if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
+    filtered = filtered.filter(p => {
+      const valorNoBanco = p.fazenda_data?.relevancia_anuncio || "";
+      return valorNoBanco.trim() === selectedTipoAnuncio.trim();
+    });
+  }
+
 if (minPrice || maxPrice) {
   filtered = filtered.filter(p => {
     if (p.tipo_transacao === 'arrendamento') return true;
@@ -340,47 +348,81 @@ if (minPrice || maxPrice) {
   });
 }
 
-    // Filtros Técnicos Fazendas
-    if (activeCategory === 'fazendas' || activeCategory === 'all') {
-if (minAreaTotal || maxAreaTotal) {
+if (activeCategory === 'fazendas' || activeCategory === 'all') {
+  
+// --- FILTRO DE TIPO DE ANÚNCIO (CERTIFICAÇÃO) ---
+if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
+    filtered = filtered.filter(p => {
+        // Pega o valor do campo correto que você indicou
+        const valorNoBanco = p.fazenda_data?.relevancia_anuncio || "";
+        
+        // Remove as aspas de 'selectedTipoAnuncio' para ser a variável de verdade
+        // E usamos trim() para evitar que um espaço invisível quebre a comparação
+        return valorNoBanco.trim() === selectedTipoAnuncio.trim();
+    });
+}
+
+  // --- ÁREA TOTAL ---
+  // Só entra se houver número digitado e maior que zero
+  if ((minAreaTotal && Number(minAreaTotal) > 0) || (maxAreaTotal && Number(maxAreaTotal) > 0)) {
     filtered = filtered.filter(p => {
       const area = parseFloat(String(p.area_total_ha || "").replace(",", "."));
       const min = minAreaTotal ? Number(minAreaTotal) : 0;
-      const max = maxAreaTotal ? Number(maxAreaTotal) : Infinity;
+      const max = (maxAreaTotal && Number(maxAreaTotal) > 0) ? Number(maxAreaTotal) : Infinity;
       return !isNaN(area) && area >= min && area <= max;
     });
   }
 
-  if (minPluviometria) {
+  // --- PLUVIOMETRIA ---
+  if (minPluviometria && Number(minPluviometria) > 0) {
     filtered = filtered.filter(p => {
-      const mm = Number(p.fazenda_data?.precipitacao_mm);
+      const mm = Number(p.fazenda_data?.precipitacao_mm || 0);
       return mm >= Number(minPluviometria);
     });
   }
 
-  // Área Produtiva (ha)
-  if (minAreaProdutiva || maxAreaProdutiva) {
+  // --- ÁREA PRODUTIVA ---
+  if ((minAreaProdutiva && Number(minAreaProdutiva) > 0) || (maxAreaProdutiva && Number(maxAreaProdutiva) > 0)) {
     filtered = filtered.filter(p => {
       const areaProd = parseFloat(String(p.fazenda_data?.area_lavoura_ha || "").replace(",", "."));
       const min = minAreaProdutiva ? Number(minAreaProdutiva) : 0;
-      const max = maxAreaProdutiva ? Number(maxAreaProdutiva) : Infinity;
+      const max = (maxAreaProdutiva && Number(maxAreaProdutiva) > 0) ? Number(maxAreaProdutiva) : Infinity;
       return !isNaN(areaProd) && areaProd >= min && areaProd <= max;
     });
   }
 
-  if (minAltitude) {
+  // --- ALTITUDE ---
+  if (minAltitude && Number(minAltitude) > 0) {
     filtered = filtered.filter(p => {
-      const m = Number(p.fazenda_data?.altitude_m);
+      const m = Number(p.fazenda_data?.altitude_m || 0);
       return m >= Number(minAltitude);
     });
   }
 
-      if (minAreaLavoura) filtered = filtered.filter(p => p.fazenda_data?.area_lavoura_ha && p.fazenda_data?.area_lavoura_ha >= Number(minAreaLavoura));
-      if (soilType) filtered = filtered.filter(p => p.fazenda_data?.tipo_solo?.toLowerCase().includes(soilType.toLowerCase()));
-      if (clayContent) filtered = filtered.filter(p => p.fazenda_data?.teor_argila?.includes(clayContent));
-      if (topography) filtered = filtered.filter(p => p.fazenda_data?.topografia?.toLowerCase().includes(topography.toLowerCase()));
-      if (docOnlyOk) filtered = filtered.filter(p => p.fazenda_data?.documentacao_ok?.toLowerCase().includes('sim') || p.fazenda_data?.documentacao_ok?.toLowerCase().includes('ok'));
-    }
+  // --- OUTROS FILTROS (Strings devem ter conteúdo) ---
+  if (minAreaLavoura && Number(minAreaLavoura) > 0) {
+    filtered = filtered.filter(p => Number(p.fazenda_data?.area_lavoura_ha || 0) >= Number(minAreaLavoura));
+  }
+
+  if (soilType && soilType.trim() !== "") {
+    filtered = filtered.filter(p => p.fazenda_data?.tipo_solo?.toLowerCase().includes(soilType.toLowerCase()));
+  }
+
+  if (clayContent && clayContent.trim() !== "") {
+    filtered = filtered.filter(p => p.fazenda_data?.teor_argila?.includes(clayContent));
+  }
+
+  if (topography && topography.trim() !== "") {
+    filtered = filtered.filter(p => p.fazenda_data?.topografia?.toLowerCase().includes(topography.toLowerCase()));
+  }
+
+  if (docOnlyOk === true) { // Verificação booleana estrita
+    filtered = filtered.filter(p => {
+      const doc = p.fazenda_data?.documentacao_ok?.toLowerCase() || "";
+      return doc.includes('sim') || doc.includes('ok');
+    });
+  }
+}
 
     // Filtros Técnicos Máquinas
     if (activeCategory === 'maquinas' || activeCategory === 'all') {
@@ -424,7 +466,7 @@ if (minAreaTotal || maxAreaTotal) {
     }
     
     return filtered;
-  }, [products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, priceMode, minAreaTotal, maxAreaTotal, minAreaLavoura, soilType, clayContent, topography, docOnlyOk, brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType, planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter, grainCulture, grainHarvest, grainQuality, minVolume, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita, viewMode]);
+  }, [products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, priceMode, minAreaTotal, selectedTipoAnuncio, maxAreaTotal, minAreaLavoura, soilType, clayContent, topography, docOnlyOk, brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType, planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter, grainCulture, grainHarvest, grainQuality, minVolume, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita, viewMode]);
 
   const initGeneralMap = async () => {
     if (!mapContainerRef.current) return;
@@ -650,9 +692,13 @@ const OffMarketView = ({ t }) => (
 
       {/* 4. Rodapé e CTA */}
       <div className="p-12 md:p-16 text-center bg-white border-t border-gray-100">
-        <button className="bg-prylom-dark text-white hover:bg-prylom-gold hover:text-prylom-dark px-14 py-6 rounded-2xl text-[13px] font-[900] uppercase tracking-[0.25em] transition-all duration-300 shadow-xl shadow-prylom-dark/10 active:scale-95 mb-8">
-          Solicitar acesso ao círculo fechado!
-        </button>
+<button 
+  // O onClick deve ser um atributo da tag, antes do fechamento ">"
+  onClick={() => navigate('/dataroom')}
+  className="bg-prylom-dark text-white hover:bg-prylom-gold hover:text-prylom-dark px-14 py-6 rounded-2xl text-[13px] font-[900] uppercase tracking-[0.25em] transition-all duration-300 shadow-xl shadow-prylom-dark/10 active:scale-95 mb-8"
+>
+  Solicitar acesso ao círculo fechado!
+</button>
         
         <div className="flex flex-col items-center gap-4">
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">
@@ -746,52 +792,56 @@ const OffMarketView = ({ t }) => (
   </header>
 
   {/* GRID DE FILTROS - ALINHAMENTO CORRIGIDO */}
-  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 items-end">
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
     
     {/* 1. LOCALIZAÇÃO */}
-    <div className="group flex flex-col gap-3">
-      <div className="min-h-[32px] flex items-end ml-1">
-        <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
-          <span className="opacity-70 text-xs"></span> {t.locationLabel}
+    <div className="group flex flex-col gap-1.5">
+      <div className="min-h-[20px] flex items-end ml-1">
+        <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
+          {t.locationLabel}
         </label>
       </div>
-      <div className="flex flex-col justify-between h-[85px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all duration-300 hover:border-gray-200 focus-within:ring-4 focus-within:ring-prylom-gold/5 focus-within:border-prylom-gold shadow-sm">
+      <div className="flex flex-col justify-between h-[64px] bg-white border-2 border-gray-100 rounded-xl p-1 transition-all duration-300 focus-within:border-prylom-gold shadow-sm">
         <select 
           value={filterState} 
           onChange={e => {setFilterState(e.target.value); setFilterCity('');}} 
-          className="w-full h-[36px] bg-gray-50/50 rounded-lg px-3 text-[11px] font-bold text-gray-500 outline-none cursor-pointer appearance-none hover:bg-gray-100 transition-colors"
+          className="w-full h-[28px] bg-gray-50/50 rounded-md px-2 text-[10px] font-bold text-gray-500 outline-none cursor-pointer appearance-none hover:bg-gray-100 transition-colors"
         >
-          <option value="">Todos os Estados (UF)</option>
+          <option value="">Estados (UF)</option>
           {availableStates.map(st => <option key={st} value={st}>{st}</option>)}
         </select>
-        <div className="relative h-[36px]">
+        <div className="relative h-[28px]">
           <select 
             value={filterCity} 
             onChange={e => setFilterCity(e.target.value)} 
             disabled={!filterState}
-            className="w-full h-full bg-white px-3 pr-8 text-[13px] font-black text-prylom-dark outline-none cursor-pointer appearance-none truncate disabled:opacity-40"
+            className="w-full h-full bg-white px-2 pr-6 text-[11px] font-black text-prylom-dark outline-none cursor-pointer appearance-none disabled:opacity-40"
           >
             <option value="">{t.cityAll}</option>
             {availableCities.map(ct => <option key={ct} value={ct}>{ct}</option>)}
           </select>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
-             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M19 9l-7 7-7-7" /></svg>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
+             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M19 9l-7 7-7-7" /></svg>
           </div>
         </div>
       </div>
     </div>
 
-<div className="group flex flex-col gap-3 relative"> {/* Adicionado relative aqui */}
-  <div className="min-h-[32px] flex justify-between items-end px-1">
-    <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
-      <span className="opacity-70 text-xs">💰</span> {t.priceRange}
+    {/* 2. FAIXA DE PREÇO */}
+{/* 2. FAIXA DE PREÇO - CORRIGIDO E COMPACTO */}
+<div className="group flex flex-col gap-1.5 relative">
+  <div className="min-h-[20px] flex justify-between items-end px-1">
+    <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-[0.15em]">
+      💰 {t.priceRange}
     </label>
-    <div className="flex bg-gray-100 p-0.5 rounded-lg scale-90 origin-bottom-right mb-0.5">
+    <div className="flex bg-gray-100 p-0.5 rounded-md scale-90 origin-bottom-right">
       {['total', 'hectare'].map((mode) => (
         <button
           key={mode}
           onClick={() => setPriceMode(mode as 'total' | 'hectare')}
-          className={`px-2.5 py-1 rounded-md text-[8px] font-black transition-all ${priceMode === mode ? 'bg-white text-prylom-dark shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`px-2 py-0.5 rounded text-[7px] font-black transition-all ${
+            priceMode === mode ? 'bg-white text-prylom-dark shadow-xs' : 'text-gray-400'
+          }`}
         >
           {mode === 'total' ? 'Total' : '/ha'}
         </button>
@@ -799,199 +849,271 @@ const OffMarketView = ({ t }) => (
     </div>
   </div>
   
-  <div className="flex items-center h-[85px] bg-white border-2 border-gray-100 rounded-2xl p-2 transition-all duration-300 focus-within:ring-4 focus-within:ring-prylom-gold/5 focus-within:border-prylom-gold shadow-sm">
+  <div className="flex items-center h-[64px] bg-white border-2 border-gray-100 rounded-xl p-1.5 transition-all duration-300 focus-within:border-prylom-gold shadow-sm">
     <div className="relative flex-1 h-full">
-      <span className="absolute left-3 top-2 text-[8px] font-black text-gray-300">
+      {/* Texto Dinâmico Restaurado Aqui */}
+      <span className="absolute left-1.5 top-1 text-[7px] font-black text-gray-300 uppercase truncate pr-1">
         {priceMode === 'total' ? 'VALOR MÍNIMO' : 'VALOR/HA MÍNIMO'}
       </span>
-      <div className="flex items-center h-full pt-3 px-3">
-        <span className="text-[12px] font-black text-gray-300 mr-1">{getSymbol()}</span>
+      <div className="flex items-center h-full pt-2.5 px-1.5">
+        <span className="text-[10px] font-black text-gray-300 mr-0.5">{getSymbol()}</span>
         <input 
           type="text" 
           inputMode="numeric"
           placeholder="0,00"
           value={minPrice} 
           onChange={e => setMinPrice(e.target.value.replace(/\D/g, ""))} 
-          className="w-full h-full bg-transparent text-[14px] font-black text-prylom-dark outline-none placeholder:text-gray-200"
+          className="w-full bg-transparent text-[11px] font-black text-prylom-dark outline-none"
         />
       </div>
     </div>
 
-    <div className="w-px h-10 bg-gray-100 mx-2"></div>
+    <div className="w-px h-6 bg-gray-100 mx-1"></div>
 
     <div className="relative flex-1 h-full">
-      <span className="absolute left-3 top-2 text-[8px] font-black text-gray-300">
+      {/* Texto Dinâmico Restaurado Aqui */}
+      <span className="absolute left-1.5 top-1 text-[7px] font-black text-gray-300 uppercase truncate pr-1">
         {priceMode === 'total' ? 'VALOR MÁXIMO' : 'VALOR/HA MÁXIMO'}
       </span>
-      <div className="flex items-center h-full pt-3 px-3">
-        <span className="text-[12px] font-black text-gray-300 mr-1">{getSymbol()}</span>
+      <div className="flex items-center h-full pt-2.5 px-1.5">
+        <span className="text-[10px] font-black text-gray-300 mr-0.5">{getSymbol()}</span>
         <input 
           type="text" 
           inputMode="numeric"
           placeholder="∞"
           value={maxPrice} 
           onChange={e => setMaxPrice(e.target.value.replace(/\D/g, ""))} 
-          className="w-full h-full bg-transparent text-[14px] font-black text-prylom-dark outline-none placeholder:text-gray-200"
+          className="w-full bg-transparent text-[11px] font-black text-prylom-dark outline-none"
         />
       </div>
     </div>
   </div>
-  
-  {/* Helper Text em Absolute para não quebrar o alinhamento do Grid */}
-  {(minPrice || maxPrice) && (
-    <div className="absolute -bottom-5 left-0 w-full px-2 flex justify-between animate-fadeIn pointer-events-none">
-      <p className="text-[8px] font-bold text-prylom-gold uppercase truncate max-w-[45%]">
-        {minPrice && `Min: ${getSymbol()} ${Number(minPrice).toLocaleString('pt-BR')}${priceMode === 'hectare' ? '/ha' : ''}`}
-      </p>
-      <p className="text-[8px] font-bold text-prylom-gold uppercase truncate max-w-[45%]">
-        {maxPrice && `Max: ${getSymbol()} ${Number(maxPrice).toLocaleString('pt-BR')}${priceMode === 'hectare' ? '/ha' : ''}`}
-      </p>
-    </div>
-  )}
-</div>
+   </div>
+
 
     {/* 3. TIPO DE TRANSAÇÃO */}
-    <div className="group flex flex-col gap-3">
-      <div className="min-h-[32px] flex items-end ml-1">
-        <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
-          <span className="opacity-70 text-xs"></span> {t.transactionType}
-        </label>
+    <div className="group flex flex-col gap-1.5">
+      <div className="min-h-[20px] flex items-end ml-1">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.15em]">{t.transactionType}</label>
       </div>
-      <div className="relative h-[85px]">
+      <div className="relative h-[64px]">
         <select 
           value={transactionType} 
           onChange={e => setTransactionType(e.target.value as any)} 
-          className="w-full h-full bg-white border-2 border-gray-100 rounded-2xl px-5 pr-12 text-[15px] font-black text-prylom-dark outline-none appearance-none cursor-pointer transition-all hover:border-gray-200 focus:ring-4 focus:ring-prylom-gold/5 focus:border-prylom-gold shadow-sm"
+          className="w-full h-full bg-white border-2 border-gray-100 rounded-xl px-4 pr-10 text-[12px] font-black text-prylom-dark outline-none appearance-none cursor-pointer transition-all hover:border-gray-200 focus:border-prylom-gold shadow-sm"
         >
           <option value="all">{t.transactionAll}</option>
           <option value="venda">{t.transactionSale}</option>
           <option value="arrendamento">{t.transactionLease}</option>
         </select>
-        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
         </div>
       </div>
     </div>
 
     {/* 4. STATUS & SELO */}
-    <div className="group flex flex-col gap-3">
-      <div className="min-h-[32px] flex items-end ml-1">
-        <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] transition-colors group-focus-within:text-prylom-gold">
-          <span className="opacity-70 text-xs"></span> {t.statusLabel}
-        </label>
+    <div className="group flex flex-col gap-1.5">
+      <div className="min-h-[20px] flex items-end ml-1">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.15em]">{t.statusLabel}</label>
       </div>
-      <div className="relative h-[85px]">
+      <div className="relative h-[64px]">
         <select 
           value={filterStatus} 
           onChange={e => setFilterStatus(e.target.value)} 
-          className="w-full h-full bg-white border-2 border-gray-100 rounded-2xl px-5 pr-12 text-[15px] font-black text-prylom-dark outline-none appearance-none cursor-pointer transition-all hover:border-gray-200 focus:ring-4 focus:ring-prylom-gold/5 focus:border-prylom-gold shadow-sm"
+          className="w-full h-full bg-white border-2 border-gray-100 rounded-xl px-4 pr-10 text-[12px] font-black text-prylom-dark outline-none appearance-none cursor-pointer transition-all hover:border-gray-200 focus:border-prylom-gold shadow-sm"
         >
           <option value="all">{t.statusAll}</option>
           <option value="ativo">{t.statusAvailable}</option>
           <option value="negociacao">{t.statusNegotiating}</option>
           <option value="verified">{t.verifiedLabel}</option>
         </select>
-        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
-           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-prylom-gold">
+           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
         </div>
       </div>
     </div>
-  </div>
+</div>
 </section>
 
 {activeCategory === 'fazendas' && (
-  <div className="space-y-8 animate-slideUp bg-blue-50/30 p-8 rounded-[2.5rem] border border-blue-100/50">
-    <header className="flex items-center gap-4">
-      <div className="w-10 h-10 bg-prylom-dark text-white rounded-xl flex items-center justify-center shadow-lg">
-        <span className="text-xl"></span>
+  <div className="space-y-4 animate-slideUp bg-blue-50/30 p-5 rounded-[1.5rem] border border-blue-100/50">
+    <header className="flex items-center gap-3">
+      <div className="w-8 h-8 bg-prylom-dark text-white rounded-lg flex items-center justify-center shadow-md">
+        <span className="text-lg">🛡️</span>
       </div>
-      <h4 className="text-[12px] font-black text-prylom-dark uppercase tracking-[0.2em]">
+      <h4 className="text-[11px] font-black text-prylom-dark uppercase tracking-[0.15em]">
         {t.techFiltersFarm} <span className="text-blue-600">Específicos</span>
       </h4>
       <div className="h-px flex-1 bg-gradient-to-r from-blue-200 to-transparent"></div>
     </header>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {[
+        { 
+          id: 'Prylom Selected', 
+          title: 'Prylom selected', 
+          desc: 'Ativos premium com Dossiê Preliminar executado. Documentação primária, viabilidade de solo e valuation previamente auditados pela nossa curadoria.', 
+          color: 'border-amber-400 text-amber-900 bg-amber-50/40',
+          badge: 'bg-amber-500'
+        },
+        { 
+          id: 'Prylom Verified', 
+          title: 'Prylom Verified', 
+          desc: 'Ativos com conformidade inicial. Documentação de posse e titularidade básicas apresentadas pelos originadores em nosso sistema.', 
+          color: 'border-indigo-500 text-indigo-900 bg-indigo-50/40',
+          badge: 'bg-indigo-400'
+        },
+        { 
+          id: 'Open Market', 
+          title: 'Open Market', 
+          desc: 'Informações declaratórias. Baseado apenas em imagens e descrição fornecidas pelo proprietário, sem validação documental prévia.', 
+          color: 'border-prylom-dark text-prylom-dark bg-gray-100',
+          badge: 'bg-slate-300'
+        },
+      ].map((tipo) => {
+        const isSelected = selectedTipoAnuncio === tipo.id;
+        return (
+          <button
+            key={tipo.id}
+            onClick={() => setSelectedTipoAnuncio(prev => prev === tipo.id ? "" : tipo.id)}
+            className={`relative flex items-start gap-3 p-3.5 rounded-[1rem] border-2 transition-all duration-300 text-left min-h-[90px] group ${
+              isSelected ? `${tipo.color} shadow-sm scale-[1.01]` : 'bg-white border-gray-100 opacity-80 hover:opacity-100 shadow-sm'
+            }`}
+          >
+            <div className={`shrink-0 w-1 h-8 rounded-full mt-0.5 ${tipo.badge}`} />
+            <div className="flex flex-col gap-1 pr-4">
+              <span className="text-[10px] font-black uppercase leading-none tracking-wider">{tipo.title}</span>
+              <p className="text-[9px] font-semibold leading-tight text-gray-600">
+                {tipo.desc}
+              </p>
+            </div>
+            {isSelected && (
+              <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+
+    {/* --- SEÇÃO OFF MARKET --- */}
+    {(() => {
+      const isOffMarket = selectedTipoAnuncio === 'Off Market';
+      return (
+        <div 
+          onClick={() => setSelectedTipoAnuncio(prev => prev === 'Off Market' ? "" : 'Off Market')}
+          className={`relative p-4 rounded-[1.2rem] border-2 transition-all duration-500 cursor-pointer overflow-hidden ${
+            isOffMarket 
+            ? 'border-prylom-dark bg-blue-50/50 shadow-lg scale-[1.01]' 
+            : 'border-dashed border-gray-200 bg-white/40 hover:border-gray-400'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h5 className="text-[12px] font-black text-prylom-dark flex items-center gap-2 uppercase tracking-tight">
+              🔒 Carteira Private & Off Market
+              {isOffMarket && <span className="text-[8px] bg-prylom-dark text-white px-1.5 py-0.5 rounded-full">Filtro Ativado</span>}
+            </h5>
+            <div className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border transition-all ${
+              isOffMarket ? 'bg-prylom-dark text-white border-prylom-dark' : 'bg-gray-100 text-gray-400 border-gray-200'
+            }`}>
+              {isOffMarket ? '✓ Ativado' : 'Ativar Acesso'}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+            <div className="space-y-2">
+              <p className="text-[10px] leading-snug text-gray-700">
+                <strong className="text-prylom-dark">Acesse o acervo invisível ao mercado comum.</strong> Nesta categoria encontram-se ativos de alto valor estratégico cujos proprietários exigem sigilo absoluto.
+              </p>
+              <p className="text-[10px] leading-snug text-gray-700">
+                <span className="font-bold text-prylom-dark underline decoration-blue-200 underline-offset-2">Por que acessar?</span> Oportunidades exclusivas com menor concorrência.
+              </p>
+            </div>
+
+            <div className="bg-white/60 p-3 rounded-xl border border-blue-100/50 shadow-sm flex items-center">
+              <p className="text-[9.5px] leading-tight text-gray-500 italic">
+                <span className="font-bold text-prylom-dark not-italic block mb-0.5">🛡️ Como desbloquear:</span> 
+                Acesso liberado após identificação (KYC) e assinatura de NDA.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
       
-      {/* 1. ÁREA TOTAL (Módulo Vertical) */}
-      <div className="group flex flex-col gap-2.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 transition-colors group-focus-within:text-prylom-gold">
-          📏 Área Total
-        </label>
-        <div className="flex items-center h-[60px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all focus-within:border-prylom-gold shadow-sm">
-          <input type="text" inputMode="numeric" placeholder="Min" value={minAreaTotal} onChange={e => setMinAreaTotal(e.target.value.replace(/\D/g, ""))} className="w-1/2 h-full bg-gray-50/50 rounded-xl px-3 text-[13px] font-bold text-prylom-dark outline-none" />
-          <span className="px-2 text-gray-300 font-bold text-[10px]">ha</span>
-          <input type="text" inputMode="numeric" placeholder="Max" value={maxAreaTotal} onChange={e => setMaxAreaTotal(e.target.value.replace(/\D/g, ""))} className="w-1/2 h-full bg-gray-50/50 rounded-xl px-3 text-[13px] font-bold text-prylom-dark outline-none" />
+      {/* 1. ÁREA TOTAL */}
+      <div className="group flex flex-col gap-1.5">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">📏 Área Total</label>
+        <div className="flex items-center h-[45px] bg-white border-2 border-gray-100 rounded-xl p-1 transition-all focus-within:border-prylom-gold shadow-sm">
+          <input type="text" inputMode="numeric" placeholder="Min" className="w-1/2 h-full bg-gray-50/50 rounded-lg px-2 text-[11px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
+          <span className="px-1 text-gray-300 font-bold text-[9px]">ha</span>
+          <input type="text" inputMode="numeric" placeholder="Max" className="w-1/2 h-full bg-gray-50/50 rounded-lg px-2 text-[11px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
         </div>
       </div>
 
       {/* 2. ÁREA PRODUTIVA */}
-      <div className="group flex flex-col gap-2.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-          🚜 Área Produtiva
-        </label>
-        <div className="flex items-center h-[60px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all focus-within:border-prylom-gold shadow-sm">
-          <input type="text" inputMode="numeric" placeholder="Min" value={minAreaProdutiva} onChange={e => setMinAreaProdutiva(e.target.value.replace(/\D/g, ""))} className="w-full h-full bg-gray-50/50 rounded-xl px-3 text-[13px] font-bold text-prylom-dark outline-none" />
-          <span className="px-3 text-gray-300 font-bold text-[10px]">ha</span>
+      <div className="group flex flex-col gap-1.5">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">🚜 Área Produtiva</label>
+        <div className="flex items-center h-[45px] bg-white border-2 border-gray-100 rounded-xl p-1 transition-all focus-within:border-prylom-gold shadow-sm">
+          <input type="text" inputMode="numeric" placeholder="Min" className="w-full h-full bg-gray-50/50 rounded-lg px-2 text-[11px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
+          <span className="px-2 text-gray-300 font-bold text-[9px]">ha</span>
         </div>
       </div>
 
-      {/* 3. ARGILA & SOLO (Combinados para economizar espaço) */}
-      <div className="group flex flex-col gap-2.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-          🧬 Argila & Solo
-        </label>
-        <div className="flex items-stretch h-[60px] bg-white border-2 border-gray-100 rounded-2xl overflow-hidden transition-all focus-within:border-prylom-gold shadow-sm">
-          <select value={clayContent} onChange={e => setClayContent(e.target.value)} className="w-[45%] bg-transparent pl-4 text-[12px] font-bold text-prylom-dark outline-none border-r border-gray-50">
+      {/* 3. ARGILA & SOLO */}
+      <div className="group flex flex-col gap-1.5">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">🧬 Argila & Solo</label>
+        <div className="flex items-stretch h-[45px] bg-white border-2 border-gray-100 rounded-xl overflow-hidden transition-all focus-within:border-prylom-gold shadow-sm">
+          <select className="w-[45%] bg-transparent pl-2 text-[10px] font-bold text-prylom-dark outline-none border-r border-gray-50">
             <option value="">Argila%</option>
             <option value="15-25">15-25%</option>
             <option value="25-35">25-35%</option>
             <option value="35+">35%+</option>
           </select>
-          <input placeholder="Aptidão" value={soilType} onChange={e => setSoilType(e.target.value)} className="flex-1 bg-transparent px-4 text-[12px] font-bold text-prylom-dark outline-none" />
+          <input placeholder="Aptidão" className="flex-1 bg-transparent px-2 text-[10px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
         </div>
       </div>
 
       {/* 4. PLUVIOMETRIA & ALTITUDE */}
-      <div className="group flex flex-col gap-2.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-          ☁️ Clima & Relevo
-        </label>
-        <div className="flex items-center h-[60px] bg-white border-2 border-gray-100 rounded-2xl p-1.5 transition-all focus-within:border-prylom-gold shadow-sm">
-          <div className="relative flex-1 h-full">
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-black text-gray-300">mm</span>
-            <input placeholder="Pluvio" value={minPluviometria} onChange={e => setMinPluviometria(e.target.value.replace(/\D/g, ""))} className="w-full h-full bg-gray-50/50 rounded-xl pl-3 pr-8 text-[12px] font-bold text-prylom-dark outline-none" />
-          </div>
-          <div className="w-px h-6 bg-gray-100 mx-1"></div>
-          <div className="relative flex-1 h-full">
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-black text-gray-300">m</span>
-            <input placeholder="Altid" value={minAltitude} onChange={e => setMinAltitude(e.target.value.replace(/\D/g, ""))} className="w-full h-full bg-gray-50/50 rounded-xl pl-3 pr-8 text-[12px] font-bold text-prylom-dark outline-none" />
-          </div>
+      <div className="group flex flex-col gap-1.5">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">☁️ Clima</label>
+        <div className="flex items-center h-[45px] bg-white border-2 border-gray-100 rounded-xl p-1 transition-all focus-within:border-prylom-gold shadow-sm">
+          <input placeholder="Pluvio" className="w-full h-full bg-gray-50/50 rounded-lg px-2 text-[10px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
+          <div className="w-px h-4 bg-gray-100 mx-1"></div>
+          <input placeholder="Altitude" className="w-full h-full bg-gray-50/50 rounded-lg px-2 text-[10px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
         </div>
       </div>
 
-      {/* 5. TOPOGRAFIA & DOCUMENTAÇÃO (Última linha) */}
-      <div className="group flex flex-col gap-2.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-          ⛰️ Topografia
-        </label>
-        <select value={topography} onChange={e => setTopography(e.target.value)} className="w-full h-[60px] bg-white border-2 border-gray-100 rounded-2xl px-5 text-[13px] font-bold text-prylom-dark outline-none appearance-none transition-all hover:border-gray-200 focus:border-prylom-gold shadow-sm cursor-pointer">
-          <option value="">{t.topographyAll}</option>
-          <option value="plana">{t.topographyFlat}</option>
-          <option value="ondulada">{t.topographyWavy}</option>
-        </select>
-      </div>
+      {/* 5. TOPOGRAFIA */}
+<div className="group flex flex-col gap-1.5">
+  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">
+    ⛰️ Topografia
+  </label>
+  <select 
+    className="w-full h-[45px] bg-white border-2 border-gray-100 rounded-xl px-3 text-[9px] font-bold text-prylom-dark outline-none appearance-none shadow-sm cursor-pointer"
+  >
+    {/* A primeira opção herdará o text-[9px] do select */}
+    <option value="">{t.topographyAll}</option>
+    
+    {/* Você pode tentar forçar as opções a terem um tamanho maior ao abrir, 
+        mas o padrão do sistema costuma sobrescrever isso em muitos browsers */}
+    <option value="plana" className="text-[11px]">{t.topographyFlat}</option>
+    <option value="ondulada" className="text-[11px]">{t.topographyWavy}</option>
+  </select>
+</div>
 
-      <div className="flex items-end h-[60px]">
-        <label className="flex items-center group/check gap-3 cursor-pointer p-4 bg-white rounded-2xl border-2 border-gray-100 hover:border-prylom-gold transition-all w-full shadow-sm">
-          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${docOnlyOk ? 'bg-prylom-gold border-prylom-gold shadow-md' : 'border-gray-200 bg-gray-50'}`}>
-            {docOnlyOk && <div className="w-2.5 h-2.5 bg-white rounded-full scale-110" />}
+      {/* 6. DOCUMENTAÇÃO */}
+      <div className="flex items-end h-[45px]">
+        <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-white rounded-xl border-2 border-gray-100 hover:border-prylom-gold transition-all w-full shadow-sm">
+          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${docOnlyOk ? 'bg-prylom-gold border-prylom-gold' : 'border-gray-200 bg-gray-50'}`}>
+            {docOnlyOk && <div className="w-2 h-2 bg-white rounded-full" />}
           </div>
           <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} className="hidden" />
-          <span className="text-[10px] font-black text-prylom-dark uppercase tracking-widest">{t.docOk}</span>
+          <span className="text-[9px] font-black text-prylom-dark uppercase tracking-tight">{t.docOk}</span>
         </label>
       </div>
-
     </div>
   </div>
 )}
@@ -1132,7 +1254,7 @@ const OffMarketView = ({ t }) => (
                 setBrandFilter(''); setMachineModelFilter(''); setMinYear(''); setMaxYear(''); setMaxHours(''); setConservationState(''); setPrecisionAgFilter(''); setMinPower(''); setFuelType('');
                 setPlaneTypeFilter(''); setManufacturerFilter(''); setMinYearPlane(''); setMaxHoursPlane(''); setAnacHomologFilter('');
                 setGrainCulture(''); setGrainHarvest(''); setGrainQuality(''); setMinVolume('');
-                setArrModalidade(''); setArrAptidao(''); setMinArrArea(''); setMaxArrArea(''); setArrCulturaBase(''); setArrQtdSafras(''); setArrMesInicioColheita('');
+                setArrModalidade(''); setArrAptidao(''); setMinArrArea(''); setMaxArrArea(''); setArrCulturaBase(''); setArrQtdSafras(''); setArrMesInicioColheita('');setSelectedTipoAnuncio('');
              }} className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] hover:text-red-500 transition-colors">Limpar Todos os Filtros</button>
           </div>
         </div>

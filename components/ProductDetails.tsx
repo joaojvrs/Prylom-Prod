@@ -5,6 +5,8 @@ import { GoogleGenAI } from "@google/genai";
 import { createPortal } from 'react-dom';
 import DataRoomModal from './DataRoomModal'; // Certifique-se de que o caminho está correto
 import PropertyRegistrationForm from './PropertyRegistrationForm';
+import logoPrylom from "../assets/logo-prylom.png";
+import { useParams, useNavigate } from 'react-router-dom';
 
 
 interface Props {
@@ -37,6 +39,8 @@ const ProductDetails: React.FC<Props> = ({ productId, onSelectProduct, onBack, t
   // Adicione junto aos outros estados no topo do componente ProductDetails
 const [showDataRoomView, setShowDataRoomView] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   // Adicione este novo estado
 const [selectedFormType, setSelectedFormType] = useState<'open' | 'offmarket' | 'selected' | null>(null);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
@@ -67,6 +71,7 @@ const [selectedFormType, setSelectedFormType] = useState<'open' | 'offmarket' | 
 }, [isLightboxOpen, activeImage, images]); // Adicionado activeImage e images aqui
 
 const [showFraudModal, setShowFraudModal] = useState(false);
+
 
   const formatNumber = (val: number, decimals = 2) => {
     if (val === undefined || val === null || isNaN(val)) return '0,00';
@@ -374,6 +379,7 @@ producaoCarne: producaoArrobaHaAno,
   }, [productId, lang]);
 
 const fetchWeather = async (cidade: string) => {
+  setLoading(true);
   try {
     const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt&format=json`);
     const geoData = await geoRes.json();
@@ -381,19 +387,22 @@ const fetchWeather = async (cidade: string) => {
     if (geoData.results && geoData.results.length > 0) {
       const { latitude, longitude } = geoData.results[0];
       
-      // Adicionamos o parâmetro &daily=... para pegar a previsão dos próximos dias
-      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`);
-      const weatherData = await weatherRes.json();
+      // ALTERAÇÃO: forecast_days=16 (Limite da API gratuita)
+      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=16`);      
       
-      // Agora salvamos o objeto completo (current + daily)
+      if (!weatherRes.ok) throw new Error("Erro na API de Clima");
+      
+      const weatherData = await weatherRes.json();
       setWeather(weatherData);
     }
   } catch (error) {
     console.error("Erro ao carregar clima:", error);
+  } finally {
+    setLoading(false);
   }
 };
   const [weather, setWeather] = useState<any>(null);
-
+  const [forecastDays, setForecastDays] = useState(7);
   const getWeatherIcon = (code: number) => {
   if (code === 0) return '☀️'; // Céu limpo
   if (code <= 3) return '🌤️';  // Parcialmente nublado
@@ -666,7 +675,8 @@ const fetchRelatedProducts = async (currentProd: any) => {
     <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
-    Supervisão Técnica: CRECI: {spec.corretor.creci}
+    Supervisão Técnica: CRECI: 16344-MS
+    {/* {spec.corretor.creci} */} 
   </span>
 )}
               {product.certificacao && <span className="text-[8px] font-black text-prylom-gold bg-prylom-gold/5 px-3 py-1 rounded-md border border-prylom-gold/10 uppercase tracking-widest">🔒 Prylom Verified | 📑 Compliance OK</span>}
@@ -777,7 +787,11 @@ const fetchRelatedProducts = async (currentProd: any) => {
     ? `${formatNumber(spec?.area_total_ha || 1000)} ha`
     : formatV(product.valor)
 }
-
+{isLease && (
+             <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase tracking-widest">
+               Quantidade Pedida: {spec?.valor_sc_ha || 10} Sc Soja/ha
+             </p>
+           )}
            </p>
 
 {/* VALOR POR HECTARE — apenas fazenda à venda */}
@@ -1279,7 +1293,7 @@ const fetchRelatedProducts = async (currentProd: any) => {
     <div className="space-y-4">
 <button 
   disabled={!hasAcceptedTerms}
-  onClick={() => setShowDataRoomView(true)} // Agora ativa a visualização de tela cheia
+  onClick={() => navigate(`/dataroom/${id}`)} // id vem do useParams do seu ProductDetails
   className={`w-full font-black py-6 rounded-full text-[11px] uppercase tracking-widest transition-all shadow-xl active:scale-95 ${
     hasAcceptedTerms 
       ? 'bg-green-600 text-white hover:bg-green-500 shadow-green-900/20' 
@@ -1499,18 +1513,31 @@ const fetchRelatedProducts = async (currentProd: any) => {
 </div>
 
 {isLease && weather && (
-  <div className="w-full pt-20"> {/* DIV DE CONTROLE DE ESPAÇAMENTO EXTERNO */}
-    <section className="p-6 bg-white border border-gray-100 shadow-sm rounded-xl animate-fadeIn">
-      {/* CABEÇALHO */}
-      <div className="flex items-center justify-between border-b border-gray-50 pb-4 mb-6">
-        <div className="border-l-4 border-[#bba219] pl-4">
-          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#2c5363]">
-            Monitoramento Agrometeorológico
-          </h3>
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
-            Condições em {product?.cidade} — {product?.estado}
-          </p>
+  <div className="w-full pt-20">
+    <section className="p-6 bg-white border border-gray-100 shadow-sm rounded-xl animate-fadeIn relative overflow-hidden">
+      
+      {/* CABEÇALHO: BRANDING + ALERTA + LOCALIZAÇÃO */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-50 pb-4 mb-6">
+        <div className="flex items-center gap-4">
+          <img src={logoPrylom} alt="Prylom" className="h-11 w-auto object-contain opacity-95" />
+          <div className="border-l-2 border-gray-100 pl-4">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#2c5363]">
+              Monitoramento Agrometeorológico
+            </h3>
+            
+            {/* ALERTA DE VISITA HORIZONTAL ABAIXO DO TÍTULO */}
+            <p className="text-[9px] font-black text-[#2c5363] uppercase mt-1 flex items-center gap-1">
+              <span>🗓️ Planejando visita?</span> 
+              <span className="text-blue-600 font-extrabold text-[8px]">Sempre confira a previsão antes de agendar para evitar imprevistos.</span>
+            </p>
+
+            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-0.5">
+              {product?.cidade} — {product?.estado}
+            </p>
+          </div>
         </div>
+
+        {/* STATUS LIVE */}
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -1520,96 +1547,118 @@ const fetchRelatedProducts = async (currentProd: any) => {
         </div>
       </div>
 
-      {/* DADOS ATUAIS ALINHADOS */}
-<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-  {/* TEMPERATURA - Ajustado para alinhar pela base (items-end) */}
-  <div className="flex flex-col items-start">
-    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Temperatura</p>
-    <div className="flex items-end gap-1.5 h-7"> {/* h-7 define uma altura fixa para garantir o alinhamento */}
-      <span className="text-xl leading-none mb-[1px]">{getWeatherIcon(weather.current?.weather_code)}</span>
-      <p className="text-lg font-black text-[#2c5363] leading-none">
-        {weather.current?.temperature_2m}<span className="text-[10px] ml-0.5">°C</span>
-      </p>
-    </div>
-  </div>
-
-  {/* UMIDADE - Alinhado sem margem extra */}
-  <div className="flex flex-col items-start ml-4">
-    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Umidade</p>
-    <div className="flex items-end h-7">
-      <p className="text-lg font-black text-[#2c5363] leading-none">
-        {weather.current?.relative_humidity_2m}<span className="text-[10px] ml-0.5">%</span>
-      </p>
-    </div>
-  </div>
-
-  {/* VENTO - Alinhado sem margem extra */}
-  <div className="flex flex-col items-start">
-    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Vento (10m)</p>
-    <div className="flex items-end h-7">
-      <p className="text-lg font-black text-[#2c5363] leading-none">
-        {weather.current?.wind_speed_10m}<span className="text-[9px] ml-1 font-bold opacity-60 uppercase">km/h</span>
-      </p>
-    </div>
-  </div>
-
-  {/* PRECIPITAÇÃO - Alinhado sem margem extra */}
-  <div className="flex flex-col items-start">
-    <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Precipitação</p>
-    <div className="flex items-end h-7">
-      <p className="text-lg font-black text-[#bba219] leading-none">
-        {weather.current?.precipitation}<span className="text-[9px] ml-1 font-bold opacity-60 uppercase">mm</span>
-      </p>
-    </div>
-  </div>
-</div>
-
-      {/* PREVISÃO SEMANAL COM SETAS DE NAVEGAÇÃO */}
-      <div className="border-t border-gray-50 pt-6 relative group">
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-[9px] font-black text-[#2c5363] uppercase tracking-[0.1em]">
-            Tendência Semanal
-          </p>
-          <div className="flex gap-2">
-            <button onClick={() => scroll('left')} className="p-1 rounded-full border border-gray-200 hover:bg-gray-50 text-[#2c5363] transition-all">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <button onClick={() => scroll('right')} className="p-1 rounded-full border border-gray-200 hover:bg-gray-50 text-[#2c5363] transition-all">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-            </button>
+      {/* DADOS ATUAIS (TEMPERATURA, UMIDADE, VENTO, CHUVA) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="flex flex-col items-start">
+          <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Temperatura</p>
+          <div className="flex items-end gap-1.5 h-7">
+            <span className="text-xl leading-none mb-[1px]">{getWeatherIcon(weather.current?.weather_code)}</span>
+            <p className="text-lg font-black text-[#2c5363] leading-none">
+              {weather.current?.temperature_2m}<span className="text-[10px] ml-0.5">°C</span>
+            </p>
           </div>
         </div>
-        
-        <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-4 no-scrollbar scroll-smooth snap-x">
-          {weather.daily?.time.slice(1, 8).map((date, index) => (
-            <div key={date} className="min-w-[130px] snap-start bg-gray-50/50 p-4 rounded-lg border border-gray-100 flex flex-col items-start hover:border-[#bba219] transition-all">
-              <p className="text-[8px] font-black text-[#bba219] uppercase mb-2">
-                {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
-              </p>
-              <span className="text-2xl mb-2">{getWeatherIcon(weather.daily.weather_code?.[index + 1])}</span>
-              <div className="flex flex-col text-left gap-1">
-                <span className="text-[13px] font-black text-[#2c5363]">
-                  {Math.round(weather.daily.temperature_2m_max[index + 1])}° / {Math.round(weather.daily.temperature_2m_min[index + 1])}°
-                </span>
-                <span className="text-[8px] font-bold text-blue-500 uppercase flex items-center gap-1">
-                  <span className="text-[10px]">☔</span> {weather.daily.precipitation_probability_max[index + 1]}% Chuva
-                </span>
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-col items-start">
+          <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Umidade</p>
+          <div className="flex items-end h-7">
+            <p className="text-lg font-black text-[#2c5363] leading-none">
+              {weather.current?.relative_humidity_2m}<span className="text-[10px] ml-0.5">%</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-start">
+          <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Vento (10m)</p>
+          <div className="flex items-end h-7">
+            <p className="text-lg font-black text-[#2c5363] leading-none">
+              {weather.current?.wind_speed_10m}<span className="text-[9px] ml-1 font-bold opacity-60 uppercase">km/h</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-start">
+          <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">Precipitação</p>
+          <div className="flex items-end h-7">
+            <p className="text-lg font-black text-[#bba219] leading-none">
+              {weather.current?.precipitation}<span className="text-[9px] ml-1 font-bold opacity-60 uppercase">mm</span>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="mt-4 pt-4 text-left">
+      {/* TENDÊNCIA ESTENDIDA E CONTROLES */}
+<div className="border-t border-gray-50 pt-3 relative group"> {/* Reduzido pt-4 para pt-3 */}
+  <div className="flex justify-between items-center mb-2"> {/* Reduzido mb-4 para mb-2 */}
+    <div className="flex items-center gap-4">
+      <p className="text-[9px] font-black text-[#2c5363] uppercase tracking-[0.1em]">
+        Tendência {forecastDays} Dias
+      </p>
+      
+      <div className="flex bg-gray-100 p-0.5 rounded-md">
+        {[7, 15].map((d) => (
+          <button 
+            key={d}
+            onClick={() => setForecastDays(d)}
+            className={`text-[7px] px-2 py-1 font-bold uppercase transition-all ${
+              forecastDays === d ? 'bg-white shadow-sm rounded text-[#2c5363]' : 'text-gray-400 hover:text-[#2c5363]'
+            }`}
+          >
+            { `${d} Dias`}
+          </button>
+        ))}
+      </div>
+    </div>
+    
+    <div className="flex gap-2">
+      <button onClick={() => scroll('left')} className="p-1.5 rounded-full border border-gray-200 hover:bg-gray-50 text-[#2c5363] transition-all">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+      </button>
+      <button onClick={() => scroll('right')} className="p-1.5 rounded-full border border-gray-200 hover:bg-gray-50 text-[#2c5363] transition-all">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
+      </button>
+    </div>
+  </div>
+  
+  <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-2 no-scrollbar scroll-smooth snap-x"> {/* Reduzido pb-4 para pb-2 */}
+    {weather.daily?.time.slice(1, forecastDays + 1).map((date, index) => {
+      const dataObj = new Date(date + 'T00:00:00');
+      return (
+        <div key={date} className="min-w-[130px] snap-start bg-gray-50/50 p-3 rounded-lg border border-gray-100 flex flex-col items-start hover:border-[#bba219] transition-all"> {/* Reduzido p-4 para p-3 */}
+          <div className="w-full flex justify-between items-center mb-1"> {/* Reduzido mb-2 para mb-1 */}
+            <p className="text-[8px] font-black text-[#bba219] uppercase">
+              {dataObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
+            </p>
+            <p className="text-[8px] font-bold text-gray-400">
+              {dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+            </p>
+          </div>
+          
+          <span className="text-xl mb-1">{getWeatherIcon(weather.daily.weather_code?.[index + 1])}</span> {/* Reduzido text-2xl para text-xl e mb-2 para mb-1 */}
+          
+          <div className="flex flex-col text-left gap-0.5"> {/* Reduzido gap-1 para gap-0.5 */}
+            <span className="text-[12px] font-black text-[#2c5363]"> {/* Reduzido 13px para 12px */}
+              {Math.round(weather.daily.temperature_2m_max[index + 1])}° / {Math.round(weather.daily.temperature_2m_min[index + 1])}°
+            </span>
+            <span className="text-[8px] font-bold text-blue-500 uppercase flex items-center gap-1">
+              <span className="text-[9px]">☔</span> {weather.daily.precipitation_probability_max[index + 1]}%
+            </span>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
+
+      {/* FOOTER */}
+      <div className="mt-4 pt-4 text-left border-t border-gray-50 flex justify-between items-center">
         <p className="text-[8px] text-gray-400 italic font-medium leading-tight uppercase">
-          * Processado via Open-Meteo. Dados estritamente informativos para gestão de ativos Prylom.
+          * Processado via Prylom Asset Intelligence. Acurácia baseada em modelos de tendência.
         </p>
+        <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Prylom Tech</span>
       </div>
     </section>
   </div>
 )}
 
-    {/* OVERLAY FULLSCREEN VIA PORTAL (Para cobrir a tela inteira de verdade) */}
+
     {showSelectionModal && createPortal(
       <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 md:p-10 animate-fadeIn overflow-hidden">
         {/* Fundo Azul translúcido com Blur */}

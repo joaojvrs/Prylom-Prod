@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
 import logoPrylom from "../assets/logo-prylom.png";
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/style.css';
 
 interface FormProps {
   type: 'open' | 'offmarket' | 'selected';
@@ -112,8 +114,175 @@ useEffect(() => {
     suporte_juridico:'',
   distancia_asfalto: '',
   condicao_venda: '',
-    tipo_anuncio: type
+    tipo_anuncio: type,
+    nome_entidade_vinculo: '',
+documento_entidade_vinculo: ''
   });
+
+  const [docStatus, setDocStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
+    const [smsSent, setSmsSent] = useState(false);
+    const [smsCode, setSmsCode] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [isCodeValid, setIsCodeValid] = useState(false);
+    const [codeError, setCodeError] = useState(false);
+
+const validarCPF = (cpf: string) => {
+  cpf = cpf.replace(/[^\d]+/g, '');
+  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+  let add = 0;
+  for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+  let rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(9))) return false;
+  add = 0;
+  for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+  rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(10))) return false;
+  return true;
+};
+
+  useEffect(() => {
+    const consultarDoc = async () => {
+      const soNumeros = formData.cpf_cnpj.replace(/\D/g, "");
+      if (soNumeros.length === 14) {
+        setDocStatus('validating');
+        try {
+          const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${soNumeros}`);
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          if (data.razao_social) {
+            setFormData(prev => ({ ...prev, nome: data.razao_social }));
+            setDocStatus('valid');
+          }
+        } catch (err) { setDocStatus('invalid'); }
+      } else if (soNumeros.length === 11) {
+        setDocStatus(validarCPF(soNumeros) ? 'valid' : 'invalid');
+      }
+    };
+    consultarDoc();
+  }, [formData.doc]);
+
+  useEffect(() => {
+    const verificarCodigo = async () => {
+      if (smsCode.length === 6) {
+        setIsVerifying(true);
+        setCodeError(false);
+        try {
+          const response = await fetch("https://webhook.saveautomatik.shop/webhook/validaCodigo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              telefone: formData.telefone_whats.replace(/\D/g, ""),
+              codigo: smsCode
+            }),
+          });
+
+          const data = await response.json();
+          const isValid = data.valid === true || String(data.valid).toLowerCase() === "true";
+
+          if (isValid) {
+            setIsCodeValid(true);
+            console.log("Global Validation: Success");
+          } else {
+            setIsCodeValid(false);
+            setCodeError(true);
+            setSmsCode(""); 
+            alert("Invalid or expired code.");
+          }
+        } catch (error) {
+          console.error("Validation error:", error);
+        } finally {
+          setIsVerifying(false);
+        }
+      }
+    };
+    verificarCodigo();
+  }, [smsCode, formData.telefone_whats]);
+
+    const handleDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      let value = e.target.value.replace(/\D/g, "");
+      if (value.length <= 11) value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+      else value = value.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+      setFormData({ ...formData, cpf_cnpj: value });
+    };
+
+    // 1. No topo, onde ficam os estados:
+const [docEntidadeStatus, setDocEntidadeStatus] = useState('idle'); // idle, validating, valid, invalid
+
+const formatarDocumento = (value) => {
+  const digits = value.replace(/\D/g, ""); // Remove letras/símbolos
+
+  if (digits.length <= 11) {
+    // Máscara de CPF: 000.000.000-00
+    return digits
+      .replace(/(\={3})(\={3})(\={3})(\={2})/, "$1.$2.$3-$4")
+      .replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, "$1.$2.$3-$4")
+      .replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3")
+      .replace(/(\d{3})(\d{1,3})/, "$1.$2");
+  } else {
+    // Máscara de CNPJ: 00.000.000/0000-00
+    return digits
+      .slice(0, 14) // Limita a 14 números
+      .replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")
+      .replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/, "$1.$2.$3/$4")
+      .replace(/^(\d{2})(\d{3})(\d{3})/, "$1.$2.$3")
+      .replace(/^(\d{2})(\d{3})/, "$1.$2");
+  }
+};
+
+// 2. A função de mudança:
+const handleDocEntidadeChange = (e) => {
+  const { value } = e.target;
+  const maskedValue = formatarDocumento(value); // Aquela função de máscara que criamos
+
+  setFormData(prev => ({ ...prev, documento_entidade_vinculo: maskedValue }));
+
+  const digits = maskedValue.replace(/\D/g, "");
+
+  // Inicia validação visual
+  if (digits.length >= 11) {
+    setDocEntidadeStatus('validating');
+    
+    // Simula uma pequena demora para dar efeito de "checagem"
+    setTimeout(() => {
+      if (digits.length === 11 || digits.length === 14) {
+        setDocEntidadeStatus('valid');
+      } else {
+        setDocEntidadeStatus('invalid');
+      }
+    }, 600);
+  } else {
+    setDocEntidadeStatus('idle');
+  }
+};
+  
+    const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      let v = e.target.value.replace(/\D/g, "");
+      if (v.length <= 13) {
+        v = v.replace(/^(\d{2})(\d{2})(\d)/g, "$1 ($2) $3");
+        v = v.replace(/(\d)(\d{4})$/, "$1-$2");
+      }
+      setFormData({ ...formData, telefone_whats: v });
+    };
+
+    
+  const handleSendCode = async () => {
+    setIsVerifying(true);
+    try {
+      await fetch("https://webhook.saveautomatik.shop/webhook/validaWhatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefone: formData.telefone_whats.replace(/\D/g, ""),
+          nome: formData.nome_proprietario,
+          projeto: "Prylom Data Room"
+        }),
+      });
+      setSmsSent(true);
+    } catch { setSmsSent(true); } 
+    finally { setIsVerifying(false); }
+  };
 
 const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
   const { name, value, type: inputType } = e.target;
@@ -246,6 +415,8 @@ const [suporteJuridico, setSuporteJuridico] = useState(false);
     observacoes: formData.observacoes,
     inventario_concluido: formData.vinculo_ativo === 'Sucessor' ? formData.inventario_concluido : null,
     procuracao: formData.vinculo_ativo === 'Representante' ? formData.procuracao : null,
+    nome_entidade_vinculo: formData.nome_entidade_vinculo, 
+  documento_entidade_vinculo: formData.documento_entidade_vinculo,
     tipo_anuncio: finalType
   };
 
@@ -299,17 +470,26 @@ const [suporteJuridico, setSuporteJuridico] = useState(false);
           condicao_venda: formData.condicao_venda,
           tipo_negociacao: formData.tipo_negociacao,
           valor_por_hectare: formData.valor_por_hectare,
-          descricao_detalhada: formData.descricao_detalhada,
-          suporte_juridico: formData.suporte_juridico
+          descricao_detalhada: formData.descricao_detalhada
         })
         .eq('id', currentAssetId);
 
-      if (error) throw error;
-      onBack();
-    } catch (error: any) {
-      alert('Erro ao salvar dados técnicos: ' + error.message);
-    } 
-  };
+if (error) throw error;
+
+    // --- O ERRO ESTAVA AQUI ---
+    // Em vez de onBack(), use o comando para ir para a etapa de documentos
+    setStep(4); 
+    
+    // Se o seu componente usa uma prop chamada onNext, use:
+    // onNext(); 
+
+  } catch (error: any) {
+    console.error('ERRO DETALHADO DO SUPABASE:', error); 
+    alert('Erro ao salvar: ' + (error.details || error.message));
+  } finally {
+    setLoading(false);
+  }
+};
 
 const handleFinalizeRegistration = async () => {
   setLoading(true);
@@ -436,6 +616,7 @@ const formatHectares = (value: string) => {
 
 const BackButton = ({ toStep }: { toStep: number }) => (
   <button
+  type="button"
     onClick={() => setStep(toStep)}
     className={`
       flex items-center gap-3 px-8 py-4 rounded-xl font-black uppercase text-[11px] tracking-widest transition-all duration-300 active:scale-95 border-2
@@ -465,13 +646,26 @@ const validateStep2 = () => {
   return true;
 };
 
-// Validação da Etapa 3 (Dados Técnicos)
 const validateStep3 = () => {
-  const { nome_propriedade, aptidao, area_total_hectares, tipo_negociacao, valor_por_hectare } = formData;
-  if (!nome_propriedade || !aptidao || !estadoSelecionado || !formData.localizacao_municipio || !area_total_hectares || !tipo_negociacao || !valor_por_hectare) {
-    alert("Dados essenciais do ativo (Nome, Aptidão, Localização, Área e Valor) são obrigatórios.");
+  // 1. Remova o 'estadoSelecionado' daqui, pois ele não está no formData
+  const { nome_propriedade, aptidao, area_total_hectares, tipo_negociacao, valor_por_hectare, localizacao_municipio } = formData;
+
+  console.log("DEBUG VALIDATION INTERNO:", {
+    nome_propriedade,
+    aptidao,
+    estadoSelecionado, // Aqui ele vai pegar o valor correto do seu useState
+    localizacao_municipio,
+    area_total_hectares,
+    tipo_negociacao,
+    valor_por_hectare
+  });
+
+  // 2. A verificação agora deve funcionar porque 'estadoSelecionado' existe no escopo do componente
+  if (!nome_propriedade || !aptidao || !estadoSelecionado || !localizacao_municipio || !area_total_hectares || !tipo_negociacao || !valor_por_hectare) {
+    alert("Dados essenciais do ativo são obrigatórios.");
     return false;
   }
+  
   return true;
 };
 
@@ -627,15 +821,150 @@ src={logoPrylom} // Sem aspas, usando a variável importada
           <input name="nome_proprietario" required value={formData.nome_proprietario} onChange={handleInputChange} type="text" placeholder="Nome completo" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold transition-all`} />
         </div>
 
-        <div className="space-y-2">
-          <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Telefone / whats</label>
-          <input name="telefone_whats" required value={formData.telefone_whats} onChange={handleInputChange} type="text" placeholder="(00) 00000-0000" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold transition-all`} />
-        </div>
+{/* CAMPO CPF / CNPJ */}
+<div className="space-y-2 group">
+  <div className="flex justify-between items-center px-1">
+    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#bba219]">
+      Documento Identificado
+    </label>
+    
+    <div className="flex items-center gap-2">
+      {/* STATUS: VALIDANDO */}
+      {docStatus === 'validating' && (
+        <span className="flex items-center gap-1 text-[9px] animate-pulse text-gray-500 uppercase font-black tracking-widest">
+          <div className="w-1 h-1 bg-[#bba219] rounded-full animate-bounce" /> 
+          Verificando...
+        </span>
+      )}
 
-        <div className="space-y-2">
-          <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>CPF/CNPJ</label>
-          <input name="cpf_cnpj" required value={formData.cpf_cnpj} onChange={handleInputChange} type="text" placeholder="CPF ou CNPJ" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold transition-all`} />
+      {/* STATUS: AUTENTICADO (SUCESSO) */}
+      {docStatus === 'valid' && (
+        <span className="text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          Autenticado
+        </span>
+      )}
+
+      {/* STATUS: INVÁLIDO (ERRO) */}
+      {docStatus === 'invalid' && (
+        <span className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 animate-bounce">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          Documento Inválido
+        </span>
+      )}
+    </div>
+  </div>
+
+<input
+  type="text"
+  value={formData.cpf_cnpj}
+  onChange={handleDocChange}
+  placeholder="000.000.000-00"
+  className={`w-full p-4 border rounded-lg transition-all duration-300 outline-none placeholder-gray-800
+    ${isSelected ? 'bg-black text-gray-200' : `${theme.bgInput || 'bg-white'} text-gray-900`}
+    ${docStatus === 'valid' ? 'border-green-900/50 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 'border-gray-900 focus:border-[#bba219]'}
+    ${docStatus === 'invalid' ? 'border-red-900/50' : ''}
+  `}
+/>
+</div>
+
+<div className="space-y-4 max-w-md mx-auto">
+  
+  {/* SEÇÃO WHATSAPP */}
+  <div className="space-y-2">
+    <label className="text-[10px] font-black uppercase tracking-widest text-[#bba219] px-1">
+      WhatsApp para Verificação
+    </label>
+    <div className="relative group">
+<input
+  type="text"
+  value={formData.telefone_whats}
+  onChange={handleTelefoneChange}
+  placeholder="(00) 00000-0000"
+  disabled={isCodeValid}
+  className={`w-full p-4 border rounded-lg outline-none transition-all duration-300 placeholder-gray-800
+    ${isSelected ? 'bg-black text-gray-200' : `${theme.bgInput || 'bg-white'} text-gray-900`}
+    ${isCodeValid ? 'border-green-900/30 text-gray-500' : 'border-gray-800 focus:border-[#bba219]'}
+  `}
+/>
+      {isCodeValid && (
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500">
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
         </div>
+      )}
+    </div>
+
+    {/* BOTÃO DE ENVIAR (Aparece abaixo do campo se ainda não enviado) */}
+    {formData.telefone_whats.replace(/\D/g, "").length >= 11 && !smsSent && (
+      <button
+      type="button"
+        onClick={handleSendCode}
+        disabled={isVerifying}
+        className="w-full mt-2 bg-gradient-to-r from-[#bba219] to-[#8e7b14] text-black text-[10px] font-black py-3 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all uppercase tracking-widest disabled:opacity-50"
+      >
+        {isVerifying ? 'Processando...' : 'Solicitar Código de Acesso'}
+      </button>
+    )}
+  </div>
+
+  {/* INTERFACE DE CÓDIGO 2FA (Abaixo, menor e recuada) */}
+  {smsSent && (
+<div className={`ml-4 animate-fadeIn p-5 rounded-xl border scale-[0.96] origin-top transition-all duration-700 
+    ${isSelected ? 'bg-[#0d0d0d]' : 'bg-gray-50'} 
+    ${isCodeValid ? 'border-green-900/40' : 'border-[#bba219]/20 shadow-xl'} space-y-4`}>
+      
+      <div className="flex justify-between items-center">
+        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#bba219]/80">
+          Token de Segurança
+        </label>
+        {isCodeValid ? (
+          <span className="text-[8px] font-black text-green-500 uppercase tracking-widest">Validado</span>
+        ) : (
+          <span className="text-[8px] font-bold text-gray-600 uppercase animate-pulse">Aguardando SMS</span>
+        )}
+      </div>
+
+      <div className="relative">
+        <input
+          maxLength={6}
+          disabled={isCodeValid || isVerifying}
+          value={smsCode}
+          onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ""))}
+          placeholder="••••••"
+          className={`w-full bg-transparent py-2 text-center text-xl font-black tracking-[0.6em] outline-none transition-all
+            ${isCodeValid ? 'text-green-500' : 'text-[#bba219] border-b border-gray-800 focus:border-[#bba219]'}
+            ${codeError ? 'text-red-500 border-red-900 animate-shake' : ''}
+          `}
+        />
+        {isVerifying && !isCodeValid && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+            <div className="w-5 h-5 border-2 border-[#bba219] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+      </div>
+
+      {!isCodeValid && (
+        <div className="flex justify-between items-center pt-2">
+          <p className="text-[8px] text-gray-600 font-bold uppercase">Não recebeu?</p>
+          <button 
+            type="button" 
+            onClick={handleSendCode} 
+            className="text-[#bba219] text-[9px] font-black hover:underline uppercase tracking-tighter"
+          >
+            Reenviar Código
+          </button>
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
 
         <div className="space-y-2">
           <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>E-mail</label>
@@ -670,6 +999,81 @@ src={logoPrylom} // Sem aspas, usando a variável importada
   </select>
 </div>
 
+{/* BLOCO CONDICIONAL: GESTOR DE FAMILY OFFICE / ASSET */}
+{formData.vinculo_ativo === 'Gestor' && (
+  <div className={`md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 ${isSelected ? 'bg-prylom-gold/10' : 'bg-prylom-gold/5'} p-6 rounded-2xl border ${isSelected ? 'border-prylom-gold/30' : 'border-prylom-gold/20'} animate-fadeIn`}>
+    
+    <div className="space-y-2">
+      <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>
+        Nome da Empresa / Family Office
+      </label>
+      <input 
+        name="nome_entidade_vinculo" 
+        required 
+        value={formData.nome_entidade_vinculo} 
+        onChange={handleInputChange} 
+        type="text" 
+        placeholder="Razão Social ou Nome Fantasia" 
+        className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold transition-all`} 
+      />
+    </div>
+
+<div className="space-y-2 group">
+  <div className="flex justify-between items-center px-1">
+    <label className={`text-[10px] font-black uppercase tracking-[0.2em] ${theme.textLabel}`}>
+      CNPJ / CPF da Entidade (Family Office)
+    </label>
+    
+    <div className="flex items-center gap-2">
+      {/* STATUS: VALIDANDO */}
+      {docEntidadeStatus === 'validating' && (
+        <span className="flex items-center gap-1 text-[9px] animate-pulse text-gray-500 uppercase font-black tracking-widest">
+          <div className="w-1 h-1 bg-[#bba219] rounded-full animate-bounce" /> 
+          Verificando...
+        </span>
+      )}
+
+      {/* STATUS: IDENTIFICADO (SUCESSO) */}
+      {docEntidadeStatus === 'valid' && (
+        <span className="text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          Identificado
+        </span>
+      )}
+
+      {/* STATUS: INVÁLIDO (ERRO) */}
+      {docEntidadeStatus === 'invalid' && (
+        <span className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 animate-bounce">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          Documento Inválido
+        </span>
+      )}
+    </div>
+  </div>
+
+  <input
+    name="documento_entidade_vinculo"
+    required
+    value={formData.documento_entidade_vinculo}
+    onChange={handleDocEntidadeChange} // Usa a mesma função que criamos anteriormente
+    type="text"
+    placeholder="00.000.000/0000-00"
+    className={`w-full ${theme.bgInput} p-4 border rounded-xl transition-all duration-300 outline-none text-sm
+      ${docEntidadeStatus === 'valid' ? 'border-green-900/50 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 'border-transparent focus:ring-1 focus:ring-prylom-gold'}
+      ${docEntidadeStatus === 'invalid' ? 'border-red-900/50' : ''}
+    `}
+  />
+</div>
+
+    <p className="md:col-span-2 text-[9px] font-bold uppercase text-prylom-gold opacity-80 px-2">
+      * Como Gestor, você declara possuir mandato vigente para a prospecção e estruturação deste ativo.
+    </p>
+  </div>
+)}
         {formData.vinculo_ativo === 'Sucessor' && (
           <div className={`md:col-span-2 ${isSelected ? 'bg-prylom-gold/10' : 'bg-prylom-gold/5'} p-6 rounded-2xl border ${isSelected ? 'border-prylom-gold/30' : 'border-prylom-gold/20'}`}>
             <p className={`text-[12px] font-black uppercase mb-4 ${theme.textLabel}`}>O Inventário está concluído e registrado em matrícula?</p>
@@ -683,19 +1087,105 @@ src={logoPrylom} // Sem aspas, usando a variável importada
             </div>
           </div>
         )}
-                {formData.vinculo_ativo === 'Representante' && (
-          <div className={`md:col-span-2 ${isSelected ? 'bg-prylom-gold/10' : 'bg-prylom-gold/5'} p-6 rounded-2xl border ${isSelected ? 'border-prylom-gold/30' : 'border-prylom-gold/20'}`}>
-            <p className={`text-[12px] font-black uppercase mb-4 ${theme.textLabel}`}>Possui Procuração Pública com poderes específicos para alienar (vender) o imóvel?</p>
-            <div className="flex gap-8">
-              {['Sim', 'Não'].map(opt => (
-                <label key={opt} className={`flex items-center gap-2 cursor-pointer ${isSelected ? 'text-white' : 'text-prylom-dark'}`}>
-                  <input type="radio" name="procuracao" value={opt} checked={formData.procuracao === opt} onChange={handleInputChange} className="accent-prylom-gold" />
-                  <span className="text-xs font-bold uppercase">{opt}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
+{/* BLOCO CONDICIONAL: PROCURADOR / REPRESENTANTE LEGAL */}
+{formData.vinculo_ativo === 'Representante' && (
+  <div className={`md:col-span-2 space-y-6 ${isSelected ? 'bg-prylom-gold/10' : 'bg-prylom-gold/5'} p-6 rounded-2xl border ${isSelected ? 'border-prylom-gold/30' : 'border-prylom-gold/20'} animate-fadeIn`}>
+    
+    {/* Pergunta sobre a Procuração */}
+    <div className="space-y-4">
+      <p className={`text-[12px] font-black uppercase ${theme.textLabel}`}>
+        Possui Procuração Pública com poderes específicos para alienar (vender) o imóvel?
+      </p>
+      <div className="flex gap-8">
+        {['Sim', 'Não'].map(opt => (
+          <label key={opt} className={`flex items-center gap-2 cursor-pointer ${isSelected ? 'text-white' : 'text-prylom-dark'}`}>
+            <input 
+              type="radio" 
+              name="procuracao" 
+              value={opt} 
+              checked={formData.procuracao === opt} 
+              onChange={handleInputChange} 
+              className="accent-prylom-gold w-4 h-4" 
+            />
+            <span className="text-xs font-bold uppercase">{opt}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    {/* Linha divisória sutil */}
+    <div className="h-[1px] w-full bg-prylom-gold/20"></div>
+
+    {/* Campos extras de identificação (Sempre visíveis se for Representante) */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-2">
+        <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>
+          Nome da Empresa ou Representado
+        </label>
+        <input 
+          name="nome_entidade_vinculo" 
+          required 
+          value={formData.nome_entidade_vinculo} 
+          onChange={handleInputChange} 
+          type="text" 
+          placeholder="Nome completo ou Razão Social" 
+          className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold transition-all`} 
+        />
+      </div>
+
+<div className="space-y-2 group">
+  <div className="flex justify-between items-center px-1">
+    <label className={`text-[10px] font-black uppercase tracking-[0.2em] ${theme.textLabel}`}>
+      Documento da Entidade / Representado
+    </label>
+    
+    <div className="flex items-center gap-2">
+      {/* STATUS: VALIDANDO */}
+      {docEntidadeStatus === 'validating' && (
+        <span className="flex items-center gap-1 text-[9px] animate-pulse text-gray-500 uppercase font-black tracking-widest">
+          <div className="w-1 h-1 bg-[#bba219] rounded-full animate-bounce" /> 
+          Verificando...
+        </span>
+      )}
+
+      {/* STATUS: AUTENTICADO */}
+      {docEntidadeStatus === 'valid' && (
+        <span className="text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          Identificado
+        </span>
+      )}
+
+      {/* STATUS: INVÁLIDO */}
+      {docEntidadeStatus === 'invalid' && (
+        <span className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 animate-bounce">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          Documento Inválido
+        </span>
+      )}
+    </div>
+  </div>
+
+  <input
+    name="documento_entidade_vinculo"
+    type="text"
+    required
+    value={formData.documento_entidade_vinculo}
+    onChange={handleDocEntidadeChange} // Criaremos essa função abaixo
+    placeholder="CPF ou CNPJ"
+    className={`w-full ${theme.bgInput} p-4 border rounded-xl transition-all duration-300 outline-none text-sm
+      ${docEntidadeStatus === 'valid' ? 'border-green-900/50 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 'border-transparent focus:ring-1 focus:ring-prylom-gold'}
+      ${docEntidadeStatus === 'invalid' ? 'border-red-900/50' : ''}
+    `}
+  />
+</div>
+    </div>
+  </div>
+)}
 
         <div className="space-y-2">
           <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Origem de Interesse</label>
@@ -778,18 +1268,23 @@ PELO RESGUARDO E PAGAMENTO INTEGRAL DOS HONORÁRIOS DEVIDOS À PRYLOM.
 // ETAPA 3: DADOS TÉCNICOS (ADAPTÁVEL PREMIUM)
   const renderStep3 = () => (
 <form 
-onSubmit={(e) => {
-  e.preventDefault(); 
-  // Se a validação passar, salva os dados e pula para a etapa 3
-  if (validateStep2()) {
-    handleSaveStep2(); // Salva no banco/estado
-    setStep(3);        // COMANDO PARA AVANÇAR (Certifique-se que o nome da função/estado é este)
-  } else {
-    alert("Por favor, preencha todos os campos obrigatórios.");
-  }
-}}
-    className={`flex flex-col ${theme.bgPage} animate-fadeIn`}
-  >
+  onSubmit={async (e) => {
+    e.preventDefault(); 
+    
+    // 1. Chamamos a validação correta (Step 3)
+    if (validateStep3()) {
+      // 2. Esperamos o salvamento concluir antes de qualquer outra ação
+      await handleFinalizeStep3(); 
+      
+      // 3. O 'setStep' ou 'onNext' deve vir aqui se houver uma etapa 4, 
+      // mas como seu handleFinalizeStep3 já tem um 'onBack()', ele vai fechar.
+    } else {
+      // O alert já está dentro do validateStep3, mas deixamos aqui por segurança
+      console.log("Validação falhou");
+    }
+  }}
+  className={`flex flex-col ${theme.bgPage} animate-fadeIn`}
+>
     <header className={`${theme.bgHeader} py-10 px-10 shrink-0 md:rounded-b-[4rem] shadow-2xl z-10 relative`}>
       <div className="max-w-6xl mx-auto flex flex-col items-center text-center">
         {/* EXIBIÇÃO DA BADGE CONSTANTE */}
@@ -834,12 +1329,12 @@ src={logoPrylom} // Sem aspas, usando a variável importada
           
           <div className="space-y-1">
             <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Nome da Propriedade</label>
-            <input name="nome_propriedade" value={formData.nome_propriedade} onChange={handleInputChange} placeholder="Fazenda Prylom" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold transition-all`} />
+            <input name="nome_propriedade" required value={formData.nome_propriedade} onChange={handleInputChange} placeholder="Fazenda Prylom" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold transition-all`} />
           </div>
 
           <div className="space-y-1">
             <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Aptidão</label>
-            <select name="aptidao" value={formData.aptidao} onChange={handleInputChange} className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none cursor-pointer`}>
+            <select name="aptidao" required value={formData.aptidao} onChange={handleInputChange} className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none cursor-pointer`}>
               <option value="">Selecione</option>
               <option value="Agricultura">Agricultura</option>
               <option value="Pecuária">Pecuária</option>
@@ -852,7 +1347,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
 
           <div className="space-y-1">
             <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Estado</label>
-            <select
+            <select required
               value={estadoSelecionado}
               onChange={(e) => {
                 setEstadoSelecionado(e.target.value);
@@ -870,7 +1365,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
           <div className="space-y-1">
             <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Localização (Mun)</label>
             <select
-              name="localizacao_municipio"
+              name="localizacao_municipio" required
               value={formData.localizacao_municipio.split(' - ')[0]}
               disabled={!estadoSelecionado}
               onChange={(e) => setFormData({ ...formData, localizacao_municipio: `${e.target.value} - ${estadoSelecionado}` })}
@@ -894,7 +1389,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
   </label>
   <input 
     type="text"
-    name="area_total_hectares" 
+    name="area_total_hectares" required
     value={formData.area_total_hectares} 
     onChange={handleInputChange} 
     placeholder="1.250,50" 
@@ -904,7 +1399,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
 
           <div className="space-y-1">
             <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Topografia</label>
-            <select name="topografia" value={formData.topografia} onChange={handleInputChange} className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none cursor-pointer`}>
+            <select name="topografia" required value={formData.topografia} onChange={handleInputChange} className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none cursor-pointer`}>
               <option value="">Selecione</option>
               <option value="Plana">Plana</option>
               <option value="Ondulada">Ondulada</option>
@@ -920,7 +1415,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
   </label>
   <input 
     type="text"
-    name="area_producao_atual" 
+    name="area_producao_atual" required
     value={formData.area_producao_atual} 
     onChange={handleInputChange} 
     placeholder="800,00" 
@@ -930,7 +1425,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
 
           <div className="space-y-1">
             <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Reserva Legal</label>
-            <input name="reserva_legal" value={formData.reserva_legal} onChange={handleInputChange} placeholder="20%" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold`} />
+            <input name="reserva_legal" required value={formData.reserva_legal} onChange={handleInputChange} placeholder="20%" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold`} />
           </div>
 
           <div className="space-y-1">
@@ -939,7 +1434,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
                <span className="p-4 text-prylom-gold font-black bg-black/40 shadow-inner">R$</span>
 <input 
   type="text" // Importante: mudar de number para text
-  name="valor_por_hectare" 
+  name="valor_por_hectare" required
   value={formData.valor_por_hectare} 
   onChange={handleInputChange} 
   placeholder="0,00" 
@@ -950,7 +1445,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
 
           <div className="space-y-1">
             <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Tipo de Negociação</label>
-            <select name="tipo_negociacao" value={formData.tipo_negociacao} onChange={handleInputChange} className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none cursor-pointer`}>
+            <select name="tipo_negociacao" required value={formData.tipo_negociacao} onChange={handleInputChange} className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none cursor-pointer`}>
               <option value="">Selecione</option>
               <option value="Venda">Venda</option>
               <option value="Arrendamento">Arrendamento</option>
@@ -958,7 +1453,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
           </div>
           <div className="space-y-1">
     <label className={`text-[11px] font-black uppercase ${theme.textLabel} ml-2`}>Distância do Asfalto</label>
-    <input name="distancia_asfalto" value={formData.distancia_asfalto} onChange={handleInputChange} placeholder="Ex: 15km" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold`} />
+    <input name="distancia_asfalto"  value={formData.distancia_asfalto} onChange={handleInputChange} placeholder="Ex: 15km" className={`w-full ${theme.bgInput} border-none p-4 rounded-xl text-sm outline-none focus:ring-1 focus:ring-prylom-gold`} />
   </div>
 
   <div className="space-y-1">
@@ -1157,13 +1652,17 @@ src={logoPrylom} // Sem aspas, usando a variável importada
 
 <footer className={`${isSelected ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} w-full border-t p-8 flex justify-between items-center shrink-0 shadow-2xl`}>
 <BackButton toStep={3} />
-  <button 
-    onClick={handleFinalizeRegistration} 
-    disabled={loading} 
-    className="bg-prylom-gold text-black px-20 py-4 rounded-xl font-black uppercase text-[12px] tracking-[0.2em] shadow-xl hover:shadow-2xl transition-all active:scale-95 disabled:opacity-50"
-  >
-    {loading ? 'Enviando Dossiê...' : 'Finalizar Cadastro'}
-  </button>
+<button 
+  onClick={() => {
+    if (validateStep4()) { // <-- CHAMA A VALIDAÇÃO PRIMEIRO
+      handleFinalizeRegistration(); 
+    }
+  }} 
+  disabled={loading} 
+  className="..."
+>
+  {loading ? 'Enviando Dossiê...' : 'Finalizar Cadastro'}
+</button>
 </footer>
     </div>
   );
@@ -1514,19 +2013,26 @@ QUEBRA CONTRATUAL.</p>
         key: 'responsabilidade', 
         text: 'RESPONSABILIDADE DOCUMENTAL: Confirmo que a regularização fundiária (taxas governamentais, cartórios e passivos) é de minha inteira responsabilidade, não sendo coberta pela estrutura financeira da Prylom.' 
       }
-    ].map((term) => (
-      <label key={term.key} className="flex items-start gap-3 cursor-pointer group">
-        <input 
-          type="checkbox" 
-          checked={selectedTerms[term.key as keyof typeof selectedTerms]}
-          onChange={(e) => setSelectedTerms({...selectedTerms, [term.key]: e.target.checked})}
-          className="w-5 h-5 mt-1 accent-prylom-gold shrink-0" 
-        />
-        <span className="text-[9px] font-bold uppercase leading-snug group-hover:text-black transition-colors">
-          {term.text}
-        </span>
-      </label>
-    ))}
+    ].map((term) => {
+      const isChecked = selectedTerms[term.key as keyof typeof selectedTerms];
+
+      return (
+        <label key={term.key} className="flex items-start gap-3 cursor-pointer group">
+          <input 
+            type="checkbox" 
+            checked={isChecked}
+            onChange={(e) => setSelectedTerms({...selectedTerms, [term.key]: e.target.checked})}
+            /* A MÁGICA ESTÁ AQUI */
+            className={`w-5 h-5 mt-1 shrink-0 transition-colors ${
+              isChecked ? 'accent-green-600' : 'accent-prylom-gold'
+            }`} 
+          />
+          <span className="text-[9px] font-bold uppercase leading-snug group-hover:text-black transition-colors">
+            {term.text}
+          </span>
+        </label>
+      );
+    })}
   </div>
 </section>
 

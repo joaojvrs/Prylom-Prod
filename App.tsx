@@ -19,6 +19,8 @@ import ProductDetails from './components/ProductDetails';
 import AdminDashboard from './components/AdminDashboard';
 import LegalAgro from './components/LegalAgro';
 import { translations } from './translations';
+import DataRoomModal from './components/DataRoomModal';
+
 
 const App: React.FC = () => {
 const navigate = useNavigate(); // Hook para mudar de página
@@ -409,7 +411,18 @@ const channel = supabase
       onSelectLegal={() => navigateTo('/legal')}
       t={t} lang={lang} currency={currency} 
     />} />
-
+{/* O '?' faz com que tanto /dataroom quanto /dataroom/123 funcionem */}
+<Route 
+  path="/dataroom/:id?" 
+  element={
+    <DataRoomModal 
+      onBack={() => navigate(-1)} 
+      t={t} 
+      lang={lang} 
+      currency={currency} 
+    />
+  } 
+/>
     <Route path="/owner" element={<OwnerWizard onComplete={() => navigateTo('/success')} onBack={() => navigateTo('/')} onOpenMap={() => navigateTo('/map')} t={t} lang={lang} currency={currency} />} />
     <Route path="/broker" element={<BrokerFlow onComplete={() => navigateTo('/success')} onBack={() => navigateTo('/')} t={t} lang={lang} currency={currency} />} />
     <Route path="/tools" element={<ToolsHub onBack={() => navigateTo('/')} t={t} lang={lang} currency={currency} />} />
@@ -450,7 +463,7 @@ const channel = supabase
                 Prylom<span className="text-prylom-gold">.</span>
               </div>
               <p className="text-gray-500 text-xs leading-relaxed font-medium">
-                {t.footerEcossystem}
+               CNPJ: 45.685.251/0001-95 | 16344 – MS
               </p>
             </div>
             

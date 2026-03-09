@@ -3,7 +3,8 @@ import ProductDetails from './ProductDetails';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import logoPrylom from "../assets/logo-prylom.png";
-
+import { supabase } from '../supabaseClient';
+import { useParams } from 'react-router-dom';
 // Definindo uma Interface para as Props (Boa prática em TS)
 interface InputLineProps {
   label: string;
@@ -36,6 +37,7 @@ const InputLine = ({
     /> 
   </div>
 );
+
 
 interface SelectLineProps {
   label: string;
@@ -73,14 +75,22 @@ const validarCPF = (cpf: string) => {
   return true;
 };
 
+
 // Você pode adicionar a lógica de CNPJ similar aqui
 
-const NationalProtocol = ({ product, onComplete, onBack }: { 
+const NationalProtocol = ({ 
+  product, 
+  onComplete, 
+  onBack, 
+  subStep,      // Recebe do pai
+  setSubStep    // Recebe do pai
+}: { 
   product: any, 
   onComplete: () => void, 
-  onBack: () => void 
+  onBack: () => void,
+  subStep: number,
+  setSubStep: (s: number) => void 
 }) => {
-  const [subStep, setSubStep] = useState(1);
   const [fields, setFields] = useState({
     nome: '',
     doc: '',
@@ -103,6 +113,9 @@ const NationalProtocol = ({ product, onComplete, onBack }: {
   const [isCodeValid, setIsCodeValid] = useState(false);
   const [codeError, setCodeError] = useState(false);
 const [ndaAccepted, setNdaAccepted] = useState(false);
+
+
+
   // Validação CPF/CNPJ
   useEffect(() => {
     const consultarDoc = async () => {
@@ -185,7 +198,8 @@ const isStep1Valid = useMemo(() => {
   );
 }, [fields, docStatus, isCodeValid]);
 
-  const handleNext = () => {
+
+const handleNext = () => {
     if (isStep1Valid) {
       setSubStep(2);
     }
@@ -392,66 +406,37 @@ const isStep1Valid = useMemo(() => {
     <p className="text-[9px] text-gray-400 uppercase font-medium">Selecione a abrangência deste documento</p>
   </div>
 
-  <div className="grid grid-cols-1 gap-4">
-    {/* OPÇÃO 1: FAVORITOS */}
-    <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'FAVORITES' ? 'bg-[#2c5363] border-[#2c5363]' : 'bg-white border-gray-100 hover:border-[#bba219]'}`}>
-      <div className="mt-1">
-        <input 
-          type="radio" 
-          className="sr-only" 
-          name="nda_scope"
-          checked={fields.scope === 'FAVORITES'}
-          onChange={() => setFields({...fields, scope: 'FAVORITES'})}
-        />
-        <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'FAVORITES' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-200'}`}>
-          {fields.scope === 'FAVORITES' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
-        </div>
+ <div className="grid grid-cols-1 gap-4">
+  {/* OPÇÃO ÚNICA: PORTFÓLIO INTEGRAL (MASTER NDA) */}
+  <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'FULL_PORTFOLIO' ? 'bg-[#2c5363] border-[#2c5363]' : 'bg-white border-gray-100 hover:border-[#bba219]'}`}>
+    <div className="mt-1">
+      <input 
+        type="radio" 
+        className="sr-only" 
+        name="nda_scope"
+        required
+        checked={fields.scope === 'FULL_PORTFOLIO'}
+        onChange={() => setFields({...fields, scope: 'FULL_PORTFOLIO'})}
+      />
+      <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'FULL_PORTFOLIO' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-200'}`}>
+        {fields.scope === 'FULL_PORTFOLIO' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
       </div>
-      <div className="space-y-2">
-        <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'FAVORITES' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
-          INCLUIR FAVORITOS
-        </span>
-        <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'FAVORITES' ? 'text-white/90' : 'text-gray-500'}`}>
-          Desejo incluir todos os ativos salvos em minha lista de favoritos neste único Acordo de Confidencialidade, agilizando a liberação dos relatórios preliminares. Estou ciente de que, caso haja imóveis na modalidade Open Market nesta seleção, a consolidação de seus respectivos relatórios dependerá da colaboração e do envio de documentos por parte do proprietário ou originador parceiro, podendo o prazo de entrega ser estendido.
-        </p>
-      </div>
-    </label>
-
-    {/* OPÇÃO 2: APENAS ESTE ATIVO */}
-    <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'SINGLE' ? 'bg-[#2c5363] border-[#2c5363]' : 'bg-white border-gray-100 hover:border-[#bba219]'}`}>
-      <div className="mt-1">
-        <input 
-          type="radio" 
-          className="sr-only" 
-          name="nda_scope"
-          checked={fields.scope === 'SINGLE'}
-          onChange={() => setFields({...fields, scope: 'SINGLE'})}
-        />
-        <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'SINGLE' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-200'}`}>
-          {fields.scope === 'SINGLE' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'SINGLE' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
-          APENAS ESTE ATIVO (CÓDIGO: {product?.codigo || '---'})
-        </span>
-        <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'SINGLE' ? 'text-white/90' : 'text-gray-500'}`}>
-          Desejo prosseguir com a assinatura do Acordo de Confidencialidade restrito apenas a este ativo específico.
-          
-          {isOpenMarket && (
-            <span className="block mt-2 font-bold text-[#bba219]">
-              RESSALVA: Este ativo é da modalidade Open Market. A consolidação de seu relatório dependerá do envio de documentos pelo proprietário, podendo o prazo de entrega ser estendido.
-            </span>
-          )}
-        </p>
-      </div>
-    </label>
-  </div>
+    </div>
+    <div className="space-y-2">
+      <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'FULL_PORTFOLIO' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
+        PORTFÓLIO INTEGRAL (SELECTED OFF-MARKET)
+      </span>
+      <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'FULL_PORTFOLIO' ? 'text-white/90' : 'text-gray-500'}`}>
+        Desejo firmar um Acordo de Confidencialidade Global (Master NDA) para ter acesso contínuo ao portfólio restrito de ativos reais e propriedades rurais Off-Market da Prylom. Estou ciente de que as cláusulas de sigilo e não-circunvenção (non-bypass) cobrirão automaticamente todas as teses e propriedades que me forem apresentadas de forma ativa e sigilosa pela diretoria.
+      </p>
+    </div>
+  </label>
+</div>
 </div>
 {/* --- FIM DA NOVA SEÇÃO --- */}   
           
-
 <button 
+
       onClick={handleNext}
       disabled={!isStep1Valid } // Trava o botão sem o arquivo
       className={`w-full py-5 font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-lg
@@ -660,7 +645,7 @@ disabled={
       </div>
       <div className="hidden md:block text-right">
         <span className="text-[8px] font-black bg-green-50 text-green-600 px-3 py-1 rounded-sm uppercase tracking-widest border border-green-100 italic">
-          Documento Auditado
+          Autenticação digital
         </span>
       </div>
     </div>
@@ -673,7 +658,7 @@ disabled={
 
       <div className="relative z-10 space-y-6 text-[11px] md:text-[12px] text-gray-600 leading-relaxed font-medium">
         
-        {/* QUALIFICAÇÃO COMPLETA DAS PARTES */}
+        {/* IDENTIFICAÇÃO DAS PARTES E DO OBJETO (QUALIFICAÇÃO COMPLETA) */}
         <div className="p-4 bg-gray-50 border-l-2 border-[#bba219] space-y-4 mb-6">
           <p className="text-[10px] leading-relaxed">
             <strong className="text-[#2c5363] block mb-1">PARTE REVELADORA / INTERMEDIADORA:</strong>
@@ -684,34 +669,39 @@ disabled={
             <strong className="text-[#2c5363] block mb-1">PARTE RECEPTORA / SIGNATÁRIA:</strong>
             Pelo presente instrumento, eu, <span className="font-black text-[#2c5363] underline">{fields.nome || "[NOME NÃO PREENCHIDO]"}</span>, 
             devidamente inscrito(a) no <span className="font-black text-[#2c5363] underline">{fields.doc || "[DOCUMENTO NÃO PREENCHIDO]"}</span>, 
-            na qualidade de <span className="font-black text-[#2c5363] underline uppercase">{fields.perfil || "INTERESSADO"}</span>, 
+            na qualidade de <span className="font-black text-[#2c5363] underline uppercase">{fields.perfil || "INVESTIDOR / REPRESENTANTE LEGAL"}</span>, 
             declaro aceite formal, irrevogável e irretratável aos termos de confidencialidade abaixo, estabelecendo este vínculo jurídico direto com a PRYLOM em relação à curadoria e apresentação do(s) ativo(s). 
-            O signatário está coberto pelo sigilo e regras de não-aliciamento (Non-Circumvention) referentes exclusivamente aos ativos: 
-            <span className="font-black text-[#bba219] ml-1 uppercase">
-              {fields.scope === 'FAVORITES' ? "LISTA DE FAVORITOS CONSOLIDADA" : `CÓDIGO: ${product?.codigo || '---'}`}
-            </span>
+             Este Acordo possui escopo a proteção de toda e qualquer Informação
+Confidencial referente ao portfólio de ativos reais, teses de propriedades rurais Off-Market apresentadas pela
+PRYLOM à PARTE RECEPTORA. Fica expressamente acordado que a ausência de um código ou identificação prévia de
+um ativo específico neste instrumento não invalida o sigilo, sendo que todo e qualquer ativo, Teaser, Data Room ou
+estudo de viabilidade compartilhado pela PRYLOM (seja via sistema, e-mail corporativo ou aplicativo de
+mensagens) passará, no ato do recebimento, a ser regido e protegido automaticamente pelas cláusulas de sigilo e
+penalidades deste contrato.
+
           </p>
         </div>
 
-        {/* CLAUSULADO TÉCNICO */}
+        {/* CLAUSULADO TÉCNICO ATUALIZADO */}
         <div className="space-y-6">
           <p>
-            <strong className="text-[#2c5363] font-bold">1. SIGILO E NÃO-ALICIAMENTO (NON-CIRCUMVENTION):</strong> Comprometo-me formalmente a manter sigilo absoluto sobre mapas, matrículas e quaisquer dados sensíveis. Fica terminantemente proibido contatar direta ou indiretamente os proprietários, intervir, tentar adquirir ou estruturar negócios com os ativos listados sem a intermediação expressa da PRYLOM. O descumprimento acarretará multa contratual imediata equivalente ao valor integral da comissão de intermediação, sem prejuízo de reparação por danos morais e lucros cessantes.
+            <strong className="text-[#2c5363] font-bold">1. SIGILO E NÃO-ALICIAMENTO (NON-CIRCUMVENTION):</strong> Comprometo-me formalmente a manter sigilo absoluto sobre mapas, matrículas e quaisquer dados sensíveis (que possam expor a risco estratégico, comercial, financeiro ou pessoal as partes envolvidas). Fica terminantemente proibido contatar direta ou indiretamente os proprietários, intervir, tentar adquirir ou estruturar negócios com os ativos listados (e suas áreas confrontantes) sem a intermediação expressa da PRYLOM. O descumprimento (aliciamento ou vazamento destas informações) acarretará multa contratual imediata equivalente ao valor integral da comissão de intermediação (e estruturação estipulada para a propriedade em questão), sem prejuízo da competente ação judicial cumulativa para a reparação de danos patrimoniais, lucros cessantes e danos morais e corporativos.
           </p>
 
           <p>
-            <strong className="text-[#2c5363] font-bold">2. VIGÊNCIA E RESPONSABILIDADE SOLIDÁRIA:</strong> As obrigações deste instrumento possuem validade irrevogável de 36 (trinta e seis) meses a partir do aceite. Caso atue como Representante Legal, assumo responsabilidade solidária integral por eventuais quebras de sigilo praticadas por meu cliente final.
+            <strong className="text-[#2c5363] font-bold">2. VIGÊNCIA E RESPONSABILIDADE SOLIDÁRIA:</strong> As obrigações deste instrumento possuem validade irrevogável de 36 (trinta e seis) meses a partir do aceite. Caso atue como Representante legal/Intermediário, assumo responsabilidade solidária e financeira integral por eventuais quebras de sigilo ou "by-pass" praticados por meu cliente final.
           </p>
 
           <p>
-            <strong className="text-[#2c5363] font-bold">3. VERACIDADE (CÓDIGO PENAL):</strong> Declaro, sob as penas da Lei (Art. 299 do Código Penal), que todas as informações prestadas são estritamente verdadeiras.
+            <strong className="text-[#2c5363] font-bold">3. VERACIDADE (CÓDIGO PENAL):</strong> Declaro, sob as penas da Lei, especificamente sob o Artigo 299 do Código Penal Brasileiro (Falsidade Ideológica), que todas as informações e titularidades prestadas neste credenciamento são estritamente verdadeiras.
           </p>
 
           <p>
-            <strong className="text-[#2c5363] font-bold">4. COMPLIANCE E LGPD:</strong> Autorizo a consulta de meus dados em órgãos de proteção ao crédito e listas de sanções KYC/AML, em conformidade com a LGPD (Lei 13.709/18).
+            <strong className="text-[#2c5363] font-bold">4. COMPLIANCE E LGPD:</strong> Autorizo expressamente a PRYLOM a realizar o cruzamento e a consulta dos dados inseridos nesta plataforma junto aos órgãos responsáveis (incluindo órgãos de proteção ao crédito, listas de sanções internacionais KYC/AML e tribunais de justiça), bem como o tratamento de meus dados em estrita conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei 13.709/18) para fins exclusivos de auditoria prévia do negócio e aprovação de perfil.
           </p>
         </div>
         
+        {/* Rodapé de Autenticação */}
         <div className="pt-8 border-t border-gray-50 flex flex-col md:flex-row justify-between gap-4">
           <div className="space-y-1">
             <p className="text-[9px] uppercase font-black text-gray-400">IP DE REGISTRO E AUTENTICAÇÃO:</p>
@@ -724,6 +714,7 @@ disabled={
         </div>
       </div>
     </div>
+
 
     {/* Checkbox de Aceite */}
     <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4">
@@ -812,8 +803,20 @@ disabled={
 };
 
 
-const InternationalProtocol = ({ product, onComplete, onBack }: { product: any, onComplete: () => void, onBack: () => void }) => { 
-const [subStep, setSubStep] = useState(1);
+const InternationalProtocol = ({ 
+  product, 
+  onComplete, 
+  onBack, 
+  subStep,      // Recebe do pai
+  setSubStep    // Recebe do pai
+}: { 
+  product: any, 
+  onComplete: () => void, 
+  onBack: () => void,
+  subStep: number,
+  setSubStep: (s: number) => void 
+}) => {
+
   const [isVerifying, setIsVerifying] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [smsCode, setSmsCode] = useState('');
@@ -1291,55 +1294,31 @@ useEffect(() => {
     <p className="text-[10px] font-bold text-gray-400 uppercase">Define the legal reach of this confidentiality protocol</p>
   </div>
 
-  <div className="grid grid-cols-1 gap-4">
-    {/* OPTION 1: ALL FAVORITES */}
-    <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'FAVORITES' ? 'bg-[#2c5363] border-[#2c5363] shadow-xl' : 'bg-white border-gray-200 hover:border-[#bba219]'}`}>
-      <div className="mt-1">
-        <input 
-          type="radio" 
-          name="nda_scope"
-          checked={fields.scope === 'FAVORITES'}
-          onChange={() => setFields({...fields, scope: 'FAVORITES'})}
-          className="sr-only"
-        />
-        <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'FAVORITES' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-300'}`}>
-          {fields.scope === 'FAVORITES' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
-        </div>
+<div className="grid grid-cols-1 gap-4">
+  {/* SINGLE OPTION: FULL PORTFOLIO (MASTER NDA) */}
+  <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'FULL_PORTFOLIO' ? 'bg-[#2c5363] border-[#2c5363]' : 'bg-white border-gray-100 hover:border-[#bba219]'}`}>
+    <div className="mt-1">
+      <input 
+        type="radio" 
+        className="sr-only" 
+        name="nda_scope"
+        checked={fields.scope === 'FULL_PORTFOLIO'}
+        onChange={() => setFields({...fields, scope: 'FULL_PORTFOLIO'})}
+      />
+      <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'FULL_PORTFOLIO' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-200'}`}>
+        {fields.scope === 'FULL_PORTFOLIO' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
       </div>
-      <div className="space-y-2">
-        <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'FAVORITES' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
-          Portfolio Coverage: All Favorites
-        </span>
-        <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'FAVORITES' ? 'text-white/90' : 'text-gray-500'}`}>
-          I wish to include all assets currently saved in my favorites list under this single Non-Disclosure Agreement (NDA). This streamlines the due diligence process and accelerates the release of preliminary reports for the entire selection.
-        </p>
-      </div>
-    </label>
-
-    {/* OPTION 2: SINGLE ASSET */}
-    <label className={`group cursor-pointer p-5 border transition-all duration-300 flex gap-4 items-start ${fields.scope === 'SINGLE' ? 'bg-[#2c5363] border-[#2c5363] shadow-xl' : 'bg-white border-gray-200 hover:border-[#bba219]'}`}>
-      <div className="mt-1">
-        <input 
-          type="radio" 
-          name="nda_scope"
-          checked={fields.scope === 'SINGLE'}
-          onChange={() => setFields({...fields, scope: 'SINGLE'})}
-          className="sr-only"
-        />
-        <div className={`w-4 h-4 border-2 flex items-center justify-center transition-colors ${fields.scope === 'SINGLE' ? 'border-[#bba219] bg-[#bba219]' : 'border-gray-300'}`}>
-          {fields.scope === 'SINGLE' && <div className="w-2 h-2 bg-[#2c5363]"></div>}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'SINGLE' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
-          Specific Coverage: This Asset Only (ID: {product?.codigo || '---'})
-        </span>
-        <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'SINGLE' ? 'text-white/90' : 'text-gray-500'}`}>
-          I wish to proceed with a Confidentiality Agreement restricted exclusively to this specific asset. Information related to other portfolio items will require separate protocols.
-        </p>
-      </div>
-    </label>
-  </div>
+    </div>
+    <div className="space-y-2">
+      <span className={`text-[10px] font-black uppercase tracking-widest ${fields.scope === 'FULL_PORTFOLIO' ? 'text-[#bba219]' : 'text-[#2c5363]'}`}>
+        FULL PORTFOLIO (SELECTED OFF-MARKET)
+      </span>
+      <p className={`text-[10px] leading-relaxed font-medium ${fields.scope === 'FULL_PORTFOLIO' ? 'text-white/90' : 'text-gray-500'}`}>
+        I wish to enter into a Global Confidentiality Agreement (Master NDA) to have continuous access to Prylom's restricted portfolio of off-market real assets and rural properties. I am aware that the confidentiality and non-circumvention (non-bypass) clauses will automatically cover all investment theses and properties presented to me actively and confidentially by the board.
+      </p>
+    </div>
+  </label>
+</div>
 </section>
 </div>
 
@@ -1390,61 +1369,81 @@ useEffect(() => {
       <div className="relative z-10 space-y-6 text-[11px] md:text-[12px] text-gray-600 leading-relaxed font-medium uppercase">
         
         {/* IDENTIFICATION OF THE PARTIES */}
-        <div className="p-4 bg-gray-50 border-l-2 border-[#bba219] space-y-4 mb-6">
-          <p className="text-[10px] leading-relaxed">
-            <strong className="text-[#2c5363] block mb-1">DISCLOSING PARTY / INTERMEDIARY:</strong>
-            PRYLOM AGRONEGÓCIOS, a private legal entity, registered under CNPJ No. 45.685.251/0001-95, under technical supervision CRECI No. 16344 - MS, headquartered at R. Centenário, 470 - Vila Rosa Pires - Campo Grande - MS, Zip Code 79004-510, Brazil.
-          </p>
+<div className="p-4 bg-gray-50 border-l-2 border-[#bba219] space-y-4 mb-6">
+    <p className="text-[11px] leading-relaxed">
+      <strong className="text-[#2c5363] block mb-1 uppercase">Disclosing Party / Intermediary:</strong>
+      PRYLOM AGRONEGÓCIOS, a private legal entity, registered under CNPJ No. 45.685.251/0001-95, 
+      under technical supervision CRECI No. 16344 - MS, headquartered at R. Centenário, 470 - Vila Rosa Pires 
+      - Campo Grande - MS, Zip Code 79004-510, Brazil.
+    </p>
 
-          <p className="text-[10px] leading-relaxed">
-            <strong className="text-[#2c5363] block mb-1">RECEIVING PARTY / SIGNATORY:</strong>
-            By this instrument, I, <span className="font-black text-[#2c5363] underline">{fields.companyName || fields.repName || "[NAME NOT PROVIDED]"}</span>, 
-            duly registered under <span className="font-black text-[#2c5363] underline">{fields.taxId || fields.passport || "[ID NOT PROVIDED]"}</span>, 
-            acting in the capacity of <span className="font-black text-[#2c5363] underline">{fields.repCapacity || fields.investorType || "INVESTOR"}</span> 
-            {fields.advisoryFirm ? ` (MANDATED BY ${fields.advisoryFirm})` : ""}, 
-            declare my formal, irrevocable, and unalterable acceptance of the confidentiality terms below, establishing this direct legal bond with PRYLOM regarding the curation and presentation of the asset(s). 
-            The signatory is bound by the confidentiality and non-circumvention rules referring exclusively to the assets: 
-            <span className="font-black text-[#bba219] ml-1">
-              {fields.scope === 'FAVORITES' ? "CONSOLIDATED PORTFOLIO (FAVORITES LIST)" : `SPECIFIC ASSET ID: ${product?.codigo || '---'}`}
-            </span>.
-          </p>
-        </div>
+    <p className="text-[11px] leading-relaxed">
+      <strong className="text-[#2c5363] block mb-1 uppercase">Receiving Party / Signatory:</strong>
+      By this instrument, I, <span className="font-black underline">{fields.companyName || fields.repName || "[INSERT FULL NAME OR CORPORATE NAME OF CLIENT]"}</span>, 
+      duly registered under <span className="font-black underline">{fields.taxId || fields.passport || "[INSERT PASSPORT, TAX ID OR REGISTRATION NO.]"}</span>, 
+      acting in the capacity of <span className="font-black underline">{fields.repCapacity || fields.investorType || "[INSERT PROFILE TYPE: DIRECT INVESTOR / LEGAL REPRESENTATIVE]"}</span>
+      {fields.advisoryFirm ? ` (MANDATED BY ${fields.advisoryFirm})` : ""}, 
+      declare my formal, irrevocable, and unalterable acceptance of the confidentiality terms below, 
+      establishing this direct legal bond with PRYLOM regarding the curation and presentation of the asset(s). 
+      This Agreement is scoped to protect any and all Confidential Information regarding the portfolio of real assets and Off-Market rural property investment theses presented by PRYLOM to the RECEIVING PARTY. It is expressly agreed that the absence of a specific asset code or prior identification in this instrument does not invalidate its confidentiality; any and all assets, Teasers, Data Rooms, or feasibility studies shared by PRYLOM (whether via system, corporate email, or messaging applications) shall, upon receipt, be automatically governed and protected by the confidentiality clauses and penalties of this contract.
 
-        {/* CLAUSES */}
-        <div className="space-y-6">
-          <p>
-            <strong className="text-[#2c5363] font-bold">1. NON-DISCLOSURE AND NON-CIRCUMVENTION (NCND):</strong> I formally commit to maintaining absolute secrecy regarding maps, registry documents, and any sensitive data. It is strictly forbidden to contact the property owners directly or indirectly, intervene, attempt to acquire, or structure deals involving the listed assets without the express intermediation of PRYLOM. Breach will result in an immediate contractual penalty equivalent to the full value of the commission, without prejudice to legal action for damages and loss of profits.
-          </p>
+    </p>
+  </div>
 
-          <p>
-            <strong className="text-[#2c5363] font-bold">2. TERM AND JOINT LIABILITY:</strong> The obligations of this instrument are irrevocably valid for 36 months. If acting as a Representative, Intermediary, or Broker, I assume full joint, several, and financial liability for any breaches or "by-pass" practices committed by my end-client.
-          </p>
+  {/* Clauses Section */}
+  <div className="space-y-6 text-[12px] leading-relaxed text-justify">
+    <p>
+      <strong className="text-[#2c5363] font-bold">1. NON-DISCLOSURE AND NON-CIRCUMVENTION (NCND):</strong> 
+      I formally commit to maintaining absolute secrecy regarding maps, registry documents, and any sensitive data 
+      that may expose the involved parties to strategic, commercial, financial, or personal risks. It is strictly 
+      forbidden to contact the property owners directly or indirectly, intervene, attempt to acquire, or structure 
+      deals involving the listed assets (and their bordering areas) without the express intermediation of PRYLOM. 
+      The breach, circumvention, or leakage of this information will result in an immediate contractual penalty 
+      equivalent to the full value of the intermediation and structuring commission stipulated for the property 
+      in question, without prejudice to the competent cumulative legal action for the reparation of property 
+      damages, loss of profits, and corporate moral damages.
+    </p>
 
-          <p>
-            <strong className="text-[#2c5363] font-bold">3. TRUTHFULNESS AND ANTI-FRAUD:</strong> I declare, under penalty of perjury and specifically under Article 299 of the Brazilian Penal Code, that all information, titles, and capacities provided in this accreditation are strictly true.
-          </p>
+    <p>
+      <strong className="text-[#2c5363] font-bold">2. TERM AND JOINT LIABILITY:</strong> 
+      The obligations of this instrument are irrevocably valid for 36 (thirty-six) months from the date of acceptance. 
+      If acting as a Representative, Intermediary, or Broker, I assume full joint, several, and financial liability 
+      for any breaches of confidentiality or "by-pass" practices committed by my end-client.
+    </p>
 
-          <p>
-            <strong className="text-[#2c5363] font-bold">4. COMPLIANCE, AML, AND DATA PROTECTION:</strong> I expressly authorize PRYLOM to cross-reference my data with international KYC/AML sanction lists (OFAC, UN, EU), as well as the processing of my data in strict compliance with the Brazilian LGPD and the European GDPR.
-          </p>
-        </div>
+    <p>
+      <strong className="text-[#2c5363] font-bold">3. TRUTHFULNESS AND ANTI-FRAUD DECLARATION:</strong> 
+      I declare, under penalty of perjury and applicable laws, specifically under Article 299 of the Brazilian 
+      Penal Code (Ideological Falsehood / Misrepresentation), that all information, titles, and capacities 
+      provided in this accreditation are strictly true.
+    </p>
 
-        {/* Digital Traceability Footer */}
-        <div className="pt-8 border-t border-gray-50 flex flex-col md:flex-row justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-[9px] font-black text-gray-400">AUTHENTICATION HASH:</p>
-            <p className="text-[10px] font-mono text-gray-500 uppercase">
-              GLOBAL_ID_{Math.random().toString(36).substring(4).toUpperCase()} / {fields.country || 'INTL'}
-            </p>
-          </div>
-          <div className="text-right space-y-1">
-            <p className="text-[9px] font-black text-gray-400">DIGITAL ACCEPTANCE DATE:</p>
-            <p className="text-[10px] font-mono text-gray-500">
-              {new Date().toUTCString()}
-            </p>
-          </div>
-        </div>
-      </div>
+    <p>
+      <strong className="text-[#2c5363] font-bold">4. COMPLIANCE, AML, AND DATA PROTECTION:</strong> 
+      I expressly authorize PRYLOM to cross-reference and consult the data entered in this platform with the 
+      responsible authorities and agencies (including credit protection agencies, international KYC/AML sanction 
+      lists, OFAC, UN, and courts of justice), as well as the processing of my data in strict compliance with 
+      the Brazilian General Data Protection Law (LGPD - Law 13.709/18) and the European General Data Protection 
+      Regulation (GDPR), for the exclusive purposes of prior business auditing and profile approval.
+    </p>
+  </div>
+
+  {/* Footer Traceability */}
+  <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col md:flex-row justify-between gap-4">
+    <div className="space-y-1">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Authentication Hash</p>
+      <p className="text-[10px] font-mono text-gray-500 uppercase">
+        GLOBAL_ID_{Math.random().toString(36).substring(4).toUpperCase()} / {fields.country || 'INTL'}
+      </p>
+    </div>
+    <div className="text-right space-y-1">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Digital Acceptance Date</p>
+      <p className="text-[10px] font-mono text-gray-500">
+        {new Date().toUTCString()}
+      </p>
+    </div>
+  </div>
+</div>
     </div>
     
     {/* Checkbox de Aceite */}
@@ -1500,8 +1499,20 @@ useEffect(() => {
   );
 };
 
-const PrivateProtocol = ({ product, onBack }: { product: any, onBack: () => void }) => {
-  const [subStep, setSubStep] = useState(1);
+const PrivateProtocol = ({ 
+  product, 
+  onComplete, 
+  onBack, 
+  subStep,      // Recebe do pai
+  setSubStep    // Recebe do pai
+}: { 
+  product: any, 
+  onComplete: () => void, 
+  onBack: () => void,
+  subStep: number,
+  setSubStep: (s: number) => void 
+}) => {
+
   const [acceptedConditions, setAcceptedConditions] = useState(false);
   const [privateOrigin, setPrivateOrigin] = useState<'BR' | 'INT' | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -1510,6 +1521,39 @@ const [smsCode, setSmsCode] = useState("");
 const [isCodeValid, setIsCodeValid] = useState(false);
 const [codeError, setCodeError] = useState(false);
 
+
+const handleSubmitProtocol = async () => {
+  setIsVerifying(true); // Reutilizando o estado de loading
+
+  // Estruturação do Payload unificado
+  const payload = {
+    ...fields,
+    protocolType: privateOrigin, // 'BR' ou 'INT'
+    productName: product?.title || "Prylom Private",
+    timestamp: new Date().toISOString(),
+    status: "PENDING_COMPLIANCE",
+    // Os campos específicos já estão dentro do objeto 'fields'
+  };
+
+  try {
+    const response = await fetch("https://webhook.saveautomatik.shop/webhook/finalizaOnboarding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      onComplete(); // Chama a função de sucesso do pai
+    } else {
+      alert("Error saving data. Please contact support.");
+    }
+  } catch (error) {
+    console.error("Submission error:", error);
+    alert("Connection failed.");
+  } finally {
+    setIsVerifying(false);
+  }
+};
 const handleSendCode = async () => {
   if (!fields.phone || fields.phone.length < 8) return;
   setIsVerifying(true);
@@ -1586,6 +1630,62 @@ useEffect(() => {
   verificarCodigo();
 }, [smsCode, fields.phone]); // Dependência corrigida para phone
 
+ const [countries, setCountries] = useState<string[]>(['United States', 'China', 'United Kingdom', 'United Arab Emirates', 'Saudi Arabia', 'Germany', 'Switzerland']);
+const [docStatus, setDocStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
+
+useEffect(() => {
+  const fetchCountries = async () => {
+    // Lista de sanções e restrições FATF (Blacklist)
+    const restrictedCountries = [
+      'Iran', 
+      'North Korea', 
+      'Syria', 
+      'Cuba', 
+      'Russia', 
+      'Myanmar'
+    ];
+
+    try {
+      const res = await fetch('https://restcountries.com/v3.1/all?fields=name');
+      const data = await res.json();
+      
+      const countryList = data
+        .map((c: any) => c.name.common)
+        // FILTRO DE SEGURANÇA: Remove países sancionados
+        .filter((name: string) => !restrictedCountries.includes(name))
+        .sort((a: string, b: string) => a.localeCompare(b));
+      
+      setCountries(countryList);
+    } catch (err) {
+      console.error("Erro ao carregar países, usando lista padrão segura.");
+      // Caso a API falhe, garante que a lista padrão também esteja limpa
+      setCountries(['United States', 'China', 'United Kingdom', 'United Arab Emirates', 'Saudi Arabia', 'Germany', 'Switzerland']);
+    }
+  };
+  fetchCountries();
+}, []);
+
+  const isOpenMarket = useMemo(() => {
+    const relevancia = product?.relevancia_anuncio || product?.fazenda_data?.relevancia_anuncio;
+    const tipo = product?.tipo_anuncio || product?.fazenda_data?.tipo_anuncio;
+    return relevancia === 'Open Market' || tipo === 'Open Market';
+  }, [product]);
+
+  const handleDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length <= 11) value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    else value = value.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    setFields({ ...fields, doc: value });
+  };
+
+  const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let v = e.target.value.replace(/\D/g, "");
+    if (v.length <= 13) {
+      v = v.replace(/^(\d{2})(\d{2})(\d)/g, "$1 ($2) $3");
+      v = v.replace(/(\d)(\d{4})$/, "$1-$2");
+    }
+    setFields({ ...fields, telefone: v });
+  };
   return (
     <div className="animate-fadeIn space-y-12 text-left text-[#2c5363] max-w-4xl mx-auto">
       
@@ -1808,12 +1908,210 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
       <span className="text-[9px] bg-[#bba219] text-white px-4 py-1.5 font-black rounded-full uppercase tracking-[0.2em]">Priority Pass</span>
     </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      {/* CAMPOS DE DADOS (COMUNS E ESPECÍFICOS) */}
-      <InputLine label="Nome Completo / Full Name *" placeholder="Identification" value={fields.nome} onChange={(e) => setFields({...fields, nome: e.target.value})} />
-      <InputLine label="E-mail Corporativo *" placeholder="name@office.com" type="email" value={fields.email} onChange={(e) => setFields({...fields, email: e.target.value})} />
-<div className="space-y-4">
-  {/* WHATSAPP COM SELETOR DE BANDEIRAS */}
+{privateOrigin === 'INT' && (
+  
+  <div className="space-y-10 animate-fadeIn text-left text-[#2c5363]">
+    {/* ETAPA 1: ENTITY & JURISDICTION */}
+    <section className="space-y-6">
+      <div className="border-l-4 border-[#bba219] pl-4">
+        <h3 className="text-sm font-black uppercase tracking-widest text-[#2c5363]">Etapa 1: Entity & Jurisdiction</h3>
+        <p className="text-[10px] font-bold text-gray-400 uppercase">Primary Buyer Legal Identification</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <SelectLine 
+          label="Investor Type *" 
+          options={['Select...', 'Family Office', 'Private Equity / Hedge Fund', 'Sovereign Wealth Fund', 'Corporate / Agribusiness Group','Individual High-Net-Worth']} 
+          value={fields.investorType}
+          onChange={(e) => setFields({...fields, investorType: e.target.value})}
+        />
+<div className="space-y-1">
+  <SelectLine 
+    label="Country of Origin / Tax Residence *" 
+    options={['Select Country...', ...countries]} 
+    value={fields.country}
+    onChange={(e) => setFields({...fields, country: e.target.value})}
+  />
+  <p className="text-[10px] text-gray-400 italic">
+    * Countries under international sanctions or FATF blacklist are not eligible for registration.
+  </p>
+</div>
+        <InputLine label="Company Name / Full Name *" placeholder="Legal Entity Name" value={fields.companyName} onChange={(e) => setFields({...fields, companyName: e.target.value})} />
+        <InputLine label="Tax ID / Registration Number *" placeholder="EIN, VAT, or Registration No." value={fields.taxId} onChange={(e) => setFields({...fields, taxId: e.target.value})} />
+<div className="space-y-6">
+  <SelectLine 
+    label="Do you have CNPJ or representation in Brazil? *" 
+    options={['Select...', 'Yes (Ready structure)', 'No (Need structuring)']} 
+    value={fields.hasBrazilRep}
+    onChange={(e) => setFields({...fields, hasBrazilRep: e.target.value})}
+  />
+
+  {/* Campo Condicional para Capital Estrangeiro */}
+  {fields.hasBrazilRep === 'Yes (Ready structure)' && (
+    <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4 animate-fadeIn">
+      <label className="flex items-start gap-4 cursor-pointer group">
+        <div className="relative flex items-center pt-1">
+          <input 
+            type="checkbox" 
+            className="peer h-5 w-5 cursor-pointer appearance-none border-2 border-gray-300 rounded-md checked:bg-[#2c5363] checked:border-[#2c5363] transition-all"
+            required
+            checked={fields.isMajorityForeign}
+            onChange={(e) => setFields({...fields, isMajorityForeign: e.target.checked})}
+          />
+          <svg className="absolute h-3.5 w-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none top-2 left-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[#2c5363] group-hover:text-[#bba219] transition-colors leading-relaxed">
+            Is this Brazilian entity majority-owned by foreign capital? *
+          </span>
+          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight mt-1">
+            (Esta entidade brasileira é controlada majoritariamente por capital estrangeiro?)
+          </span>
+        </div>
+      </label>
+    </div>
+  )}
+</div>
+      </div>
+    </section>
+    
+
+    <hr className="border-gray-100" />
+
+    {/* ETAPA 2: CONTACT & REPRESENTATIVE */}
+    <section className="space-y-6">
+      <div className="border-l-4 border-[#2c5363] pl-4">
+        <h3 className="text-sm font-black uppercase tracking-widest text-[#2c5363]">Etapa 2: Contact & Representative</h3>
+        <p className="text-[10px] font-bold text-gray-400 uppercase">Liaison and Identity Verification</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+       <div className="space-y-8 animate-fadeIn">
+  {/* Campo Base: Nome do Representante */}
+  <InputLine 
+    label="Full Name of Representative *" 
+    placeholder="Full Legal Name (As in Passport)" 
+    value={fields.repName} 
+    onChange={(e) => setFields({...fields, repName: e.target.value})} 
+  />
+
+  {/* Checkbox de Mandato de Representação */}
+  <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
+    <label className="flex items-start gap-4 cursor-pointer group">
+      <div className="relative flex items-center pt-1">
+        <input 
+          type="checkbox" 
+          className="peer h-5 w-5 cursor-pointer appearance-none border-2 border-gray-300 rounded-md checked:bg-[#2c5363] checked:border-[#2c5363] transition-all"
+          checked={fields.hasMandate}
+          onChange={(e) => setFields({...fields, hasMandate: e.target.checked})}
+        />
+        <svg className="absolute h-3.5 w-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none top-2 left-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+      </div>
+      <span className="text-[10px] font-black uppercase tracking-wider text-[#2c5363] leading-relaxed">
+        REPRESENTATION MANDATE: I hereby legally declare, under penalty of perjury, that I am an authorized signatory, officer, or legally mandated broker holding a valid Power of Attorney (POA) to act and sign on behalf of the Primary Entity.
+      </span>
+    </label>
+  </div>
+
+  {/* Seleção de Capacidade (Só aparece se o Mandato for aceito) */}
+  {fields.hasMandate && (
+    <div className="space-y-6 pt-4 animate-slideDown">
+      <SelectLine 
+        label="Representative Capacity *" 
+        options={[
+          'Select...', 
+          'Corporate Officer / Director', 
+          'Authorized Signatory (Power of Attorney - POA)', 
+          'External Broker / Advisor (Mandated)'
+        ]} 
+        value={fields.repCapacity}
+        onChange={(e) => setFields({...fields, repCapacity: e.target.value})}
+      />
+
+      {/* CENÁRIO A: Funcionário Direto ou Procurador Oficial */}
+      {(fields.repCapacity === 'Corporate Officer / Director' || 
+        fields.repCapacity === 'Authorized Signatory (Power of Attorney - POA)') && (
+        <div className="animate-fadeIn">
+          <InputLine 
+            label="Company / Fund You Directly Represent *" 
+            placeholder="Ex: BlackRock Inc., Sovereign Wealth Fund" 
+            value={fields.directCompany}
+            onChange={(e) => setFields({...fields, directCompany: e.target.value})}
+          />
+        </div>
+      )}
+
+      {/* CENÁRIO B: Corretor Externo (A Grande Sacada) */}
+      {fields.repCapacity === 'External Broker / Advisor (Mandated)' && (
+        <div className="space-y-6 p-6 bg-[#2c5363]/5 border-l-4 border-[#2c5363] animate-fadeIn">
+          <InputLine 
+            label="1. Advisory Firm / Brokerage Name *" 
+            placeholder="Ex: JLL, CBRE, Independent Advisor" 
+            value={fields.advisoryFirm}
+            onChange={(e) => setFields({...fields, advisoryFirm: e.target.value})}
+          />
+          <InputLine 
+            label="2. End-Buyer / Fund Represented *" 
+            placeholder="Ex: Name of the exact Fund or Buyer holding the capital" 
+            value={fields.endBuyer}
+            onChange={(e) => setFields({...fields, endBuyer: e.target.value})}
+          />
+          <p className="text-[9px] font-bold text-gray-400 uppercase">
+            Note: The NDA will cover both the Advisory Firm and the End-Buyer.
+          </p>
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
+
+<div className="flex flex-col gap-2 relative"> 
+  {/* Aviso de Segurança Flutuante - Agora fora do fluxo para não empurrar o label */}
+  <div className="absolute -top-3 left-0 w-full pointer-events-none">
+    <span className="text-[7px] font-black text-[#bba219] uppercase tracking-[0.2em] opacity-80 block whitespace-nowrap">
+      Encrypted upload • GDPR & LGPD Compliant
+    </span>
+  </div>
+
+  {/* O Label agora começa no exato topo da div, igual aos outros campos ao lado */}
+  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+    Passport Number / ID (Photo Upload) <span className="text-red-500">*</span>
+  </label>
+
+  <div className="relative border-b border-gray-200 py-2 group">
+    <input
+      type="file"
+      id="passport-upload"
+      accept="image/*,.pdf"
+      onChange={(e) => setFields({ ...fields, passportFile: e.target.files ? e.target.files[0] : null })}
+      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+    />
+
+    <div className="flex items-center gap-4">
+      <div className="py-1 px-3 rounded-full bg-gray-100 text-[#2c5363] text-[9px] font-black uppercase tracking-widest group-hover:bg-[#2c5363] group-hover:text-white transition-all">
+        Choose File
+      </div>
+      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight truncate max-w-[120px]">
+        {fields.passportFile ? fields.passportFile.name : "No file selected"}
+      </span>
+    </div>
+
+    {fields.passportFile && (
+      <span className="absolute right-0 bottom-3 text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+        ID Attached
+      </span>
+    )}
+  </div>
+</div>
+        <InputLine label="Official Corporate E-mail *" placeholder="name@company.com" type="email" value={fields.email} onChange={(e) => setFields({...fields, email: e.target.value})} />
+        
+        {/* WHATSAPP COM VALIDAÇÃO 2FA INTEGRADA */}
   <div className="space-y-2 group animate-fadeIn">
     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-focus-within:text-[#bba219] transition-colors">
       Direct WhatsApp (Verified) *
@@ -1906,18 +2204,270 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
     }
   `}</style>
 </div>
-      <InputLine label="EMPRESA / GRUPO ECONÔMICO / FAMILY OFFICE (OPCIONAL) *" placeholder="Entity Name" value={fields.company} onChange={(e) => setFields({...fields, company: e.target.value})} />
+    </section>
 
-      {privateOrigin === 'BR' && (
-        <InputLine label="CPF / CNPJ *" placeholder="000.000.000-00" value={fields.doc} onChange={(e) => setFields({...fields, doc: e.target.value})} />
+    <hr className="border-gray-100" />
+
+    {/* ETAPA 3: INVESTMENT PROFILE */}
+    <section className="space-y-6">
+      <div className="border-l-4 border-[#bba219] pl-4">
+        <h3 className="text-sm font-black uppercase tracking-widest text-[#2c5363]">Etapa 3: Investment Profile</h3>
+        <p className="text-[10px] font-bold text-gray-400 uppercase">Capital Capacity and Strategic Thesis</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <SelectLine 
+          label="Target Ticket Size (USD) *" 
+          options={['Select range...', 'U$ 1M - U$ 5M', 'U$ 5M - U$ 20M', 'U$ 20M - U$ 50M', 'Above U$ 50M']} 
+          value={fields.ticketSize}
+          onChange={(e) => setFields({...fields, ticketSize: e.target.value})}
+        />
+<SelectLine 
+  label="Source of Funds *" 
+  options={[
+    'Select...', 
+    'Equity / Cash (Recursos Próprios à vista)', 
+    'Bank Financing / Leverage (Financiamento Bancário)', 
+    'Committed Capital', 
+    'Sovereign Wealth (Fundo Soberano / State Funds)'
+  ]} 
+  value={fields.sourceFunds}
+  onChange={(e) => setFields({...fields, sourceFunds: e.target.value})}
+/>
+<div className="space-y-8">
+  {/* Campo: Investment Thesis */}
+  <SelectLine 
+    label="Investment Thesis *" 
+    options={[
+      'Select...', 
+      'Land Appreciation (Asset Wealth)', 
+      'Production / Commodity Trading', 
+      'Yield / Leaseback Strategy', 
+      'Carbon Credits / Preservation'
+    ]} 
+    value={fields.thesis}
+    onChange={(e) => setFields({...fields, thesis: e.target.value})}
+  />
+
+  {/* Bloco: PEP Declaration */}
+  <div className="pt-4 border-t border-gray-100">
+
+    
+    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-4">
+      Are you a Politically Exposed Person (PEP) or closely related to one? <span className="text-red-500">*</span>
+    </label>
+    
+    <div className="flex gap-8">
+      {['No', 'Yes'].map((option) => (
+        <label key={option} className="flex items-center gap-3 cursor-pointer group">
+          <div className="relative flex items-center">
+            <input 
+              type="radio"
+              name="pep-declaration"
+              value={option}
+              checked={fields.pep === option}
+              onChange={(e) => setFields({...fields, pep: e.target.value})}
+              className="peer h-5 w-5 cursor-pointer appearance-none border-2 border-gray-300 rounded-full checked:border-[#2c5363] transition-all"
+            />
+            <div className="absolute w-2.5 h-2.5 bg-[#2c5363] rounded-full scale-0 peer-checked:scale-100 left-1.25 top-1.25 transition-transform mx-auto inset-0 my-auto"></div>
+          </div>
+          <span className={`text-[11px] font-bold uppercase tracking-widest transition-colors ${fields.pep === option ? 'text-[#2c5363]' : 'text-gray-400 group-hover:text-[#bba219]'}`}>
+            {option}
+          </span>
+        </label>
+      ))}
+    </div>
+
+    {/* Alerta Visual de Compliance se selecionar Yes */}
+    {fields.pep === 'Yes' && (
+      <div className="mt-4 p-4 bg-red-50 border-l-2 border-red-500 animate-slideDown">
+        <p className="text-[10px] font-bold text-red-700 uppercase tracking-tight leading-relaxed">
+          <strong className="block mb-1">Enhanced Due Diligence Required:</strong>
+          As a PEP, your application will undergo a specialized compliance review by our legal committee in accordance with international AML standards.
+        </p>
+      </div>
+    )}
+
+    
+  </div>
+
+<hr className="border-gray-200" />
+
+{/* NDA SCOPE SELECTION (Final Step before Agreement) */}
+
+</div>
+
+
+      </div>
+    </section>
+
+
+  </div>
+)}
+
+{privateOrigin === 'BR' && (
+        <div className="space-y-8 animate-fadeIn">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+<div className="relative">
+  <InputLine 
+    label="CPF / CNPJ" 
+    placeholder="000.000.000-00" 
+    value={fields.doc}
+    onChange={handleDocChange}
+  />
+  
+  {/* Feedback Visual de Validação */}
+  <div className="absolute right-0 bottom-3">
+    {docStatus === 'valid' && (
+      <span className="text-[9px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+        Autenticado
+      </span>
+    )}
+    {docStatus === 'invalid' && (
+      <span className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 animate-bounce">
+        Documento Inválido
+      </span>
+    )}
+  </div>
+</div>
+            <InputLine 
+              label="Nome Completo / Razão Social" 
+              placeholder="Identificação oficial" 
+              value={fields.nome}
+              onChange={(e) => setFields({...fields, nome: e.target.value})}
+            />
+            {/* CAMPO DE TELEFONE */}
+<div className="space-y-4">
+    <div className="relative border-b border-gray-200 focus-within:border-[#bba219] transition-all pb-1 flex items-center">
+      <PhoneInput
+        country={fields.countryCode?.toLowerCase() || 'us'} 
+        value={fields.phone}
+        onChange={(phone) => setFields({...fields, phone: '+' + phone})}
+        enableSearch={true}
+        placeholder="Enter phone number"
+        containerClass="prylom-phone-container"
+        inputClass="prylom-phone-input"
+        buttonClass="prylom-phone-button"
+        dropdownClass="prylom-phone-dropdown"
+        specialLabel=""
+      />
+      {!smsSent && fields.phone.length >= 14 && (
+        <button 
+          onClick={handleSendCode}
+          className="absolute right-0 bottom-2 text-[9px] font-black text-[#bba219] uppercase tracking-widest hover:underline"
+        >
+          {isVerifying ? "Enviando..." : "Validar via WhatsApp"}
+        </button>
+      )}
+    </div>
+
+    {/* INTERFACE DE CÓDIGO 2FA (Aparece logo abaixo do input de telefone) */}
+   {smsSent && (
+
+  <div className={`animate-fadeIn p-6 rounded-lg border transition-all duration-500 ${isCodeValid ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'} space-y-4`}>
+
+    <div className="flex justify-between items-center">
+
+      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2c5363]">
+
+        Código de Verificação
+
+      </label>
+
+      {isCodeValid ? (
+
+        <span className="text-[9px] font-black text-green-600 uppercase tracking-widest flex items-center gap-1">
+
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+
+          WhatsApp Validado
+
+        </span>
+
+      ) : (
+
+        <span className="text-[9px] font-bold text-[#bba219] uppercase">Confirme o código recebido</span>
+
       )}
 
-      {privateOrigin === 'INT' && (
-        <>
-          <InputLine label="Country of Origin *" placeholder="Ex: USA" value={fields.country} onChange={(e) => setFields({...fields, country: e.target.value})} />
-          <InputLine label="Passport Number / ID *" placeholder="ID Number" value={fields.passport} onChange={(e) => setFields({...fields, passport: e.target.value})} />
-        </>
+    </div>
+
+   
+
+    <div className="relative">
+
+      <input
+
+        maxLength={6}
+
+        disabled={isCodeValid || isVerifying}
+
+        value={smsCode}
+
+        onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ""))}
+
+        placeholder={isVerifying ? "..." : "000000"}
+
+        className={`w-full py-4 text-center text-xl font-black tracking-[0.5em] outline-none transition-all
+
+          ${isCodeValid ? 'bg-transparent text-green-700' : 'bg-white border border-gray-200 focus:border-[#bba219] text-[#2c5363]'}
+
+          ${codeError ? 'border-red-500 animate-shake' : ''}
+
+        `}
+
+      />
+
+      {isVerifying && (
+
+        <div className="absolute inset-0 flex items-center justify-center bg-white/50">
+
+          <div className="w-5 h-5 border-2 border-[#bba219] border-t-transparent rounded-full animate-spin"></div>
+
+        </div>
+
       )}
+
+    </div>
+
+   
+
+    {!isCodeValid && (
+
+      <p className="text-[9px] text-gray-400 font-medium uppercase text-center">
+
+        Não recebeu? <button type="button" onClick={handleSendCode} className="text-[#bba219] font-bold hover:underline">Reenviar código</button>
+
+      </p>
+
+    )}
+
+  </div>
+
+    )}
+  </div>
+
+  {/* COLUNA EMAIL */}
+  <div className="flex flex-col justify-start">
+    <InputLine 
+      label="E-mail Principal / Corporativo" 
+      placeholder="contato@empresa.com" 
+      type="email"
+      value={fields.email}
+      onChange={(e) => setFields({...fields, email: e.target.value})}
+    />
+  </div>
+          </div>
+ 
+          
+         
+        </div>
+      )}
+  
+<div className="space-y-4">
+
 
 <div className="md:col-span-2 space-y-4 bg-gray-50 p-8 rounded-sm border border-dashed border-gray-200 relative pt-10">
   
@@ -2038,7 +2588,60 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
       </div>
     </div>
 
-<button 
+{privateOrigin==='INT' &&(<button 
+  onClick={() => setSubStep(3)}
+  disabled={
+    // Validações do Botão 1 original
+    (!fields.companyName && !fields.nome) || 
+    (!fields.pofFile && !fields.pofDuringScreening) || 
+    !isCodeValid || 
+    !fields.scope ||
+    // Novas validações vindas do Botão 2
+    !fields.investorType || 
+    !fields.country || 
+    !fields.taxId ||
+    !fields.repName ||
+    !fields.passportFile || 
+    !fields.ticketSize ||
+    !fields.sourceFunds ||
+    !fields.thesis
+  }
+  className={`w-full py-6 font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
+    ${(
+      (!fields.companyName && !fields.nome) || 
+      (!fields.pofFile && !fields.pofDuringScreening) || 
+      !isCodeValid || 
+      !fields.scope ||
+      !fields.investorType || 
+      !fields.country || 
+      !fields.taxId ||
+      !fields.repName ||
+      !fields.passportFile || 
+      !fields.ticketSize ||
+      !fields.sourceFunds ||
+      !fields.thesis
+    ) 
+      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+      : 'bg-[#2c5363] text-white hover:bg-[#bba219] active:scale-95'}
+  `}
+>
+  {/* Feedback de erro priorizado */}
+  {(!fields.companyName && !fields.nome) ? "Enter Company Name" : 
+   (!fields.pofFile && !fields.pofDuringScreening) ? "Attach POF or Select Screening" :
+   !isCodeValid ? "Verify WhatsApp to Proceed" :
+   !fields.scope ? "Select NDA Scope" : 
+   !fields.investorType ? "Select Investor Type" :
+   !fields.country ? "Select Country" :
+   !fields.taxId ? "Enter Tax ID" :
+   !fields.repName ? "Enter Representative Name" :
+   !fields.passportFile ? "Upload Passport/ID" :
+   !fields.ticketSize ? "Select Ticket Size" :
+   !fields.sourceFunds ? "Enter Source of Funds" :
+   !fields.thesis ? "Enter Investment Thesis" :
+   "Generate NCND Agreement"}
+</button>) }
+
+{privateOrigin==='BR' &&(<button 
   onClick={() => setSubStep(3)}
   disabled={
     // Verifica se o nome existe (em qualquer uma das variáveis possíveis)
@@ -2062,8 +2665,201 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
    !isCodeValid ? "Verify WhatsApp to Proceed" :
    !fields.scope ? "Select NDA Scope" : 
    "Generate NCND Agreement"}
-</button>
+</button>)}
+
   </div>
+)}
+
+{subStep === 3 && (
+  <>
+    {/* --- FLUXO NACIONAL (BR) --- */}
+    {privateOrigin === 'BR' && (
+  <div className="space-y-8 animate-fadeIn text-left text-[#2c5363]">
+    <div className="mb-6 border-l-4 border-[#bba219] pl-4">
+      <h3 className="text-xl font-black uppercase tracking-tighter">Qualificação do Investidor</h3>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ajuste o perfil para carregar as métricas de aporte</p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+      {/* Perfil Principal */}
+      <SelectLine 
+        label="Qual seu perfil principal? *" 
+        value={fields.perfil}
+        onChange={(e) => setFields({...fields, perfil: e.target.value})}
+        options={['Selecione...', 'Produtor Rural', 'Investidor Patrimonial', 'Representante Legal']} 
+      />
+
+      {/* Capacidade de Aporte */}
+      <SelectLine 
+        label="Capacidade de Aporte *" 
+        value={fields.capacidadeAporte}
+        onChange={(e) => setFields({...fields, capacidadeAporte: e.target.value})}
+        options={['Selecione...', 'Recursos Próprios', 'Financiamento', 'Troca/Permuta']} 
+      />
+{fields.capacidadeAporte === 'Troca/Permuta' && (
+        <div className="md:col-span-2">
+          <InputLine 
+            label="Natureza do ativo ofertado em permuta *" 
+            placeholder="Descreva brevemente o ativo (Ex: Imóveis urbanos, frotas, outras áreas...)" 
+            value={fields.descricaoPermuta}
+            onChange={(e) => setFields({...fields, descricaoPermuta: e.target.value})}
+          />
+        </div>
+      )}
+      {/* CAMPOS CONDICIONAIS: SE PRODUTOR RURAL */}
+      {fields.perfil === 'Produtor Rural' && (
+        <>
+          <InputLine 
+            label="Quantos hectares planta atualmente? *" 
+            placeholder="0.000 ha" 
+            value={fields.hectares}
+            onChange={(e) => setFields({...fields, hectares: e.target.value})}
+          />
+          <InputLine 
+            label="Em quais estados atua? *" 
+            placeholder="Ex: MT, GO, MG" 
+            value={fields.estadosAtuacao}
+            onChange={(e) => setFields({...fields, estadosAtuacao: e.target.value})}
+          />
+        </>
+      )}
+
+{fields.perfil === 'Representante Legal' && (
+  <>
+    {/* Registro do Profissional */}
+    <InputLine 
+      label="Número CRECI ou OAB *" 
+      placeholder="Digite sua inscrição profissional" 
+      value={fields.creciOab}
+      onChange={(e) => setFields({...fields, creciOab: e.target.value})}
+    />
+
+    {/* Dados do Comprador Final (Separados) */}
+    <InputLine 
+      label="Nome do Cliente Representado *" 
+      placeholder="Nome completo do comprador final" 
+      value={fields.clienteRepresentadoNome}
+      onChange={(e) => setFields({...fields, clienteRepresentadoNome: e.target.value})}
+    />
+
+    <InputLine 
+      label="CPF / CNPJ do Cliente Representado *" 
+      placeholder="000.000.000-00" 
+      value={fields.clienteRepresentadoDoc}
+      onChange={(e) => {
+        // Aqui você pode aplicar a mesma lógica de máscara que usou no Step 1
+        setFields({...fields, clienteRepresentadoDoc: e.target.value})
+      }}
+    />
+  </>
+)}
+
+      {/* PEP */}
+      <SelectLine 
+        label="Você é uma Pessoa Exposta Politicamente (PEP)? *" 
+        value={fields.pep}
+        onChange={(e) => setFields({...fields, pep: e.target.value})}
+        options={['Não', 'Sim']} 
+      />
+    </div>
+{fields.capacidadeAporte === 'Recursos Próprios' && (
+      <div className="mt-4 p-6 bg-gray-50 border border-gray-100 rounded-sm space-y-4">
+        <label className="flex gap-4 cursor-pointer group">
+          <div className="mt-1">
+            <input 
+              type="checkbox" 
+              className="sr-only"
+              checked={fields.declaracaoOrigem}
+              onChange={(e) => setFields({...fields, declaracaoOrigem: e.target.checked})}
+            />
+            <div className={`w-5 h-5 border-2 flex items-center justify-center transition-all ${fields.declaracaoOrigem ? 'bg-[#2c5363] border-[#2c5363]' : 'bg-white border-gray-300 group-hover:border-[#bba219]'}`}>
+              {fields.declaracaoOrigem && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#2c5363]">
+              DECLARAÇÃO DE ORIGEM DE FUNDOS E COMPLIANCE COAF *
+            </span>
+            <p className="text-[10px] leading-relaxed font-medium text-gray-500 uppercase">
+              Declaro ciência de que a Prylom opera sob rigorosas políticas de Prevenção à Lavagem de Dinheiro. 
+              Compreendo que não são aceitos pagamentos em espécie e que a integralidade dos recursos utilizados 
+              nas transações deve possuir origem lícita e rastreabilidade bancária comprovada, sujeita às 
+              normativas do COAF e Banco Central.
+            </p>
+          </div>
+        </label>
+      </div>
+    )}
+    {fields.perfil === 'Investidor Patrimonial' && (
+        <div className="md:col-span-2">
+          <SelectLine 
+            label="Tipo de Investidor Patrimonial *" 
+            value={fields.tipoPatrimonial}
+            onChange={(e) => setFields({...fields, tipoPatrimonial: e.target.value})}
+            options={[
+              'Selecione...', 
+              'Family Office / Multi-Family Office', 
+              'Holding Patrimonial / PJ', 
+              'Fundo de Investimento (FII / FIP)', 
+              'Pessoa Física (Diversificação de Portfólio)'
+            ]} 
+          />
+        </div>
+      )}
+      {fields.capacidadeAporte === 'Financiamento' && (
+        <>
+          <SelectLine 
+            label="Modalidade de Captação Prevista *" 
+            value={fields.modalidadeCaptacao}
+            onChange={(e) => setFields({...fields, modalidadeCaptacao: e.target.value})}
+            options={[
+              'Selecione...',
+              'Mercado de Capitais (Emissão de CRI / CRA / Fiagro)',
+              'Cédula de Produto Rural (CPR Financeira / Física)',
+              'Crédito Rural Tradicional / Repasses (BNDES / FCO)'
+            ]} 
+          />
+          <SelectLine 
+            label="Status de Aprovação do Crédito *" 
+            value={fields.statusCredito}
+            onChange={(e) => setFields({...fields, statusCredito: e.target.value})}
+            options={[
+              'Selecione...',
+              'Crédito Pré-Aprovado / Limite de Risco Liberado',
+              'Em fase de estruturação / Análise de Comitê',
+              'Necessito de assessoria para estruturação de capital'
+            ]} 
+          />
+        </>
+      )}
+
+    {/* Lógica de Validação do Botão Step 2 */}
+    <button 
+      onClick={() => setSubStep(4)}
+disabled={
+        !fields.perfil || fields.perfil === 'Selecione...' || 
+        !fields.capacidadeAporte || fields.capacidadeAporte === 'Selecione...' ||
+        (fields.perfil === 'Produtor Rural' && (!fields.hectares || !fields.estadosAtuacao)) ||
+        (fields.perfil === 'Investidor Patrimonial' && (!fields.tipoPatrimonial || fields.tipoPatrimonial === 'Selecione...')) ||
+        (fields.perfil === 'Representante Legal' && (!fields.creciOab || !fields.clienteRepresentadoNome || !fields.clienteRepresentadoDoc)) ||
+        (fields.capacidadeAporte === 'Financiamento' && (fields.modalidadeCaptacao === 'Selecione...' || !fields.modalidadeCaptacao || fields.statusCredito === 'Selecione...' || !fields.statusCredito)) ||
+        (fields.capacidadeAporte === 'Troca/Permuta' && !fields.descricaoPermuta) ||
+        (fields.capacidadeAporte === 'Recursos Próprios' && !fields.declaracaoOrigem)
+      }
+      className={`w-full py-5 font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-lg mt-8
+        ${(!fields.perfil || fields.perfil === 'Selecione...') 
+          ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+          : 'bg-[#2c5363] text-white hover:bg-[#bba219]'}
+      `}
+    >
+      Próxima Etapa
+    </button>
+  </div>
+)}
+
+    {/* --- FLUXO INTERNACIONAL (INT) --- */}
+    {privateOrigin === 'INT' && (<div> Finalizar</div>)}
+  </>
 )}
     </div>
   );
@@ -2074,6 +2870,10 @@ const DataRoomModal = ({ product, onBack }: any) => {
   const [step, setStep] = useState(1);
   const [origin, setOrigin] = useState<'BR' | 'INT' | 'PRIVATE' | null>(null);
   const [openMarketAccepted, setOpenMarketAccepted] = useState(false);
+  const { id } = useParams<{ id: string }>();
+  const [loadedProduct, setLoadedProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   console.log(product)
   // Lógica de Ativo
 const isOpenMarket = useMemo(() => {
@@ -2090,13 +2890,64 @@ const isOpenMarket = useMemo(() => {
     return "Protocolo de Identificação do Investidor Nacional";
   };
 
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // --- OPÇÃO A: Se estiver usando API Fetch padrão ---
+        const response = await fetch(`https://sua-api.com/produtos/${id}`);
+        if (!response.ok) throw new Error("Produto não encontrado");
+        const data = await response.json();
+        
+        // --- OPÇÃO B: Se estiver usando Supabase ---
+        /*
+        const { data, error: sbError } = await supabase
+          .from('fazendas')
+          .select('*, fazenda_data(*)')
+          .eq('id', id)
+          .single();
+        if (sbError) throw sbError;
+        */
+
+        setLoadedProduct(data);
+      } catch (err: any) {
+        console.error("Erro ao carregar produto:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
+
+const [subStep, setSubStep] = useState(1); // Novo estado no pai
+
+const handleBack = () => {
+  if (step === 3 && subStep > 1) {
+    // Se estiver no formulário e não for a primeira sub-etapa, volta o sub-passo
+    setSubStep(subStep - 1);
+  } else if (step > 1) {
+    // Se for sub-passo 1 ou estiver na tela de escolha, volta o step principal
+    setStep(step - 1);
+    setSubStep(1); // Reseta para garantir
+  } else {
+    // Se estiver na tela 1, sai de tudo
+    onBack();
+  }
+};
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex flex-col animate-fadeIn overflow-y-auto font-['Montserrat'] text-[#2c5363]">
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap');`}</style>
       
       {/* HEADER */}
       <nav className="bg-white border-b border-gray-100 px-8 py-5 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <button onClick={step === 1 ? onBack : () => setStep(step - 1)} className="group flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.2em] text-[#2c5363] hover:text-[#bba219] transition-all">
+        <button onClick={handleBack} className="group flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.2em] text-[#2c5363] hover:text-[#bba219] transition-all">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
           </svg>
@@ -2297,9 +3148,10 @@ const isOpenMarket = useMemo(() => {
     </span>
     
     {/* Subtexto Informativo */}
-    <span className="text-[10px] font-medium text-[#bba219]/80 uppercase tracking-wider text-center max-w-[150px] leading-tight mt-1">
-      Mandato Exclusivo de <br /> Aquisição (Buy-Side)
-    </span>
+<span className="text-[10px] font-bold text-[#bba219] uppercase tracking-wider text-center max-w-[150px] leading-tight mt-1 animate-bounce duration-1000" 
+      style={{ textShadow: '0 0 8px rgba(186, 162, 25, 0.5)' }}>
+  Mandato Exclusivo de <br /> Aquisição (Buy-Side)
+</span>
   </div>
 </button>
               </div>
@@ -2313,9 +3165,27 @@ const isOpenMarket = useMemo(() => {
                 <h3 className="text-xl lg:text-2xl font-black uppercase tracking-tighter">{getStepTitle()}</h3>
                 <span className="text-[9px] font-black uppercase text-gray-300 tracking-widest">v2.6 SECURE</span>
               </div>
-              {origin === 'BR' && <NationalProtocol product={product} onComplete={() => {}} onBack={onBack} />}
-              {origin === 'INT' && <InternationalProtocol product={product} onComplete={() => {}} onBack={onBack} />}
-              {origin === 'PRIVATE' && <PrivateProtocol product={product} onBack={onBack} />}
+              {origin === 'BR' && (
+      <NationalProtocol 
+        product={loadedProduct} 
+        onComplete={() => {}} 
+        onBack={onBack}
+        subStep={subStep}        // Passa o valor
+        setSubStep={setSubStep}  // Passa a função de controle
+      />
+    )}
+              {origin === 'INT' && <InternationalProtocol         product={loadedProduct} 
+        onComplete={() => {}} 
+        onBack={onBack}
+        subStep={subStep}        // Passa o valor
+        setSubStep={setSubStep}  // Passa a função de controle
+      />}
+              {origin === 'PRIVATE' && <PrivateProtocol          product={loadedProduct} 
+        onComplete={() => {}} 
+        onBack={onBack}
+        subStep={subStep}        // Passa o valor
+        setSubStep={setSubStep}  // Passa a função de controle
+      />}
             </div>
           )}
         </div>
