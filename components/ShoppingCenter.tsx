@@ -4,6 +4,9 @@ import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
 import L from 'leaflet';
 import { useParams, useNavigate } from 'react-router-dom';
+import agro_brasil from "../assets/agro_brasil.jpg";
+import mapaBrasil from "../assets/mapaBrasil.png";
+
 interface Product {
   id: string;
   categoria: string;
@@ -65,7 +68,7 @@ const getStatusTextColor = (status: string) => {
 const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, currency }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [transactionType, setTransactionType] = useState<'all' | 'venda' | 'arrendamento'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'map' | 'off'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'map' | 'equipe'| 'off'>('grid');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -599,7 +602,158 @@ ${items.map(p => {
   const availableStates = useMemo(() => Array.from(new Set(products.map(p => p.estado))).sort(), [products]);
   const availableCities = useMemo(() => Array.from(new Set(products.filter(p => !filterState || p.estado === filterState).map(p => p.cidade))).sort(), [products, filterState]);
 
-const OffMarketView = ({ t }) => (
+const EquipeView = ({ t }) => {
+
+  const equipeOriginaçao = [
+    { id: 1, nome: "Carlos Souza", cargo: "Originador Estratégico", regiao: "Polo MATOPIBA (BA)", foto: null },
+    { id: 2, nome: null, cargo: "Originador Estratégico", regiao: "Polo Sul", foto: null },
+    { id: 3, nome: null, cargo: "Consultor Agronômico", regiao: "Polo Centro-Oeste", foto: null },
+  ];
+
+  const parceirosCredenciados = [
+    { id: 1, nome: "João da Silva", cargo: "Parceiro Estratégico (Co-Broker)", regiao: "Polo Mato Grosso (MT)", credencial: "CRECI/MT 00.000", foto: null },
+    { id: 2, cargo: "Parceiro Credenciado" },
+    { id: 3, cargo: "Parceiro Credenciado" },
+    { id: 4, cargo: "Parceiro Credenciado" },
+  ];
+
+  return (/* Reduzi py-16 para py-10 e a largura máxima para 5xl (mais estreita) */
+ <div className="w-full py-10 px-6 bg-[#F4F5F7] min-h-screen animate-fadeIn font-sans">
+      <div className="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.06)] border border-white overflow-hidden">
+{/* 1. Header & Mapa - VISIBILIDADE OTIMIZADA */}
+<div className="relative p-10 md:p-14 flex flex-col md:flex-row gap-8 items-center overflow-hidden bg-prylom-dark">
+  
+  {/* Imagem de Fundo com Opacidade Controlada */}
+  <div 
+    className="absolute inset-0 bg-cover bg-center opacity-30 z-0"
+    style={{ backgroundImage: `url(${agro_brasil})` }}
+  ></div>
+
+  {/* Gradiente Direcional: Escurece da esquerda para a direita para dar "cama" ao texto */}
+  <div className="absolute inset-0 bg-gradient-to-r from-prylom-dark via-prylom-dark/80 to-transparent z-0"></div>
+
+  {/* Efeito de brilho dourado lateral (ajustado para z-1) */}
+  <div className="absolute top-0 right-0 w-80 h-80 bg-prylom-gold/10 rounded-full blur-[80px] pointer-events-none z-1"></div>
+
+  {/* Conteúdo com Z-Index Elevado */}
+  <div className="flex-1 space-y-5 relative z-10">
+    <div className="inline-flex items-center gap-2 bg-prylom-gold/20 border border-prylom-gold/30 px-3 py-1 rounded-full backdrop-blur-sm">
+      <span className="text-[9px] font-black text-prylom-gold uppercase tracking-[0.2em]">Presença Nacional</span>
+    </div>
+    
+    <h1 className="text-3xl md:text-4xl font-[950] text-white leading-[1.1] tracking-tighter uppercase drop-shadow-md">
+      Equipe de <br/>
+      <span className="text-prylom-gold italic">Originação Estratégica</span>
+    </h1>
+
+    {/* Primeiro Parágrafo - Texto Branco com Shadow sutil para "descolar" do fundo */}
+    <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed drop-shadow-sm">
+      O mercado de ativos reais <span className="text-prylom-gold font-bold">“Deep Market”</span> exige mais do que intermediação; exige presença territorial e relacionamento de alto nível. A PRYLOM opera apoiada por uma equipe de originação de elite, composta por Originadores Estratégicos, Consultores Agronômicos, Gestores Locais e Parceiros Credenciados (Co-Brokers) distribuídos nos principais polos do agronegócio brasileiro.
+    </p>
+
+    {/* Segundo Parágrafo - Branco Neve para contraste total */}
+    <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed drop-shadow-sm">
+      Nossa equipe de campo atua exclusivamente no mapeamento de oportunidades, prospecção direta com proprietários e logística executiva in loco. Toda a estruturação documental, due diligence, formatação de teses e o fechamento transacional (M&A/Closing) são centralizados e executados exclusivamente pela <span className="text-white font-bold border-b border-prylom-gold/50">Mesa de Operações da Prylom</span>, garantindo rigoroso compliance regulatório e segurança absoluta para os investidores.
+    </p>
+  </div>
+
+{/* Mapa - Versão Minimalista (Sem o círculo) */}
+<div className="w-full md:w-1/3 flex justify-center relative z-10">
+  <div className="relative group">
+    
+    {/* Efeito de Aura Dourada atrás do mapa para dar destaque no fundo escuro */}
+    <div className="absolute inset-0 bg-prylom-gold/20 blur-[40px] rounded-full scale-75 group-hover:bg-prylom-gold/30 transition-all duration-700"></div>
+
+    {/* O Mapa propriamente dito */}
+    <img 
+      src="/assets/mapaBrasil.png" 
+      alt="Mapa de Atuação Prylom" 
+      className="relative z-10 w-full max-w-[280px] h-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] transition-transform duration-700 group-hover:scale-105 group-hover:-translate-y-2"
+    />
+    
+    {/* Brilho pulsante sutil opcional */}
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-prylom-gold/10 animate-pulse rounded-full blur-3xl pointer-events-none"></div>
+  </div>
+</div>
+
+</div>
+        {/* 2. Body: Grid de Equipes - Reduzi gap-20 para gap-12 e paddings */}
+        <div className="p-10 md:p-14 grid md:grid-cols-2 gap-12">
+          
+          {/* Coluna: Parceiros */}
+          <div className="space-y-8">
+            <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
+              Parceiros Credenciados
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {parceirosCredenciados.map((item) => (
+                <div key={item.id} className="group">
+                  {item.nome ? (
+                    <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 hover:border-prylom-gold/30 transition-all">
+                      <div className="aspect-square bg-gray-200 rounded-xl mb-3 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
+                        {item.foto ? <img src={item.foto} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">👤</div>}
+                      </div>
+                      <p className="text-[8px] font-black text-prylom-gold uppercase leading-none mb-1">{item.cargo}</p>
+                      <h4 className="text-prylom-dark font-bold text-xs leading-tight">{item.nome}</h4>
+                      <p className="text-[8px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">{item.regiao}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border-2 border-dashed border-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-full min-h-[120px]">
+                      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-2 text-gray-300 text-xs">👤</div>
+                      <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest leading-tight">{item.cargo}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Coluna: Equipe de Campo */}
+          <div className="space-y-8">
+            <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
+              Originação e Campo
+            </h3>
+
+            <div className="space-y-4">
+              {equipeOriginaçao.map((membro) => (
+                <div key={membro.id} className="flex items-center gap-4 bg-gray-50/50 p-3 rounded-2xl border border-transparent hover:border-gray-100 hover:bg-white transition-all">
+                  <div className="w-12 h-12 rounded-xl bg-prylom-dark flex items-center justify-center text-xl shrink-0">
+                    {membro.foto ? <img src={membro.foto} className="w-full h-full object-cover rounded-xl" /> : <span className="opacity-40 text-prylom-gold text-sm">👤</span>}
+                  </div>
+                  <div>
+                    <h4 className="text-prylom-dark font-black text-xs uppercase leading-none">{membro.nome || "Posto Estratégico"}</h4>
+                    <p className="text-prylom-gold text-[9px] font-bold uppercase tracking-wider mt-1">{membro.cargo}</p>
+                    <p className="text-gray-400 text-[8px] font-medium uppercase tracking-widest mt-0.5">{membro.regiao}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Rodapé Estilizado - Reduzi p-12 para p-8 e tamanhos de texto */}
+        <div className="p-8 border-t border-gray-50 bg-gray-50/30 text-center">
+           <div className="flex flex-col items-center gap-4">
+              <div className="flex gap-10">
+                 <div className="text-center">
+                    <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-1">Suporte</p>
+                    <p className="text-prylom-dark font-bold text-xs">(31) 222-3587</p>
+                 </div>
+                 <div className="text-center">
+                    <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-1">E-mail</p>
+                    <p className="text-prylom-dark font-bold text-xs">prylom@prylom.co</p>
+                 </div>
+              </div>
+              <div className="h-px w-16 bg-prylom-gold/20"></div>
+              <span className="text-[8px] font-black text-gray-300 uppercase tracking-[0.3em]">Prylom Ecosystem © 2026</span>
+           </div>
+        </div>
+      </div>
+    </div>);
+};
+
+  const OffMarketView = ({ t }) => (
   <div className="w-full py-16 px-6 bg-[#F4F5F7] min-h-screen flex items-center justify-center animate-fadeIn font-sans">
     <div className="max-w-5xl mx-auto bg-white rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.06)] border border-white relative overflow-hidden">
       
@@ -746,7 +900,19 @@ const OffMarketView = ({ t }) => (
 > 
   OFF MARKET
 </button>
+
+               <button 
+  onClick={() => setViewMode('equipe')}
+  className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+    viewMode === 'equipe' 
+    ? 'bg-prylom-dark text-prylom-gold shadow-lg ring-2 ring-prylom-gold/20' 
+    : 'text-gray-400 hover:text-prylom-dark'
+  }`}
+> 
+  Equipe de Organização Estratégica
+</button>
             </div>
+            
             <button onClick={() => setShowFilters(!showFilters)} className={`bg-white border-2 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${showFilters ? 'border-prylom-gold text-prylom-gold' : 'border-gray-100 text-prylom-dark'}`}>
               {showFilters ? t.hideFilters : t.advancedFilters}
             </button>
@@ -1269,11 +1435,14 @@ const OffMarketView = ({ t }) => (
   <>
     {viewMode === 'off' ? (
       <OffMarketView t={t} />
+    ) : viewMode === 'equipe' ? (
+      <EquipeView t={t} />
     ) : filteredProducts.length === 0 ? (
       <div className="py-20 text-center bg-white rounded-[3rem] border border-gray-100 shadow-sm">
         <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">{t.marketEmpty}</p>
       </div>
-    ) : viewMode === 'grid' ? (
+    ) :
+     viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredProducts.map(p => {
                 const price = formatPriceParts(p.valor);

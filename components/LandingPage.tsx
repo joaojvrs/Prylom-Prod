@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../supabaseClient';
 import { AppLanguage } from '../types';
+import landingPrylom from "../assets/landingPrylom.jpeg";
 
 interface Props {
   onSelectOwner: () => void;
@@ -52,52 +53,53 @@ const LandingPage: React.FC<Props> = ({
     } catch (e) { console.error("Error fetching inventory for Belle", e); }
   };
 
-  const handleBelleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!belleMessage.trim()) return;
-    
-    const userText = belleMessage;
-    setBelleMessage('');
-    setBelleChat(prev => [...prev, { role: 'user', text: userText }]);
-    setLoadingBelle(true);
+ const handleBelleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!belleMessage.trim()) return;
+  
+  const userText = belleMessage;
+  setBelleMessage('');
+  setBelleChat(prev => [...prev, { role: 'user', text: userText }]);
+  setLoadingBelle(true);
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const systemInstruction = `Você é Belle, a Assistente Virtual Consultiva do ecossistema Prylom.
-      Seu tom é premium, executivo, prestativo e conhecedor profundo do agronegócio.
-      Seu objetivo é tirar dúvidas sobre o site Prylom e informar sobre ativos disponíveis.
-      
-      ESTRUTURA DO SITE:
-      - Ativos & Negócios: Marketplace de fazendas, máquinas, aviões e grãos (módulo atual).
-      - Agro Terminal: Dados em tempo real (CBOT, Clima).
-      - Inteligência Agro: Ferramentas de cálculo de ROI, Barter e Frete.
-      - Auditoria e Avaliação: Centro de valuation oficial.
-      - Legal Agro: Radar jurídico e conformidade ambiental.
-      - Anunciar: Onde proprietários cadastram seus bens.
-      
-      INVENTÁRIO ATUAL (CONTEXTO REAL):
-      ${inventorySummary || "Nenhum ativo listado no momento."}
-      
-      REGRAS:
-      1. Se o usuário perguntar por ativos, consulte a lista acima.
-      2. Seja concisa mas elegante.
-      3. Se o usuário quiser acessar um módulo, sugira o nome do módulo.
-      4. Responda estritamente em ${lang}.`;
+  try {
+    // Captura o usuário logado no Supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    const userEmail = user?.email || "Usuário não identificado";
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: userText,
-        config: { systemInstruction }
-      });
+    const response = await fetch('https://webhook.saveautomatik.shop/webhook/belleAI', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: userEmail,           // E-mail do usuário logado
+        message: userText,         // Mensagem digitada
+        inventory: inventorySummary, 
+        language: lang,
+        timestamp: new Date().toISOString()
+      }),
+    });
 
-      setBelleChat(prev => [...prev, { role: 'bot', text: response.text || "Desculpe, tive um erro no meu terminal." }]);
-    } catch (e) {
-      setBelleChat(prev => [...prev, { role: 'bot', text: "Houve um erro de conexão com minha inteligência central." }]);
-    } finally {
-      setLoadingBelle(false);
-    }
-  };
+    if (!response.ok) throw new Error('Falha na comunicação');
 
+    const data = await response.json();
+
+    setBelleChat(prev => [...prev, { 
+      role: 'bot', 
+      text: data.response // O campo que configuraremos no seu Webhook
+    }]);
+
+  } catch (e) {
+    console.error("Webhook Error:", e);
+    setBelleChat(prev => [...prev, { 
+      role: 'bot', 
+      text: "Desculpe, meu terminal de conexão externa está offline no momento." 
+    }]);
+  } finally {
+    setLoadingBelle(false);
+  }
+};
   const modules = [
     { 
       click: onSelectShopping, 
@@ -261,7 +263,7 @@ const LandingPage: React.FC<Props> = ({
       <div className="relative">
         <div className="bg-white rounded-[5rem] overflow-hidden shadow-3xl border border-gray-100 aspect-square lg:aspect-auto lg:h-[650px]">
           {/* A imagem do Unsplash que você escolheu é boa, mas esta abaixo remete mais ao "Trator + Business" da foto original */}
-          <img src="https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover" alt="Processo Prylom" />
+          <img src= {landingPrylom} className="w-full h-full object-cover" alt="Processo Prylom" />
           <div className="absolute inset-0 bg-gradient-to-t from-prylom-dark/80 via-transparent to-transparent"></div>
           <div className="absolute bottom-16 left-16 right-16">
             <div className="p-8 bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20">
@@ -381,90 +383,113 @@ const LandingPage: React.FC<Props> = ({
 </section>
 
       {/* SECTION 5: BELLE — AGENTE DE IA (ABAIXO DE VISÃO SOBERANA) */}
-      <section className="py-32 px-6 bg-[#FDFCFB] border-t border-gray-100">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
-           <div className="lg:col-span-5 space-y-8">
-              <div className="inline-flex items-center gap-4 bg-prylom-gold/10 p-2 pr-6 rounded-full border border-prylom-gold/20">
-                 <div className="w-12 h-12 bg-prylom-gold rounded-full flex items-center justify-center text-xl shadow-xl">✨</div>
-                 <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em]">Belle AI Agent</span>
-              </div>
-              <h3 className="text-5xl font-black text-prylom-dark tracking-tighter uppercase leading-[0.9]">{t.belleTitle}</h3>
-              <p className="text-lg text-gray-500 font-medium leading-relaxed">{t.belleSub}</p>
-              
-              <div className="grid grid-cols-1 gap-4">
-                 {[
-                   "Temos fazendas disponíveis no Mato Grosso?",
-                   "Como funciona a Auditoria Prylom?",
-                   "Quais são os módulos de inteligência?",
-                   "Existem aviões agrícolas à venda?"
-                 ].map((suggestion, i) => (
-                   <button key={i} onClick={() => setBelleMessage(suggestion)} className="p-5 rounded-2xl bg-white border border-gray-100 text-left text-xs font-bold text-prylom-dark hover:border-prylom-gold hover:shadow-lg transition-all group flex justify-between items-center">
-                     {suggestion}
-                     <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-                   </button>
-                 ))}
-              </div>
-           </div>
+<section className="py-32 px-6 bg-[#FDFCFB] border-t border-gray-100">
+  <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 items-start"> {/* items-start para não esticar a lateral */}
+    
+    {/* COLUNA ESQUERDA: TEXTO E SUGESTÕES */}
+    <div className="lg:col-span-5 space-y-8 lg:sticky lg:top-32"> {/* sticky para acompanhar o chat longo */}
+      <div className="inline-flex items-center gap-4 bg-prylom-gold/10 p-2 pr-6 rounded-full border border-prylom-gold/20">
+        <div className="w-12 h-12 bg-prylom-gold rounded-full flex items-center justify-center text-xl shadow-xl">✨</div>
+        <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em]">Belle AI Assistent</span>
+      </div>
+      <h3 className="text-5xl font-black text-prylom-dark tracking-tighter uppercase leading-[0.9]">{t.belleTitle}</h3>
+      <p className="text-lg text-gray-500 font-medium leading-relaxed">{t.belleSub}</p>
+      
+      <div className="grid grid-cols-1 gap-3">
+        {[
+          "Como acesso o portfólio de ativos exclusivos?",
+          "Como cadastro minha propriedade na plataforma?",
+          "Como funcionam as soluções de Máquinas, Grãos?",
+          "Como funciona a Curadoria e estruturação de ativos da Prylom?"
+        ].map((suggestion, i) => (
+          <button key={i} onClick={() => setBelleMessage(suggestion)} className="p-5 rounded-2xl bg-white border border-gray-100 text-left text-xs font-bold text-prylom-dark hover:border-prylom-gold hover:shadow-lg transition-all group flex justify-between items-center">
+            {suggestion}
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0">→</span>
+          </button>
+        ))}
+      </div>
+    </div>
 
-           <div className="lg:col-span-7">
-              <div className="bg-white h-[650px] rounded-[4rem] border border-gray-100 shadow-4xl flex flex-col overflow-hidden relative">
-                 <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #d4a017 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-                 
-                 <header className="p-8 border-b border-gray-50 flex items-center gap-5 bg-white/50 backdrop-blur-md relative z-10">
-                    <div className="relative">
-                      <div className="w-14 h-14 bg-prylom-dark rounded-2xl flex items-center justify-center text-2xl shadow-2xl border border-prylom-gold/30 overflow-hidden">
-                        <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200" className="w-full h-full object-cover" alt="Belle" />
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-4 border-white rounded-full"></div>
-                    </div>
-                    <div>
-                       <h4 className="text-lg font-black text-prylom-dark uppercase tracking-tight">Belle</h4>
-                       <p className="text-[10px] font-black text-prylom-gold uppercase tracking-widest">Consultora Virtual Prylom</p>
-                    </div>
-                 </header>
+    {/* COLUNA DIREITA: CHAT + COMPLIANCE EXTERNO */}
+    <div className="lg:col-span-7 space-y-6"> {/* Espaçamento vertical entre Chat e Compliance */}
+      
+      {/* CONTAINER DO CHAT - ALTURA FIXA PRESERVADA */}
+      <div className="bg-white h-[650px] rounded-[3rem] border border-gray-100 shadow-4xl flex flex-col overflow-hidden relative">
+        <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #d4a017 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+        
+        <header className="p-6 border-b border-gray-50 flex items-center gap-5 bg-white/80 backdrop-blur-md relative z-10">
+          <div className="relative">
+            <div className="w-12 h-12 bg-prylom-dark rounded-xl flex items-center justify-center shadow-lg border border-prylom-gold/30 overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200" className="w-full h-full object-cover" alt="Belle" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+          </div>
+          <div>
+            <h4 className="text-md font-black text-prylom-dark uppercase tracking-tight">Belle</h4>
+            <p className="text-[9px] font-black text-prylom-gold uppercase tracking-[0.2em]">Consultora Virtual Prylom</p>
+          </div>
+        </header>
 
-                 <div ref={belleScrollRef} className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar relative z-10">
-                    <div className="flex justify-start">
-                       <div className="max-w-[85%] p-6 rounded-[2.5rem] bg-gray-50 text-prylom-dark text-sm font-medium leading-relaxed rounded-tl-none border border-gray-100 shadow-sm">
-                          {t.belleGreeting}
-                       </div>
-                    </div>
-                    {belleChat.map((chat, i) => (
-                      <div key={i} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                         <div className={`max-w-[85%] p-6 rounded-[2.5rem] text-sm font-medium leading-relaxed shadow-sm ${chat.role === 'user' ? 'bg-[#000080] text-white rounded-tr-none' : 'bg-white text-prylom-dark rounded-tl-none border border-gray-100'}`}>
-                            {chat.text}
-                         </div>
-                      </div>
-                    ))}
-                    {loadingBelle && (
-                      <div className="flex justify-start animate-pulse">
-                         <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 flex gap-2">
-                            <div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div>
-                            <div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce" style={{animationDelay:'0.4s'}}></div>
-                         </div>
-                      </div>
-                    )}
-                 </div>
-
-                 <form onSubmit={handleBelleSubmit} className="p-6 bg-white border-t border-gray-50 relative z-10">
-                    <div className="flex bg-gray-50 rounded-full p-2 border-2 border-transparent focus-within:border-prylom-gold transition-all shadow-inner">
-                       <input 
-                         type="text" 
-                         value={belleMessage} 
-                         onChange={e => setBelleMessage(e.target.value)}
-                         placeholder={t.bellePlaceholder}
-                         className="flex-1 bg-transparent px-8 py-4 text-sm font-medium outline-none text-prylom-dark"
-                       />
-                       <button type="submit" disabled={loadingBelle} className="bg-prylom-dark text-white w-14 h-14 rounded-full flex items-center justify-center hover:bg-prylom-gold transition-all shadow-xl disabled:opacity-50">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                       </button>
-                    </div>
-                 </form>
+        <div ref={belleScrollRef} className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar relative z-10">
+          <div className="flex justify-start">
+            <div className="max-w-[85%] p-5 rounded-[2rem] bg-gray-50 text-prylom-dark text-sm font-medium leading-relaxed rounded-tl-none border border-gray-100 shadow-sm">
+              {t.belleGreeting}
+            </div>
+          </div>
+          {belleChat.map((chat, i) => (
+            <div key={i} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] p-5 rounded-[2rem] text-sm font-medium leading-relaxed shadow-sm ${chat.role === 'user' ? 'bg-[#000080] text-white rounded-tr-none' : 'bg-white text-prylom-dark rounded-tl-none border border-gray-100'}`}>
+                {chat.text}
               </div>
-           </div>
+            </div>
+          ))}
+          {loadingBelle && (
+            <div className="flex justify-start animate-pulse">
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex gap-2">
+                <div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div>
+                <div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce" style={{animationDelay:'0.4s'}}></div>
+              </div>
+            </div>
+          )}
         </div>
-      </section>
+
+        <form onSubmit={handleBelleSubmit} className="p-6 bg-white border-t border-gray-50 relative z-10">
+          <div className="flex bg-gray-50 rounded-full p-2 border-2 border-transparent focus-within:border-prylom-gold transition-all shadow-inner">
+            <input 
+              type="text" 
+              value={belleMessage} 
+              onChange={e => setBelleMessage(e.target.value)}
+              placeholder={t.bellePlaceholder}
+              className="flex-1 bg-transparent px-6 py-3 text-sm font-medium outline-none text-prylom-dark"
+            />
+            <button type="submit" disabled={loadingBelle} className="bg-prylom-dark text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-prylom-gold transition-all shadow-xl disabled:opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* AVISO DE COMPLIANCE - Fora da caixa branca para não empurrar o layout */}
+      <div className="px-6 py-4 rounded-[2rem] bg-gray-100/50 border border-gray-200/50">
+        <div className="flex items-start gap-3">
+          <div className="mt-1 flex-shrink-0 w-8 h-8 rounded-lg bg-prylom-dark/5 flex items-center justify-center text-prylom-dark/40">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.040L3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622l-.982-3.016z" />
+            </svg>
+          </div>
+          <div className="space-y-1">
+            <h5 className="text-[9px] font-black text-prylom-dark/60 uppercase tracking-widest">Compliance Protocol</h5>
+            <p className="text-[10px] leading-relaxed text-gray-400 font-medium">
+              <strong className="text-prylom-dark/70 uppercase">Aviso:</strong> A Belle é uma IA consultiva. Respostas automatizadas <span className="text-prylom-dark">não constituem oferta vinculante</span> ou laudo técnico. Em conformidade com a <span className="underline decoration-prylom-gold/30 text-prylom-dark/70">LGPD</span> e <span className="underline decoration-prylom-gold/30 text-prylom-dark/70">Lei 9.613/98</span>, diálogos são auditáveis. O uso implica aceitação do <a href="#" className="text-prylom-gold font-bold hover:underline">Termo MSA</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</section>
     </div>
   );
 };
