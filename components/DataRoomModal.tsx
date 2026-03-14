@@ -91,20 +91,27 @@ const NationalProtocol = ({
   subStep: number,
   setSubStep: (s: number) => void 
 }) => {
-  const [fields, setFields] = useState({
-    nome: '',
-    doc: '',
-    endereco: '',
-    email: '',
-    telefone: '',
-    perfil: '',
+const [fields, setFields] = useState({
+  nome: '',
+  doc: '',
+  email: '',
+  telefone: '',
+  perfil: '',
   capacidadeAporte: '',
   hectares: '',
   estadosAtuacao: '',
   pep: 'Não',
   creciOab: '',
-  scope: null
-  });
+  scope: null,
+  // Adicione estes:
+  descricaoPermuta: '',
+  tipoPatrimonial: '',
+  modalidadeCaptacao: '',
+  statusCredito: '',
+  clienteRepresentadoNome: '',
+  clienteRepresentadoDoc: '',
+  declaracaoOrigem: false
+});
 
   const [docStatus, setDocStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
   const [smsSent, setSmsSent] = useState(false);
@@ -238,6 +245,63 @@ const handleNext = () => {
     } catch { setSmsSent(true); } 
     finally { setIsVerifying(false); }
   };
+
+  const handleSubmit = async () => {
+  try {
+    // 1. Coleta o IP do usuário (opcional, mas excelente para auditoria do NDA)
+    const ipRes = await fetch('https://api.ipify.org?format=json');
+    const ipData = await ipRes.json();
+
+    // 2. Monta o objeto de variáveis financeiras (JSONB)
+    const detalhesFinanceiros = {
+      modalidadeCaptacao: fields.modalidadeCaptacao || null,
+      statusCredito: fields.statusCredito || null,
+      descricaoPermuta: fields.descricaoPermuta || null,
+      tipoPatrimonial: fields.tipoPatrimonial || null,
+    };
+
+    // 3. Insere no Supabase
+    const { error } = await supabase
+      .from('protocols_national')
+      .insert([{
+        nome: fields.nome,
+        documento: fields.doc.replace(/\D/g, ""), // Salva apenas números
+        email: fields.email,
+        telefone: fields.telefone.replace(/\D/g, ""),
+        is_whatsapp_validated: isCodeValid,
+        is_private: fields.scope === 'FULL_PORTFOLIO',
+        perfil: fields.perfil,
+        capacidade_aporte: fields.capacidadeAporte, // Corrija para bater com o nome do estado
+        hectares_atuais: fields.hectares,
+        estados_atuacao: fields.estadosAtuacao,
+        creci_oab: fields.creciOab,
+        cliente_representado_nome: fields.clienteRepresentadoNome,
+        cliente_representado_doc: fields.clienteRepresentadoDoc?.replace(/\D/g, ""),
+        is_pep: fields.pep === 'Sim',
+        
+        // O campo JSONB
+        detalhes_financeiros: detalhesFinanceiros,
+        
+        // Compliance e Auditoria
+        nda_scope: fields.scope,
+        nda_accepted: ndaAccepted,
+        declaracao_origem_aceite: fields.declaracaoOrigem || false,
+        ip_address: ipData.ip,
+        hash_autenticacao: `AUTH_${Math.random().toString(36).substring(2, 11).toUpperCase()}`,
+        produto_origem_id: product?.id?.toString() || 'PORTFOLIO_GERAL'
+      }]);
+
+    if (error) throw error;
+
+    // 4. Se deu certo, avança para o Step de Sucesso (4)
+    setSubStep(4);
+
+  } catch (error) {
+    console.error("Erro ao salvar protocolo:", error);
+    alert("Erro ao enviar dados. Por favor, tente novamente.");
+  }
+};
+
   return (
     <div className="animate-fadeIn space-y-8">
       {/* Indicador de Progresso Interno */}
@@ -735,17 +799,17 @@ penalidades deste contrato.
     </div>
 
     {/* Botão de Envio */}
-    <button 
-      onClick={() => setSubStep(4)}
-      disabled={!ndaAccepted}
-      className={`w-full py-6 rounded-sm font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
-        ${ndaAccepted 
-          ? 'bg-[#2c5363] text-white hover:bg-[#bba219] hover:-translate-y-1' 
-          : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-      `}
-    >
-      Assinar Digitalmente e Enviar
-    </button>
+<button 
+  onClick={handleSubmit} // Chamando a função de persistência em vez de apenas setSubStep
+  disabled={!ndaAccepted}
+  className={`w-full py-6 rounded-sm font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
+    ${ndaAccepted 
+      ? 'bg-[#2c5363] text-white hover:bg-[#bba219] hover:-translate-y-1' 
+      : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+  `}
+>
+  Assinar Digitalmente e Enviar
+</button>
   </div>
 )}
 
@@ -823,21 +887,29 @@ const InternationalProtocol = ({
   const [isCodeValid, setIsCodeValid] = useState(false);
   const [codeError, setCodeError] = useState(false);
   
-  const [fields, setFields] = useState({
+const [fields, setFields] = useState({
     investorType: '',
     country: '',
     companyName: '',
     taxId: '',
     hasBrazilRep: 'No',
+    isMajorityForeign: false, // Inicialize como false
     repName: '',
+    hasMandate: false,        // Inicialize como false
+    repCapacity: '',
+    directCompany: '',
+    advisoryFirm: '',
+    endBuyer: '',
     passport: '',
-    passportFile: '',
+    passportFile: null,
     email: '',
     phone: '',
     ticketSize: '',
     sourceFunds: '',
-    thesis: ''
-  });
+    thesis: '',
+    pep: 'No',                // Inicialize como 'No'
+    scope: ''                 // Inicialize vazio
+});
 
   const [countries, setCountries] = useState<string[]>(['United States', 'China', 'United Kingdom', 'United Arab Emirates', 'Saudi Arabia', 'Germany', 'Switzerland']);
 
@@ -930,6 +1002,93 @@ useEffect(() => {
     } catch { setSmsSent(true); } 
     finally { setIsVerifying(false); }
   };
+
+const uploadPassport = async (file, fileName) => {
+  if (!file) return null;
+  
+  const fileExt = file.name.split('.').pop();
+  
+  // Limpa o nome: remove espaços e caracteres especiais, mantendo apenas letras e números
+  const cleanFileName = fileName
+    .normalize('NFD')                     // Remove acentos
+    .replace(/[\u0300-\u036f]/g, "")      // Complemento da remoção de acentos
+    .replace(/\s+/g, '_')                 // Troca espaços por underline
+    .replace(/[^\w.-]/g, '');             // Remove qualquer coisa que não seja letra, número, ponto ou hífen
+
+  const filePath = `passports/${Date.now()}-${cleanFileName}.${fileExt}`;
+
+  const { data, error } = await supabase.storage
+    .from('kyc-documents')
+    .upload(filePath, file);
+
+  if (error) throw error;
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('kyc-documents')
+    .getPublicUrl(filePath);
+
+  return publicUrl;
+};
+
+const handleSubmit = async () => {
+  try {
+    setIsVerifying(true);
+
+    // 1. Upload do Arquivo
+    let passportUrl = "";
+    if (fields.passportFile) {
+      passportUrl = await uploadPassport(fields.passportFile, fields.repName);
+    }
+
+    // 2. Preparação do Objeto de Dados
+    const submissionData = {
+      investor_type: fields.investorType,
+      country: fields.country,
+      company_name: fields.companyName,
+      tax_id: fields.taxId,
+      has_brazil_rep: fields.hasBrazilRep,
+      is_majority_foreign: fields.isMajorityForeign,
+      rep_name: fields.repName,
+      rep_email: fields.email,
+      rep_phone: fields.phone,
+      passport_url: passportUrl,
+      is_whatsapp_valid: isCodeValid,
+      ticket_size: fields.ticketSize,
+      source_funds: fields.sourceFunds,
+      investment_thesis: fields.thesis,
+      is_pep: fields.pep,
+      nda_scope: fields.scope,
+      product_id: product?.id || 'GLOBAL_DESK',
+      
+      // Dados Dinâmicos de Representação no JSONB
+      rep_details: {
+        hasMandate: fields.hasMandate,
+        repCapacity: fields.repCapacity,
+        directCompany: fields.directCompany,
+        advisoryFirm: fields.advisoryFirm,
+        endBuyer: fields.endBuyer,
+        acceptedAt: new Date().toISOString()
+      }
+    };
+
+    // 3. Insert no Supabase
+    const { error } = await supabase
+      .from('protocols_international')
+      .insert([submissionData]);
+
+    if (error) throw error;
+
+    // 4. Avança para a tela de sucesso
+    setSubStep(4);
+    if (onComplete) onComplete();
+
+  } catch (error) {
+    console.error("Submission error:", error);
+    alert("Error saving your accreditation. Please try again.");
+  } finally {
+    setIsVerifying(false);
+  }
+};
 
   return (
     <div className="animate-fadeIn space-y-8 text-left">
@@ -1461,17 +1620,24 @@ useEffect(() => {
       </label>
     </div>
 
-    <button 
-      onClick={() => setSubStep(4)}
-      disabled={!ndaAccepted}
-      className={`w-full py-6 font-black text-[11px] uppercase tracking-[0.4em] transition-all shadow-2xl
-        ${ndaAccepted 
-          ? 'bg-[#2c5363] text-white hover:bg-black active:scale-[0.98]' 
-          : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-      `}
-    >
-      Digital Signature & Submit
-    </button>
+<button 
+  onClick={handleSubmit} // Chamada para a função de salvamento
+  disabled={!ndaAccepted || isVerifying} // Bloqueia se não aceitou ou se já está enviando
+  className={`w-full py-6 font-black text-[11px] uppercase tracking-[0.4em] transition-all shadow-2xl flex items-center justify-center gap-3
+    ${(ndaAccepted && !isVerifying) 
+      ? 'bg-[#2c5363] text-white hover:bg-black active:scale-[0.98]' 
+      : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+  `}
+>
+  {isVerifying ? (
+    <>
+      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+      Processing Signature...
+    </>
+  ) : (
+    "Digital Signature & Submit"
+  )}
+</button>
   </div>
 )}
 
@@ -1670,6 +1836,103 @@ useEffect(() => {
     const tipo = product?.tipo_anuncio || product?.fazenda_data?.tipo_anuncio;
     return relevancia === 'Open Market' || tipo === 'Open Market';
   }, [product]);
+
+const uploadFile = async (bucket: string, file: File, userName: string) => {
+  try {
+    // 1. Limpa o nome do usuário para usar no caminho do arquivo (remove espaços e caracteres especiais)
+    const cleanUserName = userName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').toLowerCase();
+    
+    // 2. Cria um nome único: nome_usuario_timestamp_nome_original
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${cleanUserName}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`; // Caminho dentro do bucket
+
+    // 3. Upload para o Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true // Se já existir, ele sobrescreve
+      });
+
+    if (error) throw error;
+
+    // 4. Retorna a URL pública do arquivo
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  } catch (error) {
+    console.error(`Erro no upload para ${bucket}:`, error);
+    throw error;
+  }
+};
+const handleFinalSubmit = async () => {
+  setIsVerifying(true);
+  try {
+    // 1. Upload dos arquivos (Somente se existirem)
+    let passportUrl = null;
+    let pofUrl = null;
+
+    // O nome para o arquivo prioriza o nome da empresa ou o nome do representante
+    const identifier = fields.companyName || fields.nome || fields.repName || 'anonymous';
+
+    if (fields.passportFile) {
+      passportUrl = await uploadFile('passports', fields.passportFile, identifier);
+    }
+    
+    // Só sobe POF se o arquivo existir e ele não tiver marcado "Screening Meeting"
+    if (fields.pofFile && !fields.pofDuringScreening) {
+      pofUrl = await uploadFile('proof-of-funds', fields.pofFile, identifier);
+    }
+
+    // 2. Montagem do Payload (Mapeamento Inteligente)
+    // Aqui garantimos que independente do fluxo (BR ou INT), o dado principal caia na coluna certa
+    const protocolData = {
+      origin: privateOrigin, 
+      full_name: fields.companyName || fields.nome || fields.repName,
+      email: fields.email,
+      phone: fields.phone,
+      document_id: fields.taxId || fields.doc || fields.clienteRepresentadoDoc,
+      passport_url: passportUrl,
+      pof_url: pofUrl,
+      meeting_date: fields.meetingDate,
+      meeting_time: fields.meetingTime,
+      // Metadados: Guardamos TUDO que sobrou aqui para não perder dados novos
+      form_metadata: {
+        ...fields,
+        // Removemos os arquivos do metadata para não inflar o JSON
+        passportFile: undefined,
+        pofFile: undefined,
+        submitted_at: new Date().toISOString()
+      }
+    };
+
+    // 3. Insert no Supabase
+    const { data, error } = await supabase
+      .from('private_protocols')
+      .insert([protocolData])
+      .select();
+
+    if (error) throw error;
+
+    // 4. Webhook de Notificação (Opcional, mas recomendado para o comercial)
+    await fetch("https://webhook.saveautomatik.shop/webhook/finalizaOnboarding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...protocolData, id: data[0]?.id }),
+    });
+
+    onComplete(); 
+
+  } catch (error: any) {
+    console.error("Erro crítico no salvamento:", error);
+    alert(`Erro ao processar mandato: ${error.message || 'Verifique sua conexão'}`);
+  } finally {
+    setIsVerifying(false);
+  }
+};
 
   const handleDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, "");
@@ -2834,31 +3097,62 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
       )}
 
     {/* Lógica de Validação do Botão Step 2 */}
-    <button 
-      onClick={() => setSubStep(4)}
-disabled={
-        !fields.perfil || fields.perfil === 'Selecione...' || 
-        !fields.capacidadeAporte || fields.capacidadeAporte === 'Selecione...' ||
-        (fields.perfil === 'Produtor Rural' && (!fields.hectares || !fields.estadosAtuacao)) ||
-        (fields.perfil === 'Investidor Patrimonial' && (!fields.tipoPatrimonial || fields.tipoPatrimonial === 'Selecione...')) ||
-        (fields.perfil === 'Representante Legal' && (!fields.creciOab || !fields.clienteRepresentadoNome || !fields.clienteRepresentadoDoc)) ||
-        (fields.capacidadeAporte === 'Financiamento' && (fields.modalidadeCaptacao === 'Selecione...' || !fields.modalidadeCaptacao || fields.statusCredito === 'Selecione...' || !fields.statusCredito)) ||
-        (fields.capacidadeAporte === 'Troca/Permuta' && !fields.descricaoPermuta) ||
-        (fields.capacidadeAporte === 'Recursos Próprios' && !fields.declaracaoOrigem)
-      }
-      className={`w-full py-5 font-black text-[10px] uppercase tracking-[0.3em] transition-all shadow-lg mt-8
-        ${(!fields.perfil || fields.perfil === 'Selecione...') 
-          ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-          : 'bg-[#2c5363] text-white hover:bg-[#bba219]'}
-      `}
-    >
-      Próxima Etapa
-    </button>
+{/* Substitua o botão anterior por este dentro do fluxo BR */}
+<button 
+  onClick={handleFinalSubmit}
+  disabled={
+    isVerifying ||
+    !fields.perfil || fields.perfil === 'Selecione...' || 
+    !fields.capacidadeAporte || fields.capacidadeAporte === 'Selecione...' ||
+    !fields.meetingDate || !fields.meetingTime ||
+    (fields.capacidadeAporte === 'Recursos Próprios' && !fields.declaracaoOrigem)
+  }
+  className={`w-full py-6 font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl mt-8 flex items-center justify-center gap-3
+    ${(isVerifying || !fields.perfil || !fields.meetingDate || (fields.capacidadeAporte === 'Recursos Próprios' && !fields.declaracaoOrigem))
+      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+      : 'bg-[#2c5363] text-white hover:bg-[#bba219] active:scale-95'}
+  `}
+>
+  {isVerifying ? (
+    <>
+      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+      Processando Protocolo...
+    </>
+  ) : "Finalizar Mandato Private"}
+</button>
   </div>
 )}
 
     {/* --- FLUXO INTERNACIONAL (INT) --- */}
-    {privateOrigin === 'INT' && (<div> Finalizar</div>)}
+    {privateOrigin === 'INT' && (
+  <div className="space-y-6 animate-fadeIn">
+    <div className="bg-[#2c5363]/5 p-6 border-l-4 border-[#bba219]">
+      <p className="text-[11px] font-black uppercase text-[#2c5363] tracking-widest">
+        Confirmação de Mandato Internacional
+      </p>
+      <p className="text-[10px] text-gray-500 font-medium uppercase mt-2">
+        Ao finalizar, seus documentos serão processados via criptografia de ponta a ponta para análise do comitê de compliance.
+      </p>
+    </div>
+
+    <button 
+      onClick={handleFinalSubmit}
+      disabled={isVerifying || !fields.meetingDate || !fields.meetingTime}
+      className={`w-full py-6 font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl flex items-center justify-center gap-3
+        ${(isVerifying || !fields.meetingDate || !fields.meetingTime)
+          ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+          : 'bg-[#2c5363] text-white hover:bg-[#bba219] active:scale-95'}
+      `}
+    >
+      {isVerifying ? (
+        <>
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          Processing...
+        </>
+      ) : "Finalize & Secure Mandate"}
+    </button>
+  </div>
+)}
   </>
 )}
     </div>

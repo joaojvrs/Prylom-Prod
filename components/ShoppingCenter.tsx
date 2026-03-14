@@ -3,9 +3,11 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useParams, useNavigate } from 'react-router-dom';
 import agro_brasil from "../assets/agro_brasil.jpg";
 import mapaBrasil from "../assets/mapaBrasil.png";
+import { createPortal } from 'react-dom';
 
 interface Product {
   id: string;
@@ -602,155 +604,599 @@ ${items.map(p => {
   const availableStates = useMemo(() => Array.from(new Set(products.map(p => p.estado))).sort(), [products]);
   const availableCities = useMemo(() => Array.from(new Set(products.filter(p => !filterState || p.estado === filterState).map(p => p.cidade))).sort(), [products, filterState]);
 
+const ESTADOS_COORDINATES = {
+  'AC': [-9.02, -70.81], 'AL': [-9.57, -36.78], 'AP': [1.41, -51.77], 'AM': [-3.41, -64.59],
+  'BA': [-12.97, -38.50], 'CE': [-5.45, -39.32], 'DF': [-15.79, -47.88], 'ES': [-19.19, -40.34],
+  'GO': [-15.82, -49.83], 'MA': [-5.42, -45.44], 'MT': [-12.64, -55.42], 'MS': [-20.51, -54.54],
+  'MG': [-18.51, -44.55], 'PA': [-3.79, -52.48], 'PB': [-7.24, -36.78], 'PR': [-24.89, -51.55],
+  'PE': [-8.28, -37.92], 'PI': [-7.71, -42.72], 'RJ': [-22.84, -43.15], 'RN': [-5.22, -36.52],
+  'RS': [-30.01, -51.22], 'RO': [-11.50, -63.58], 'RR': [2.73, -62.07], 'SC': [-27.24, -50.21],
+  'SP': [-23.55, -46.63], 'SE': [-10.90, -37.07], 'TO': [-10.17, -48.33]
+};
+
 const EquipeView = ({ t }) => {
+  const [corretores, setCorretores] = useState([]);
+  const mapContainerRef = useRef(null);
+  const mapInstance = useRef(null);
 
-  const equipeOriginaçao = [
-    { id: 1, nome: "Carlos Souza", cargo: "Originador Estratégico", regiao: "Polo MATOPIBA (BA)", foto: null },
-    { id: 2, nome: null, cargo: "Originador Estratégico", regiao: "Polo Sul", foto: null },
-    { id: 3, nome: null, cargo: "Consultor Agronômico", regiao: "Polo Centro-Oeste", foto: null },
-  ];
+  const [selectedCorretor, setSelectedCorretor] = useState(null);
+const [showModal, setShowModal] = useState(false);
+const [showRegisterModal, setShowRegisterModal] = useState(false);
+const handleOpenDetails = (corretor) => {
+  setSelectedCorretor(corretor);
+  setShowModal(true);
+};
 
-  const parceirosCredenciados = [
-    { id: 1, nome: "João da Silva", cargo: "Parceiro Estratégico (Co-Broker)", regiao: "Polo Mato Grosso (MT)", credencial: "CRECI/MT 00.000", foto: null },
-    { id: 2, cargo: "Parceiro Credenciado" },
-    { id: 3, cargo: "Parceiro Credenciado" },
-    { id: 4, cargo: "Parceiro Credenciado" },
-  ];
+  useEffect(() => {
+    const fetchCorretores = async () => {
+      const { data } = await supabase.from('corretores').select('*');
+      if (data) setCorretores(data);
+    };
+    fetchCorretores();
+  }, []);
 
-  return (/* Reduzi py-16 para py-10 e a largura máxima para 5xl (mais estreita) */
- <div className="w-full py-10 px-6 bg-[#F4F5F7] min-h-screen animate-fadeIn font-sans">
-      <div className="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.06)] border border-white overflow-hidden">
-{/* 1. Header & Mapa - VISIBILIDADE OTIMIZADA */}
-<div className="relative p-10 md:p-14 flex flex-col md:flex-row gap-8 items-center overflow-hidden bg-prylom-dark">
-  
-  {/* Imagem de Fundo com Opacidade Controlada */}
-  <div 
-    className="absolute inset-0 bg-cover bg-center opacity-30 z-0"
-    style={{ backgroundImage: `url(${agro_brasil})` }}
-  ></div>
+  const GEOJSON_URL = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson";
+// No início do seu useEffect do Mapa
+useEffect(() => {
+  if (!mapContainerRef.current || mapInstance.current) return;
 
-  {/* Gradiente Direcional: Escurece da esquerda para a direita para dar "cama" ao texto */}
-  <div className="absolute inset-0 bg-gradient-to-r from-prylom-dark via-prylom-dark/80 to-transparent z-0"></div>
+  // 1. Inicializa o mapa
+  const map = L.map(mapContainerRef.current, {
+    zoomControl: false,
+    attributionControl: false,
+    center: [-15.78, -52.00],
+    zoom: 3.2, // Um pouco mais longe para ver as bordas do Brasil
+    scrollWheelZoom: false,
+    fadeAnimation: true
+  });
 
-  {/* Efeito de brilho dourado lateral (ajustado para z-1) */}
-  <div className="absolute top-0 right-0 w-80 h-80 bg-prylom-gold/10 rounded-full blur-[80px] pointer-events-none z-1"></div>
+  // 2. Camada de Satélite (O fundo)
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.jpg', {
+    maxZoom: 19,
+  }).addTo(map);
 
-  {/* Conteúdo com Z-Index Elevado */}
-  <div className="flex-1 space-y-5 relative z-10">
-    <div className="inline-flex items-center gap-2 bg-prylom-gold/20 border border-prylom-gold/30 px-3 py-1 rounded-full backdrop-blur-sm">
-      <span className="text-[9px] font-black text-prylom-gold uppercase tracking-[0.2em]">Presença Nacional</span>
-    </div>
+  // 3. Camada de Fronteiras (GeoJSON) - Com tratamento de erro
+  fetch("https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson")
+    .then(res => res.ok ? res.json() : null)
+    .then(data => {
+      if (data) {
+        L.geoJSON(data, {
+          style: {
+            color: "rgba(212, 175, 55, 0.4)", // Dourado suave
+            weight: 0.8,
+            fillColor: "transparent", // Garante que o fundo não fique preto
+            fillOpacity: 0
+          }
+        }).addTo(map);
+      }
+    })
+    .catch(err => console.error("Erro ao carregar fronteiras, mantendo apenas satélite."));
+
+  mapInstance.current = map;
+
+  // 4. Renderiza os marcadores e força o tamanho correto
+  setTimeout(() => {
+    map.invalidateSize();
+    if (corretores.length > 0) renderStaticMarkers(map);
+  }, 500);
+
+  return () => {
+    if (mapInstance.current) {
+      mapInstance.current.remove();
+      mapInstance.current = null;
+    }
+  };
+}, [corretores]);
+  const renderStaticMarkers = (map) => {
+    const bounds = L.latLngBounds([]);
     
-    <h1 className="text-3xl md:text-4xl font-[950] text-white leading-[1.1] tracking-tighter uppercase drop-shadow-md">
-      Equipe de <br/>
-      <span className="text-prylom-gold italic">Originação Estratégica</span>
-    </h1>
+    // Agrupa corretores por estado
+    const grouped = corretores.reduce((acc, c) => {
+      const uf = c.estado?.toUpperCase().trim();
+      if (!acc[uf]) acc[uf] = [];
+      acc[uf].push(c);
+      return acc;
+    }, {});
 
-    {/* Primeiro Parágrafo - Texto Branco com Shadow sutil para "descolar" do fundo */}
-    <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed drop-shadow-sm">
-      O mercado de ativos reais <span className="text-prylom-gold font-bold">“Deep Market”</span> exige mais do que intermediação; exige presença territorial e relacionamento de alto nível. A PRYLOM opera apoiada por uma equipe de originação de elite, composta por Originadores Estratégicos, Consultores Agronômicos, Gestores Locais e Parceiros Credenciados (Co-Brokers) distribuídos nos principais polos do agronegócio brasileiro.
-    </p>
+    Object.keys(grouped).forEach(uf => {
+      const coords = ESTADOS_COORDINATES[uf];
+      const lista = grouped[uf];
 
-    {/* Segundo Parágrafo - Branco Neve para contraste total */}
-    <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed drop-shadow-sm">
-      Nossa equipe de campo atua exclusivamente no mapeamento de oportunidades, prospecção direta com proprietários e logística executiva in loco. Toda a estruturação documental, due diligence, formatação de teses e o fechamento transacional (M&A/Closing) são centralizados e executados exclusivamente pela <span className="text-white font-bold border-b border-prylom-gold/50">Mesa de Operações da Prylom</span>, garantindo rigoroso compliance regulatório e segurança absoluta para os investidores.
-    </p>
-  </div>
-
-{/* Mapa - Versão Minimalista (Sem o círculo) */}
-<div className="w-full md:w-1/3 flex justify-center relative z-10">
-  <div className="relative group">
-    
-    {/* Efeito de Aura Dourada atrás do mapa para dar destaque no fundo escuro */}
-    <div className="absolute inset-0 bg-prylom-gold/20 blur-[40px] rounded-full scale-75 group-hover:bg-prylom-gold/30 transition-all duration-700"></div>
-
-    {/* O Mapa propriamente dito */}
-    <img 
-      src="/assets/mapaBrasil.png" 
-      alt="Mapa de Atuação Prylom" 
-      className="relative z-10 w-full max-w-[280px] h-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] transition-transform duration-700 group-hover:scale-105 group-hover:-translate-y-2"
-    />
-    
-    {/* Brilho pulsante sutil opcional */}
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-prylom-gold/10 animate-pulse rounded-full blur-3xl pointer-events-none"></div>
-  </div>
-</div>
-
-</div>
-        {/* 2. Body: Grid de Equipes - Reduzi gap-20 para gap-12 e paddings */}
-        <div className="p-10 md:p-14 grid md:grid-cols-2 gap-12">
-          
-          {/* Coluna: Parceiros */}
-          <div className="space-y-8">
-            <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
-              Parceiros Credenciados
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              {parceirosCredenciados.map((item) => (
-                <div key={item.id} className="group">
-                  {item.nome ? (
-                    <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 hover:border-prylom-gold/30 transition-all">
-                      <div className="aspect-square bg-gray-200 rounded-xl mb-3 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
-                        {item.foto ? <img src={item.foto} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">👤</div>}
-                      </div>
-                      <p className="text-[8px] font-black text-prylom-gold uppercase leading-none mb-1">{item.cargo}</p>
-                      <h4 className="text-prylom-dark font-bold text-xs leading-tight">{item.nome}</h4>
-                      <p className="text-[8px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">{item.regiao}</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border-2 border-dashed border-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-full min-h-[120px]">
-                      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-2 text-gray-300 text-xs">👤</div>
-                      <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest leading-tight">{item.cargo}</p>
-                    </div>
-                  )}
+      if (coords) {
+        bounds.extend(coords);
+        L.marker(coords, {
+          icon: L.divIcon({
+            className: 'custom-pin',
+            html: `
+              <div class="group relative">
+                <div class="bg-prylom-gold w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+                  <span class="text-[9px] text-white font-black">${lista.length}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Coluna: Equipe de Campo */}
-          <div className="space-y-8">
-            <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
-              Originação e Campo
-            </h3>
-
-            <div className="space-y-4">
-              {equipeOriginaçao.map((membro) => (
-                <div key={membro.id} className="flex items-center gap-4 bg-gray-50/50 p-3 rounded-2xl border border-transparent hover:border-gray-100 hover:bg-white transition-all">
-                  <div className="w-12 h-12 rounded-xl bg-prylom-dark flex items-center justify-center text-xl shrink-0">
-                    {membro.foto ? <img src={membro.foto} className="w-full h-full object-cover rounded-xl" /> : <span className="opacity-40 text-prylom-gold text-sm">👤</span>}
-                  </div>
-                  <div>
-                    <h4 className="text-prylom-dark font-black text-xs uppercase leading-none">{membro.nome || "Posto Estratégico"}</h4>
-                    <p className="text-prylom-gold text-[9px] font-bold uppercase tracking-wider mt-1">{membro.cargo}</p>
-                    <p className="text-gray-400 text-[8px] font-medium uppercase tracking-widest mt-0.5">{membro.regiao}</p>
-                  </div>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-prylom-dark text-white p-2 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-[1000] invisible group-hover:visible min-w-[100px] border border-prylom-gold/30">
+                  <p class="text-[7px] font-black text-prylom-gold uppercase mb-1">Polo ${uf}</p>
+                  ${lista.map(c => `<p class="text-[8px] truncate border-t border-white/10 pt-1">${c.nome}</p>`).join('')}
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Rodapé Estilizado - Reduzi p-12 para p-8 e tamanhos de texto */}
-        <div className="p-8 border-t border-gray-50 bg-gray-50/30 text-center">
-           <div className="flex flex-col items-center gap-4">
-              <div className="flex gap-10">
-                 <div className="text-center">
-                    <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-1">Suporte</p>
-                    <p className="text-prylom-dark font-bold text-xs">(31) 222-3587</p>
-                 </div>
-                 <div className="text-center">
-                    <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-1">E-mail</p>
-                    <p className="text-prylom-dark font-bold text-xs">prylom@prylom.co</p>
-                 </div>
               </div>
-              <div className="h-px w-16 bg-prylom-gold/20"></div>
-              <span className="text-[8px] font-black text-gray-300 uppercase tracking-[0.3em]">Prylom Ecosystem © 2026</span>
-           </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          })
+        }).addTo(map);
+      }
+    });
+
+  //  if (bounds.isValid()) {
+   //   map.fitBounds(bounds, { padding: [50, 50] });
+   // }
+  };
+// Filtra especificamente pelo cargo salvo no banco
+const parceirosCredenciados = corretores.filter(c => c.cargo === "Co-Broker");
+const equipeOriginaçao = corretores.filter(c => c.cargo === "Originador Estratégico");
+
+// Mantém o cálculo de slots apenas para estética, se desejar
+const slotsFaltantes = Math.max(0, 4 - parceirosCredenciados.length);
+
+<style> </style>
+
+  return (
+<>
+    <style>{`
+      @keyframes scrollLoop {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+      }
+
+      .animate-scroll {
+        display: flex;
+        width: max-content;
+        animation: scrollLoop 30s linear infinite;
+      }
+
+      .animate-scroll:hover {
+        animation-play-state: paused; 
+      }
+    `}</style>
+{showModal && selectedCorretor && createPortal(
+  <div 
+    className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+    style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
+    onClick={() => setShowModal(false)}
+  >
+    <div 
+      className="bg-white w-[95vw] max-w-[1350px] rounded-[2.5rem] shadow-2xl relative flex flex-col overflow-hidden animate-scaleUp border border-white/20"
+      style={{ maxHeight: '90vh' }}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Botão Fechar - Ajustado para não colidir com o arredondamento */}
+      <button 
+        onClick={() => setShowModal(false)}
+        className="absolute top-8 right-10 z-[100] text-gray-400 hover:text-prylom-gold transition-colors text-3xl font-light"
+      >
+        ✕
+      </button>
+
+      {/* Conteúdo Horizontal */}
+      <div className="p-10 md:p-14 lg:p-20 overflow-y-auto">
+        <div className="flex flex-col md:flex-row gap-12 lg:gap-16 items-start">
+          
+          {/* FOTO - Agora com cantos arredondados para suavizar o visual */}
+          <div className="w-56 lg:w-72 shrink-0">
+            <div className="aspect-[3/4] shadow-2xl rounded-2xl overflow-hidden border border-gray-100">
+              <img 
+                src={selectedCorretor.foto_url} 
+                className="w-full h-full object-cover" 
+                alt={selectedCorretor.nome} 
+              />
+            </div>
+          </div>
+
+          {/* TEXTO */}
+          <div className="flex-1 min-w-0">
+            <div className="mb-8">
+              <h4 className="text-4xl lg:text-5xl font-black text-prylom-dark uppercase tracking-tighter leading-none mb-4">
+                {selectedCorretor.nome}
+              </h4>
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-prylom-gold"></span>
+                <p className="text-prylom-gold font-bold text-sm uppercase tracking-[0.2em]">
+                  {selectedCorretor.cargo} — POLO {selectedCorretor.estado}
+                </p>
+              </div>
+            </div>
+
+            {/* BIO TEXTO em Colunas */}
+            <div className="text-gray-500 text-base lg:text-lg leading-relaxed lg:columns-2 gap-12 border-t border-gray-50 pt-10">
+              {selectedCorretor.descricao ? (
+                selectedCorretor.descricao.split('\n').map((p, i) => (
+                  <p key={i} className="mb-4 text-justify whitespace-pre-line font-medium">
+                    {p}
+                  </p>
+                ))
+              ) : (
+                <p className="italic opacity-60">Especialista estratégico em ativos reais focado na inteligência territorial Prylom.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>);
+
+      {/* Detalhe estético inferior (Opcional, mas mantém a identidade) */}
+      <div className="h-2 w-full bg-gray-50 shrink-0">
+        <div className="h-full w-1/3 bg-prylom-gold rounded-r-full"></div>
+      </div>
+    </div>
+  </div>,
+  document.body
+)}
+    <div className="w-full py-10 px-6 bg-[#F4F5F7] min-h-screen animate-fadeIn font-sans">
+      <div className="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.06)] border border-white overflow-hidden">
+        
+        {/* 1. Header & Mapa (Mantido seu layout original) */}
+        <div className="relative p-10 md:p-14 flex flex-col md:flex-row gap-8 items-center overflow-hidden bg-prylom-dark">
+          <div className="absolute inset-0 bg-cover bg-center opacity-30 z-0" style={{ backgroundImage: `url(/assets/agro_brasil.jpg)` }}></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-prylom-dark via-prylom-dark/80 to-transparent z-0"></div>
+          
+          <div className="flex-1 space-y-5 relative z-10">
+            <div className="inline-flex items-center gap-2 bg-prylom-gold/20 border border-prylom-gold/30 px-3 py-1 rounded-full backdrop-blur-sm">
+              <span className="text-[9px] font-black text-prylom-gold uppercase tracking-[0.2em]">Presença Nacional</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-[950] text-white leading-[1.1] tracking-tighter uppercase">
+              Equipe de <br/>
+              <span className="text-prylom-gold italic">Originação Estratégica</span>
+            </h1>
+            <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed opacity-90">
+O mercado de ativos reais 'Deep Market' exige mais do que intermediação; exige presença territorial e
+relacionamento de alto nível. A PRYLOM opera apoiada por uma equipe de originação de elite, composta por
+Originadores Estratégicos, Consultores Agronômicos, Gestores Locais e Parceiros Credenciados (Co-Brokers)
+distribuídos nos principais polos do agronegócio brasileiro.
+            </p>
+                        <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed opacity-90">
+{">"} Nossa equipe de campo atua exclusivamente no
+mapeamento de oportunidades, prospecção direta com proprietários e logística executiva in loco. Toda a
+estruturação documental, due diligence, formatação de teses e o fechamento transacional (M&A/Closing) são
+centralizados e executados exclusivamente pela Mesa de Operações da Prylom, garantindo rigoroso compliance
+regulatório e segurança absoluta para os investidores.
+            </p>
+          </div>
+
+{/* Container da Miniatura */}
+<div className="hidden md:block w-72 h-48 relative z-10 mr-4">
+  <div className="absolute inset-0 bg-prylom-dark/50 rounded-2xl border-2 border-white/10 overflow-hidden shadow-2xl overflow-hidden">
+    {/* Label flutuante */}
+    <div className="absolute top-2 left-2 z-20 bg-prylom-dark/80 backdrop-blur-md border border-prylom-gold/30 px-2 py-0.5 rounded text-[7px] font-black text-prylom-gold uppercase tracking-widest">
+      Operação Nacional
+    </div>
+    
+    <div 
+      ref={mapContainerRef} 
+      className="w-full h-full opacity-80 hover:opacity-100 transition-opacity duration-500"
+      style={{ background: '#000510' }}
+    />
+  </div>
+  
+  {/* Detalhe estético de "coordenadas" */}
+  <div className="absolute -bottom-4 right-0 text-[6px] text-white/20 font-mono">
+    BR-ATV // 15.7801° S, 47.9292° W
+  </div>
+</div>
+        </div>
+
+
+        <div className="p-10 md:p-14 grid md:grid-cols-2 gap-12">
+
+<div className="space-y-8 overflow-hidden relative isolate z-10">
+  <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
+    Parceiros Credenciados e Co-Brokers
+  </h3>
+  
+  <div className="relative w-full overflow-hidden">
+    {/* Máscaras de gradiente restritas a este container pelo 'isolate' acima */}
+{/* Máscaras de gradiente ajustadas para o fundo do container e sem vazar lateralmente */}
+<div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none"></div>
+<div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white via-white/80 to-transparent z-10 pointer-events-none"></div>
+
+    <div className="flex gap-6 animate-scroll pb-6">
+      {[...parceirosCredenciados, ...parceirosCredenciados].map((item, index) => (
+        <div 
+          key={index} 
+          className="min-w-[180px] max-w-[180px] cursor-pointer group"
+          onClick={() => handleOpenDetails(item)}
+        >
+          {/* CARD ESTILO IMAGEM REFERÊNCIA */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all group-hover:-translate-y-1 group-hover:shadow-lg">
+            
+            {/* Header Verde Escuro com a Foto */}
+            <div className="bg-[#1a3a2a] p-3 flex justify-center items-center h-28 relative">
+              <div className="w-20 h-24 bg-gray-200 rounded-lg overflow-hidden shadow-lg border-2 border-white/20">
+                {item.foto_url ? (
+                  <img src={item.foto_url} className="w-full h-full object-cover" alt={item.nome} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-3xl opacity-20 bg-white">👤</div>
+                )}
+              </div>
+            </div>
+
+            {/* Área de Texto Branca */}
+            <div className="p-3 space-y-1.5 bg-white">
+              <p className="text-[10px] leading-tight text-prylom-dark truncate">
+                <span className="font-extrabold uppercase">Nome:</span> {item.nome}
+              </p>
+              <p className="text-[10px] leading-tight text-prylom-dark">
+                <span className="font-extrabold uppercase">Cargo:</span> {item.cargo || 'Co-Broker'}
+              </p>
+              <p className="text-[10px] leading-tight text-prylom-dark">
+                <span className="font-extrabold uppercase">Região:</span> Polo {item.estado}
+              </p>
+              <p className="text-[10px] leading-tight text-prylom-dark">
+                <span className="font-extrabold uppercase">Credencial:</span> {item.creci || '---'}
+              </p>
+            </div>
+
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+
+{/* SEÇÃO 2: ORIGINAÇÃO - TAMBÉM ADICIONADO CONTAINER DE ISOLAMENTO */}
+<div className="space-y-8 relative isolate z-10">
+  <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
+    Originação e Campo
+  </h3>
+
+  <div className="relative w-full overflow-hidden">
+    {/* Máscaras de gradiente restritas a este container */}
+
+    {/* Scroll Horizontal */}
+    <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
+      {equipeOriginaçao.map((membro, index) => (
+        <div 
+          key={index} 
+          className="min-w-[180px] max-w-[180px] cursor-pointer group"
+          onClick={() => handleOpenDetails(membro)}
+        >
+          {/* CARD REPLICADO DA IMAGEM DE REFERÊNCIA */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all group-hover:-translate-y-1 group-hover:shadow-lg">
+            
+            {/* Header Verde Escuro com a Foto centralizada */}
+            <div className="bg-[#1a3a2a] p-3 flex justify-center items-center h-28 relative">
+              <div className="w-20 h-24 bg-gray-200 rounded-lg overflow-hidden shadow-lg border-2 border-white/20">
+                {membro.foto_url ? (
+                  <img src={membro.foto_url} className="w-full h-full object-cover" alt={membro.nome} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-3xl opacity-20 bg-white">👤</div>
+                )}
+              </div>
+            </div>
+
+            {/* Área de Informações Técnicas */}
+            <div className="p-3 space-y-1.5 bg-white">
+              <p className="text-[10px] leading-tight text-prylom-dark truncate">
+                <span className="font-extrabold uppercase">Nome:</span> {membro.nome}
+              </p>
+              <p className="text-[10px] leading-tight text-prylom-dark">
+                <span className="font-extrabold uppercase">Função:</span> {membro.cargo || 'Originador'}
+              </p>
+              <p className="text-[10px] leading-tight text-prylom-dark">
+                <span className="font-extrabold uppercase">Região:</span> Polo {membro.estado}
+              </p>
+              <p className="text-[10px] leading-tight text-prylom-dark">
+                <span className="font-extrabold uppercase">Status:</span> Ativo
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+</div>
+
+
+
+        {/* 3. Rodapé (Mantido seu original) */}
+{/* 3. Rodapé com Botão de Cadastro */}
+<div className="p-10 border-t border-gray-50 bg-gray-50/30 flex flex-col items-center gap-6">
+  <button 
+    onClick={() => setShowRegisterModal(true)}
+    className="group relative px-8 py-4 bg-prylom-dark text-white rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-xl"
+  >
+    <div className="absolute inset-0 bg-prylom-gold translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+    <span className="relative z-10 text-[10px] font-black uppercase tracking-[0.2em] group-hover:text-prylom-dark transition-colors">
+      Cadastre-se como corretor parceiro
+    </span>
+  </button>
+  
+  <span className="text-[8px] font-black text-gray-300 uppercase tracking-[0.3em]">
+    Prylom Ecosystem © 2026
+  </span>
+</div>
+      </div>
+    </div>
+
+{/* Modal de Cadastro - Estilo Ficha Técnica Prylom */}
+{showRegisterModal && createPortal(
+  <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-prylom-dark/95 backdrop-blur-md">
+    <div 
+      className="bg-white w-full max-w-[1000px] rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-scaleUp flex flex-col"
+      style={{ maxHeight: '95vh' }}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Header Ficha Técnica */}
+{/* Header do Formulário - Atualizado para Azul Marinho e Autoridade */}
+<div className="bg-[#001a35] p-8 md:p-10 relative overflow-hidden shrink-0">
+  {/* Detalhe sutil de fundo para textura */}
+  <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+  
+  <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <h2 className="text-white font-[950] uppercase text-2xl tracking-tighter leading-none">
+          Corretor parceiro
+        </h2>
+        <span className="px-2 py-0.5 border border-prylom-gold/50 text-prylom-gold text-[8px] font-black uppercase tracking-widest rounded">
+          Elite Member
+        </span>
+      </div>
+      
+      <p className="text-white/80 text-xs md:text-sm font-medium max-w-md leading-tight">
+        Venda com a autoridade de quem tem o <span className="text-prylom-gold font-bold">maior ecossistema de inteligência agro</span> ao seu lado.
+      </p>
+
+      {/* Selos de Conformidade */}
+      <div className="flex items-center gap-4 pt-2">
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-[8px] text-white/50 font-bold uppercase tracking-wider">Ambiente Criptografado</span>
+        </div>
+        <span className="text-white/20">|</span>
+        <span className="text-[8px] text-white/50 font-bold uppercase tracking-wider">Conformidade LGPD & COAF</span>
+      </div>
+    </div>
+
+    <div className="flex items-center gap-6">
+      <div className="hidden md:block text-right">
+        <p className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.3em]">Ficha de Credenciamento</p>
+        <p className="text-white/30 text-[8px] font-bold uppercase mt-1">Prylom Ecosystem // 2026</p>
+      </div>
+      <button 
+        onClick={() => setShowRegisterModal(false)}
+        className="bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center text-white transition-all border border-white/10"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+</div>
+
+      <div className="overflow-y-auto p-8 md:p-12 space-y-10">
+        <form className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* DADOS BÁSICOS */}
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-gray-400">Nome Completo:</label>
+            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="Nome Completo" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-gray-400">Telefone / Whats:</label>
+            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="(00) 00000-0000" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-gray-400">E-mail:</label>
+            <input type="email" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="contato@email.com" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-gray-400">Creci / CPF:</label>
+            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="000.000.000-00" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-gray-400">Região de Atuação:</label>
+            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="Ex: Sorriso/MT" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-gray-400">Qual Vínculo:</label>
+            <select className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent">
+              <option>Corretor Direto</option>
+              <option>Gerente da Fazenda</option>
+              <option>Originador / Consultor Local</option>
+            </select>
+          </div>
+        </form>
+
+        {/* MODELO DE PERFORMANCE */}
+        <div className="border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
+            <h3 className="text-[10px] font-black uppercase text-prylom-dark tracking-widest">Modelo de Performance: Divisão de Honorários (50/50)</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-2">
+            {/* Lado Prylom */}
+            <div className="p-6 space-y-4 border-r border-gray-100">
+              <h4 className="text-prylom-gold text-[10px] font-black uppercase tracking-tighter">50% Prylom Agronegócio</h4>
+              <ul className="space-y-3">
+                {[
+                  { t: "Exposição Máxima:", d: "Inclusão no site oficial e em todos os portais especializados." },
+                  { t: "Network de Elite:", d: "Acesso direto à nossa rede de investidores e fundos." },
+                  { t: "Estruturação de M&A e Data Room:", d: "Coordenação documental estratégica e fechamento transacional." },
+                  { t: "Curadoria de Leads:", d: "Filtro rigoroso de potenciais clientes interessados." },
+                  { t: "Segurança:", d: "Gestão assistida por especialistas em todas as etapas." }
+                ].map((item, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-prylom-gold text-[8px] mt-1">●</span>
+                    <p className="text-[9px] leading-tight text-gray-600"><span className="font-bold text-prylom-dark">{item.t}</span> {item.d}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Lado Parceiro */}
+            <div className="p-6 space-y-4 bg-gray-50/20">
+              <h4 className="text-prylom-gold text-[10px] font-black uppercase tracking-tighter">50% Corretor & Gestor Regional</h4>
+              <ul className="space-y-3">
+                {[
+                  { t: "Gestão Local:", d: "Acompanhamento técnico do Gestor Prylom da região do ativo." },
+                  { t: "Interface Técnica:", d: "Diálogo estratégico entre Gestor Prylom e Corretor Parceiro." },
+                  { t: "Logística:", d: "Ajuste e coordenação de visitas presenciais." },
+                  { t: "Levantamento Primário:", d: "Coleta de dados, imagens e documentação preliminar in loco." },
+                  { t: "Relacionamento:", d: "Contato com proprietário e acompanhamento de visitas." }
+                ].map((item, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-prylom-gold text-[8px] mt-1">●</span>
+                    <p className="text-[9px] leading-tight text-gray-600"><span className="font-bold text-prylom-dark">{item.t}</span> {item.d}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* PROTOCOLO DE OBRIGAÇÕES */}
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-black uppercase text-prylom-dark tracking-widest border-l-2 border-prylom-gold pl-3">Protocolo de Obrigações</h3>
+          <div className="grid md:grid-cols-2 gap-6 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+            <p className="text-[9px] leading-relaxed text-gray-500 italic">
+              <span className="font-bold text-prylom-dark block mb-1 uppercase">Formalização:</span>
+              Assinatura de contrato de parceria específico detalhando comissões e responsabilidades.
+            </p>
+            <p className="text-[9px] leading-relaxed text-gray-500 italic">
+              <span className="font-bold text-prylom-dark block mb-1 uppercase">A comissão mínima:</span>
+              3% é o piso da parceria para garantir a sustentabilidade da operação.
+            </p>
+          </div>
+          
+          <label className="flex items-start gap-3 p-4 bg-prylom-gold/5 rounded-xl border border-prylom-gold/20 cursor-pointer hover:bg-prylom-gold/10 transition-all">
+            <input type="checkbox" className="mt-1 accent-prylom-gold" required />
+            <p className="text-[9px] font-bold text-prylom-dark uppercase leading-tight">
+              Confirmo a veracidade das informações prestadas e manifesto integral concordância com as condições de parceria, protocolos de sigilo e normas de conformidade Prylom Agronegócio.
+            </p>
+          </label>
+        </div>
+
+        {/* Botão Finalizar */}
+        <button className="w-full py-5 bg-prylom-dark text-white font-black uppercase text-[10px] tracking-[0.4em] rounded-2xl hover:bg-prylom-gold hover:text-prylom-dark transition-all shadow-2xl group">
+          Finalize e aguarde.
+        </button>
+      </div>
+
+      {/* Footer Estético do Modal */}
+      <div className="h-1.5 w-full bg-gray-100 flex shrink-0">
+        <div className="h-full w-1/4 bg-prylom-gold"></div>
+        <div className="h-full w-1/4 bg-prylom-dark"></div>
+        <div className="h-full w-1/4 bg-[#1a3a2a]"></div>
+        <div className="h-full w-1/4 bg-prylom-gold"></div>
+      </div>
+    </div>
+  </div>,
+  document.body
+)}
+    </>
+    
+  );
 };
 
   const OffMarketView = ({ t }) => (

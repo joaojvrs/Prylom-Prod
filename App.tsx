@@ -46,13 +46,17 @@ const navigate = useNavigate(); // Hook para mudar de página
       );
     }
 
-    const handleFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLElement;
-      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
-        setIsInputFocused(true);
-      }
-    };
+const handleFocusIn = (e: FocusEvent) => {
+  const target = e.target as HTMLElement;
+  
+  // Se o input estiver dentro de um Modal, não mude o estado do App!
+  // Isso evita que o App re-renderize e "mate" o foco do modal.
+  if (target.closest('.fixed') || target.closest('.absolute')) return;
 
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
+    setIsInputFocused(true);
+  }
+};
     const handleFocusOut = (e: FocusEvent) => {
       const target = e.target as HTMLElement;
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
@@ -60,8 +64,8 @@ const navigate = useNavigate(); // Hook para mudar de página
       }
     };
 
-    window.addEventListener('focusin', handleFocusIn);
-    window.addEventListener('focusout', handleFocusOut);
+    //window.addEventListener('focusin', handleFocusIn);
+  //  window.addEventListener('focusout', handleFocusOut);
     return () => {
       window.removeEventListener('focusin', handleFocusIn);
       window.removeEventListener('focusout', handleFocusOut);

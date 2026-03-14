@@ -923,7 +923,20 @@ const togglePortalParceiro = (portal: string) => {
 };
 
 const [corretores, setCorretores] = useState<any[]>([]);
-
+// Estados para a aba de Corretores
+const [corretoresData, setCorretoresData] = useState<any[]>([]);
+const [showCorretorModal, setShowCorretorModal] = useState(false);
+const [fotoFile, setFotoFile] = useState<File | null>(null);
+const [newCorretor, setNewCorretor] = useState({
+  nome: '',
+  estado: '',
+  telefone: '',
+  email: '',
+  creci: '',
+  foto_url: '',
+  cargo: '',
+  descricao:''
+});
 // Adicione dentro do useEffect que já existe ou crie um novo
 useEffect(() => {
   fetchAssets();
@@ -963,16 +976,30 @@ const handleSelectCorretor = (id: string) => {
   }
 };
 
-// Estados para a aba de Corretores
-const [corretoresData, setCorretoresData] = useState<any[]>([]);
-const [showCorretorModal, setShowCorretorModal] = useState(false);
-const [newCorretor, setNewCorretor] = useState({
-  nome: '',
-  estado: '',
-  telefone: '',
-  email: '',
-  creci: ''
-});
+
+
+const uploadFoto = async (file: File) => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('fotos_corretores')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('fotos_corretores')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (error) {
+    console.error('Erro no upload:', error);
+    return null;
+  }
+};
 
 const fetchCorretoresList = async () => {
   const { data, error } = await supabase.from('corretores').select('*').order('nome');
@@ -990,7 +1017,10 @@ const handleEditCorretor = (corretor: any) => {
     estado: corretor.estado,
     telefone: corretor.telefone,
     email: corretor.email,
-    creci: corretor.creci
+    creci: corretor.creci,
+    foto_url: corretor.foto_url,
+    cargo: corretor.cargo || '',
+    descricao: corretor.descricao || '' // Adicionado
   });
   setShowCorretorModal(true);
 };
@@ -999,25 +1029,39 @@ const handleSaveCorretor = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
   try {
-    if (isEditingCorretor && currentCorretorId) {
-      // ATUALIZAR CORRETOR EXISTENTE
-      const { error } = await supabase
-        .from('corretores')
-        .update(newCorretor)
-        .eq('id', currentCorretorId);
-      if (error) throw error;
-      alert("Corretor atualizado com sucesso!");
-    } else {
-      // INSERIR NOVO CORRETOR
-      const { error } = await supabase.from('corretores').insert([newCorretor]);
-      if (error) throw error;
-      alert("Corretor cadastrado com sucesso!");
+    let publicUrl = newCorretor.foto_url;
+
+    if (fotoFile) {
+      const uploadedUrl = await uploadFoto(fotoFile);
+      if (uploadedUrl) publicUrl = uploadedUrl;
     }
 
+const payload = { 
+  nome: newCorretor.nome,
+  estado: newCorretor.estado,
+  telefone: newCorretor.telefone,
+  email: newCorretor.email,
+  creci: newCorretor.creci,
+  foto_url: publicUrl,
+  cargo: newCorretor.cargo,
+  descricao: newCorretor.descricao // Adicionado
+};
+
+    if (isEditingCorretor && currentCorretorId) {
+      const { error } = await supabase
+        .from('corretores')
+        .update(payload)
+        .eq('id', currentCorretorId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('corretores').insert([payload]);
+      if (error) throw error;
+    }
+
+    // Reset Total
     setShowCorretorModal(false);
-    setIsEditingCorretor(false);
-    setCurrentCorretorId(null);
-    setNewCorretor({ nome: '', estado: '', telefone: '', email: '', creci: '' });
+    setFotoFile(null);
+    setNewCorretor({ nome: '', estado: '', telefone: '', email: '', creci: '', foto_url: '', cargo: '', descricao: '' });
     fetchCorretoresList();
   } catch (err: any) {
     alert("Erro ao salvar: " + err.message);
@@ -1243,12 +1287,15 @@ const handleImproveDescription = async () => {
           <h2 className="text-5xl font-black text-[#000080] tracking-tighter uppercase mb-2">Gestão de Corretores</h2>
           <p className="text-gray-400 text-sm font-medium tracking-wide">Cadastro e controle de corretores credenciados</p>
         </div>
-        <button 
-          onClick={() => {
+<button 
+  type="button" // ADICIONE ISSO
+  onClick={(e) => {
+    e.preventDefault(); // GARANTIA ADICIONAL
     setIsEditingCorretor(false);
     setCurrentCorretorId(null);
-    setNewCorretor({ nome: '', estado: '', telefone: '', email: '', creci: '' });
-    setShowCorretorModal(true);}} 
+    setNewCorretor({ nome: '', estado: '', telefone: '', email: '', creci: '', foto_url: '' });
+    setShowCorretorModal(true);
+  }}
           className="bg-[#000080] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all"
         >
           Novo Corretor
@@ -1266,51 +1313,54 @@ const handleImproveDescription = async () => {
                 <th className="pb-6 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {corretoresData.map((corretor) => (
-                <tr key={corretor.id} className="group hover:bg-[#FDFCFB] transition-colors">
-                  <td className="py-8">
-                    <div>
-                      <p className="font-black text-base text-[#000080] leading-none mb-1 uppercase tracking-tight">{corretor.nome}</p>
-                      <p className="text-[8px] font-black text-prylom-gold tracking-widest uppercase">CRECI: {corretor.creci}</p>
-                    </div>
-                  </td>
-                  <td className="py-8 text-[10px] font-bold text-gray-600 uppercase tracking-tighter">
-                    {corretor.estado}
-                  </td>
-                  <td className="py-8">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-gray-700">{corretor.telefone}</span>
-                      <span className="text-[9px] text-gray-400 lowercase">{corretor.email}</span>
-                    </div>
-                  </td>
-                  <td className="py-8 text-right">
-
-                    <button 
-      onClick={() => handleEditCorretor(corretor)}
-      className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white transition-all"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-      </svg>
-    </button>
-                    <button 
-                      onClick={async () => {
-                        if(confirm("Deseja excluir este corretor?")) {
-                          await supabase.from('corretores').delete().eq('id', corretor.id);
-                          fetchCorretoresList();
-                        }
-                      }}
-                      className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+          <tbody className="divide-y divide-gray-50">
+  {corretoresData.map((corretor) => (
+    <tr key={corretor.id} className="group hover:bg-[#FDFCFB] transition-colors">
+      <td className="py-8 flex items-center gap-4">
+        {/* Avatar na Lista */}
+        <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden border border-gray-200">
+          {corretor.foto_url ? (
+            <img src={corretor.foto_url} alt={corretor.nome} className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex items-center justify-center h-full text-[8px] text-gray-400">N/A</div>
+          )}
+        </div>
+        <div>
+          <div className="font-bold text-prylom-dark">{corretor.nome}</div>
+          <div className="text-[10px] text-gray-400 font-black uppercase">CRECI: {corretor.creci}</div>
+        </div>
+      </td>
+      <td className="py-8 font-medium text-gray-600">{corretor.estado}</td>
+      <td className="py-8">
+        <div className="text-xs font-bold text-prylom-dark">{corretor.telefone}</div>
+        <div className="text-[10px] text-gray-400">{corretor.email}</div>
+      </td>
+      <td className="py-8 text-right space-x-2">
+        <button 
+          onClick={() => handleEditCorretor(corretor)}
+          className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-blue-50 text-blue-500 hover:bg-[#000080] hover:text-white transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+        </button>
+        <button 
+          onClick={async () => {
+            if(confirm("Deseja excluir este corretor?")) {
+              await supabase.from('corretores').delete().eq('id', corretor.id);
+              fetchCorretoresList();
+            }
+          }}
+          className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
           </table>
           {corretoresData.length === 0 && (
             <div className="py-20 text-center text-gray-400 text-[10px] font-black uppercase tracking-widest">
@@ -1810,6 +1860,167 @@ const handleImproveDescription = async () => {
         )}
       </main>
 
+{showCorretorModal && (
+  <div 
+    className="fixed inset-0 z-[3000] flex items-center justify-center p-6 backdrop-blur-xl bg-prylom-dark/80"
+    onClick={() => setShowCorretorModal(false)} 
+  >
+    <div 
+      className="bg-white w-full max-w-2xl rounded-[3rem] p-10 shadow-3xl animate-fadeIn"
+      onClick={(e) => e.stopPropagation()} 
+    >
+      <div className="mb-8">
+        <span className="text-prylom-gold text-[9px] font-black uppercase tracking-[0.4em] block mb-1">Cadastro</span>
+        <h3 className="text-3xl font-black text-[#000080] uppercase tracking-tighter">
+          {isEditingCorretor ? 'Editar Corretor' : 'Novo Corretor Parceiro'}
+        </h3>
+      </div>
+
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSaveCorretor(e);
+        }} 
+        className="grid grid-cols-2 gap-5"
+      >
+        
+        {/* ÁREA DE UPLOAD DE FOTO */}
+        <div 
+          className="col-span-2 flex items-center gap-6 p-6 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 mb-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-20 h-20 rounded-full bg-white overflow-hidden border-2 border-[#000080] shrink-0 shadow-lg">
+            {fotoFile ? (
+              <img src={URL.createObjectURL(fotoFile)} className="w-full h-full object-cover" alt="Preview" />
+            ) : newCorretor.foto_url ? (
+              <img src={newCorretor.foto_url} className="w-full h-full object-cover" alt="Corretor" />
+            ) : (
+              <div className="flex items-center justify-center h-full text-[10px] font-black text-gray-300 uppercase">Sem Foto</div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[9px] font-black text-[#000080] uppercase tracking-widest">Foto do Perfil</label>
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={(e) => setFotoFile(e.target.files?.[0] || null)}
+              className="text-[9px] font-bold text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[9px] file:font-black file:uppercase file:bg-[#000080] file:text-white hover:file:bg-prylom-gold cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {/* NOME COMPLETO */}
+        <div className="col-span-2 space-y-1" onClick={(e) => e.stopPropagation()}>
+          <label className="text-[9px] font-black text-gray-400 uppercase px-1">Nome Completo</label>
+          <input 
+            required 
+            autoComplete="off"
+            value={newCorretor.nome} 
+            onChange={e => setNewCorretor(prev => ({...prev, nome: e.target.value}))} 
+            className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold font-bold text-prylom-dark" 
+          />
+        </div>
+
+        {/* ESTADO */}
+        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+          <label className="text-[9px] font-black text-gray-400 uppercase px-1">Estado (UF)</label>
+          <input 
+            required 
+            maxLength={2} 
+            autoComplete="off"
+            value={newCorretor.estado} 
+            onChange={e => setNewCorretor(prev => ({...prev, estado: e.target.value.toUpperCase()}))} 
+            className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold font-bold text-prylom-dark" 
+            placeholder="Ex: MT" 
+          />
+        </div>
+
+        {/* CRECI */}
+        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+          <label className="text-[9px] font-black text-gray-400 uppercase px-1">CRECI</label>
+          <input 
+            required 
+            autoComplete="off"
+            value={newCorretor.creci} 
+            onChange={e => setNewCorretor(prev => ({...prev, creci: e.target.value}))} 
+            className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold font-bold text-prylom-dark" 
+          />
+        </div>
+
+        {/* TELEFONE */}
+        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+          <label className="text-[9px] font-black text-gray-400 uppercase px-1">Telefone</label>
+          <input 
+            required 
+            autoComplete="off"
+            value={newCorretor.telefone} 
+            onChange={e => setNewCorretor(prev => ({...prev, telefone: e.target.value}))} 
+            className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold font-bold text-prylom-dark" 
+          />
+        </div>
+
+        {/* EMAIL */}
+        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+          <label className="text-[9px] font-black text-gray-400 uppercase px-1">E-mail</label>
+          <input 
+            required 
+            type="email" 
+            autoComplete="off"
+            value={newCorretor.email} 
+            onChange={e => setNewCorretor(prev => ({...prev, email: e.target.value}))} 
+            className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold font-bold text-prylom-dark" 
+          />
+        </div>
+
+        {/* CARGO - SELECT */}
+<div className="col-span-2 space-y-1" onClick={(e) => e.stopPropagation()}>
+  <label className="text-[9px] font-black text-gray-400 uppercase px-1">Cargo / Função</label>
+  <select 
+    required
+    value={newCorretor.cargo} 
+    onChange={e => setNewCorretor(prev => ({...prev, cargo: e.target.value}))} 
+    className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold font-bold text-prylom-dark appearance-none"
+  >
+    <option value="" disabled>Selecione o cargo</option>
+    <option value="Co-Broker">Co-Broker</option>
+    <option value="Originador Estratégico">Originador Estratégico</option>
+  </select>
+</div>
+{/* DESCRIÇÃO DO CORRETOR */}
+<div className="col-span-2 space-y-1" onClick={(e) => e.stopPropagation()}>
+  <label className="text-[9px] font-black text-gray-400 uppercase px-1">Breve Descrição / Bio</label>
+  <textarea 
+    value={newCorretor.descricao} 
+    onChange={e => setNewCorretor(prev => ({...prev, descricao: e.target.value}))} 
+    rows={3}
+    placeholder="Conte um pouco sobre a experiência do corretor..."
+    className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold font-bold text-prylom-dark resize-none" 
+  />
+</div>
+        {/* BOTÕES DE AÇÃO */}
+        <div className="col-span-2 flex gap-4 mt-6">
+          <button 
+            type="button" 
+            onClick={() => {
+               setShowCorretorModal(false);
+               setFotoFile(null);
+            }} 
+            className="flex-1 py-5 font-black uppercase text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="flex-[2] bg-prylom-dark text-white py-5 rounded-full font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl hover:bg-prylom-gold transition-all disabled:opacity-50"
+          >
+            {loading ? 'Processando...' : 'Confirmar Cadastro'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       {showModal && (
            <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 backdrop-blur-xl bg-prylom-dark/50">
           <div className="bg-white w-full max-w-6xl rounded-[4rem] p-10 md:p-14 shadow-3xl relative overflow-y-auto max-h-[95vh] no-scrollbar">
@@ -2261,8 +2472,6 @@ const handleImproveDescription = async () => {
         </div>
       )}
       
-
-
       
 {/* MODAL VIEW (DOSSIÊ COMPLETO) */}
 {showViewModal && viewingAsset && (
@@ -2497,44 +2706,9 @@ const handleImproveDescription = async () => {
 
 
 
-{/* COLOQUE ISSO ANTES DO ÚLTIMO </div> DO RETURN */}
-{showCorretorModal && (
-  <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 backdrop-blur-xl bg-prylom-dark/80">
-    <div className="bg-white w-full max-w-2xl rounded-[3rem] p-10 shadow-3xl">
-      <h3 className="text-2xl font-black text-[#000080] uppercase mb-8">Novo Corretor Parceiro</h3>
-      <form onSubmit={handleSaveCorretor} className="grid grid-cols-2 gap-6">
-        <div className="col-span-2 space-y-1">
-          <label className="text-[9px] font-black text-gray-400 uppercase px-1">Nome Completo</label>
-          <input required value={newCorretor.nome} onChange={e => setNewCorretor({...newCorretor, nome: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[9px] font-black text-gray-400 uppercase px-1">Estado (UF)</label>
-          <input required maxLength={2} value={newCorretor.estado} onChange={e => setNewCorretor({...newCorretor, estado: e.target.value.toUpperCase()})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold" placeholder="Ex: MT" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[9px] font-black text-gray-400 uppercase px-1">CRECI</label>
-          <input required value={newCorretor.creci} onChange={e => setNewCorretor({...newCorretor, creci: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[9px] font-black text-gray-400 uppercase px-1">Telefone</label>
-          <input required value={newCorretor.telefone} onChange={e => setNewCorretor({...newCorretor, telefone: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[9px] font-black text-gray-400 uppercase px-1">E-mail</label>
-          <input required type="email" value={newCorretor.email} onChange={e => setNewCorretor({...newCorretor, email: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none border-2 border-transparent focus:border-prylom-gold" />
-        </div>
-        <div className="col-span-2 flex gap-4 mt-4">
-          <button type="button" onClick={() => setShowCorretorModal(false)} className="flex-1 py-4 font-black uppercase text-[10px] text-gray-400">Cancelar</button>
-          <button type="submit" className="flex-[2] bg-prylom-dark text-white py-4 rounded-full font-black uppercase text-[10px] hover:bg-prylom-gold transition-all">
-            {loading ? 'Salvando...' : 'Salvar Corretor'}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+{/* MODAL DE CORRETOR - POSICIONADO FORA DAS ABAS PARA EVITAR CONFLITOS */}
 
-  
-)}
+
 
 {showViewCadastrado && viewingCadastrado && (
   <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 backdrop-blur-2xl bg-prylom-dark/95">
