@@ -220,65 +220,77 @@ const LandingPage: React.FC<Props> = ({
 
 <section className="py-16 md:py-20 px-6 bg-[#F8F9FA] relative overflow-hidden">
   <div className="max-w-6xl mx-auto">
-    {/* Grid Principal: Compactado para gap-12 */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+    {/* Grid Principal: items-stretch garante que a imagem e o texto terminem na mesma linha */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch">
       
-      {/* COLUNA DE TEXTO - Espaçamentos reduzidos */}
-      <div className="space-y-6">
-        <header className="space-y-2">
-          <span className="text-prylom-gold font-black uppercase text-[10px] tracking-[0.4em] block">Deal Flow</span>
-          <h3 className="text-4xl md:text-5xl font-black text-[#000080] tracking-tighter leading-none uppercase">
-            A Jornada do <br/> <span className="text-prylom-gold">Ativo Prylom</span>
-          </h3>
-          <p className="text-prylom-gold font-bold text-base">Ciclo de M&A e Originação Estratégica</p>
-        </header>
+      {/* COLUNA DE TEXTO */}
+      <div className="space-y-6 flex flex-col justify-center">
+<header className="flex flex-col items-start">
+  {/* Removido space-y-2 para garantir alinhamento seco na esquerda */}
+  <span className="text-prylom-gold font-black uppercase text-[10px] tracking-[0.4em] block mb-1">
+    Deal Flow
+  </span>
+  <h3 className="text-4xl md:text-5xl font-[1000] text-prylom-dark tracking-tighter leading-[0.85] uppercase">
+    A Jornada do <br/> 
+    <span className="text-prylom-gold">Ativo Prylom</span>
+  </h3>
+  <p className="text-prylom-gold font-bold text-base mt-3">
+    Ciclo de M&A e Originação Estratégica
+  </p>
+</header>
 
-        {/* Lista de passos compactada */}
+        {/* Lista de passos com texto JUSTIFICADO */}
         <div className="space-y-6">
           {[
             { 
               step: "01", 
               title: "Curadoria e Inteligência Agronômica", 
-              desc: "O ativo entra em nossa esteira passando por um rigoroso pente-fino de dados geoclimáticos e conformidade documental primária." 
+              desc: "O ativo entra em nossa esteira passando por um rigoroso pente-fino de dados geoclimáticos, capacidade de solo e conformidade documental primária (Due Diligence inicial). Transformamos informações declaratórias em uma Tese de Propriedade Rural sólida e estruturada." 
             },
             { 
               step: "02", 
               title: "Exposição Institucional (Deep Market)", 
-              desc: "O ativo é apresentado de forma ativa — sob rigoroso sigilo — a Fundos de Private Equity e Capital Estrangeiro." 
+              desc: "Com o Teaser e o Data Room formatados, o ativo sai da obscuridade e é apresentado de forma ativa — e sob rigoroso protocolo de sigilo (Master NDA) — exclusivamente a Fundos de Private Equity, Family Offices e Capital Estrangeiro através do nosso International Desk." 
             },
             { 
               step: "03", 
               title: "Liquidez Estratégica (M&A e Closing)", 
-              desc: "Nossa Mesa de Operações assume a linha de frente, coordenando o fluxo de negociação com máxima segurança corporativa." 
+              desc: "Nossa Mesa de Operações assume a linha de frente (Takeover). Coordenamos o fluxo de negociação, alinhamento de valuation e a estruturação transacional final, convertendo a tese do ativo em liquidez com máxima segurança corporativa para ambas as partes." 
             }
           ].map((item, i) => (
             <div key={i} className="flex gap-5 group">
-              <div className="text-3xl font-black text-prylom-gold opacity-30 group-hover:opacity-100 transition-opacity leading-none">{item.step}</div>
-              <div className="space-y-1">
-                <h4 className="text-lg font-black text-prylom-dark uppercase tracking-tighter">{item.title}</h4>
-                <p className="text-gray-500 font-medium leading-relaxed text-xs md:text-sm">{item.desc}</p>
+              <div className="text-3xl font-black text-prylom-gold opacity-30 group-hover:opacity-100 transition-opacity leading-none">
+                {item.step}
+              </div>
+              <div className="space-y-1 w-full">
+                <h4 className="text-lg font-black text-prylom-dark uppercase tracking-tighter">
+                  {item.title}
+                </h4>
+                {/* Texto agora com alinhamento JUSTIFY */}
+                <p className="text-gray-500 font-medium leading-relaxed text-xs md:text-sm text-justify">
+                  {item.desc}
+                </p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* COLUNA DA IMAGEM - Escala reduzida para h-[500px] */}
-      <div className="relative">
-        <div className="bg-white rounded-[3rem] overflow-hidden shadow-xl border border-gray-100 aspect-[4/5] lg:h-[500px] mx-auto">
+      {/* COLUNA DA IMAGEM - Sincronizada com a altura do texto justificado */}
+      <div className="relative flex">
+        <div className="bg-white rounded-[3rem] overflow-hidden shadow-xl border border-gray-100 w-full flex">
           <img 
             src={landingPrylom} 
             className="w-full h-full object-cover" 
             alt="Processo Prylom" 
           />
-        
         </div>
       </div>
     </div>
 
-    {/* MANIFESTO CENTRALIZADO - Margem reduzida para mt-12 */}
-    <div className="mt-2 max-w-3xl mx-auto text-center border-t border-gray-100 pt-10">
-      <p className="text-[#000080] text-lg md:text-2xl font-[950] uppercase tracking-tighter leading-tight italic px-4">
+    {/* MANIFESTO CENTRALIZADO */}
+    <div className=" max-w-3xl mx-auto text-center border-t border-gray-100 pt-10">
+      <p className="text-prylom-dark text-lg md:text-2xl font-[950] uppercase tracking-tighter leading-tight italic px-4">
         "Não intermediamos terras. <br className="hidden md:block" />
         <span className="text-prylom-gold">
           Elevamos o agronegócio brasileiro ao padrão de exigência do capital institucional global.
@@ -290,217 +302,106 @@ const LandingPage: React.FC<Props> = ({
 </section>
 
 
-{/* SECTION 4: INSTITUCIONAL - QUEM SOMOS */}
-<section className="py-16 md:py-20 px-6 bg-white border-t border-gray-100">
-  <div className="max-w-6xl mx-auto">  
 
-    {/* O QUADRADO COM COR DE FUNDO */}
-    <div className="bg-[#f8f9fa] rounded-[3rem] p-8 md:p-16 border border-gray-100 shadow-sm">
-          <h2 className="text-2xl font-black text-[#000080] mb-2 text-center tracking-[0.3em] uppercase">
-      QUEM SOMOS:
-    </h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+<section className="py-16 md:py-20 px-6 bg-white border-t border-gray-100 font-sans">
+  <div className="max-w-6xl mx-auto">
+    
+    {/* CARD PRINCIPAL COM FUNDO CINZA CLARO */}
+    <div className="bg-[#f8f9fa] rounded-[2rem] p-8 md:p-14 border border-gray-200 shadow-sm">
+      
+      {/* TÍTULO PRINCIPAL CENTRALIZADO */}
+      <h2 className="text-2xl md:text-3xl font-black text-prylom-dark mb-12 text-center tracking-[0.2em] uppercase">
+        QUEM SOMOS:
+      </h2>
+      
+      {/* GRID DE DUAS COLUNAS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
         
-        {/* COLUNA ESQUERDA: HISTÓRIA E MISSÃO */}
-        <div className="space-y-8">
-          <div>
+        {/* COLUNA ESQUERDA */}
+        <div className="flex flex-col">
+          <div className="mb-10">
             <h3 className="text-xl font-bold text-prylom-gold mb-4">
               A Nossa História é a Sua
             </h3>
-            <div className="text-gray-600 leading-relaxed space-y-3 text-left">
-              <p className="text-sm md:text-base">
-                O agronegócio é feito de suor, de sol e de dedicação. É a história de mãos calejadas que plantam e colhem, 
-                de famílias que constroem seu futuro no campo, tijolo por tijolo. Mas, em meio a toda essa paixão e trabalho 
-                duro, os negócios se tornaram complexos.
+            
+            <div className="text-gray-500 leading-relaxed text-justify space-y-4 text-sm md:text-base">
+              <p>
+                O agronegócio é feito de suor, de sol e de dedicação. É a história de mãos calejadas que plantam e colhem, de famílias que constroem seu futuro no campo, tijolo por tijolo. Mas, em meio a toda essa paixão e trabalho duro, os negócios se tornaram complexos.
               </p>
-              <p className="text-sm md:text-base">
-                Onde encontrar o maquinário certo? Como vender a fazenda sem dor de cabeça? Como comercializar a safra 
-                ou negociar sem perder o sono?
+              <p>
+                Onde encontrar o maquinário certo? Como vender a fazenda sem dor de cabeça? Como comercializar a safra ou negociar sem perder o sono?
               </p>
-              <p className="text-sm md:text-base">
-                Foi para responder a essas perguntas e simplificar a sua vida que a <strong>Prylom Agronegócios</strong> nasceu. 
-                Tudo em um único lugar. Nós não somos apenas uma empresa; somos o seu parceiro de confiança, um hub de 
-                conexão no agronegócio.
+              <p>
+                Foi para responder a essas perguntas e simplificar a sua vida que a <strong>Prylom Agronegócios</strong> nasceu. <strong>Tudo em um único lugar.</strong> Nós não somos apenas uma empresa; somos o seu parceiro de confiança, um hub de conexão no agronegócio. Acreditamos que a confiança é o nosso maior ativo, e a segurança, o nosso principal produto.
               </p>
             </div>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <h3 className="text-lg font-black text-prylom-gold uppercase tracking-wider border-l-2 border-prylom-gold pl-4">
-              PROPÓSITO E VALORES
+          <div>
+            <h3 className="text-lg font-black text-prylom-gold uppercase tracking-wider mb-4">
+              NOSSO PROPÓSITO E VALORES
             </h3>
-            <ul className="space-y-3 text-gray-600 text-left text-xs md:text-sm pl-5">
-              <li>
-                <strong className="text-prylom-dark">Nossa Missão:</strong> Ser o parceiro estratégico do agronegócio, unindo a expertise de nosso ecossistema de soluções para garantir negócios sólidos e seguros.
+            <ul className="space-y-3 text-gray-500 text-justify text-sm md:text-base">
+              <li className="flex gap-2">
+                <span className="text-prylom-gold">•</span>
+                <span><strong className="text-[#002147]">Nossa Missão:</strong> Ser o parceiro estratégico do agronegócio, unindo a expertise de nosso ecossistema de soluções para garantir negócios sólidos, seguros e altamente rentáveis para você.</span>
               </li>
-              <li>
-                <strong className="text-prylom-dark">Nossa Visão:</strong> Ser a principal referência do agronegócio, reconhecida por centralizar e simplificar todas as etapas de negociação e investimento.
+              <li className="flex gap-2">
+                <span className="text-prylom-gold">•</span>
+                <span><strong className="text-[#002147]">Nossa Visão:</strong> Ser a principal referência do agronegócio, reconhecida por centralizar e simplificar todas as etapas de negociação e otimização de investimentos, consolidando-se como o ecossistema mais confiável do setor.</span>
               </li>
-              <li>
-                <strong className="text-prylom-dark">Nossos Valores:</strong> Confiança, Segurança, Expertise, Ética e Tradição.
+              <li className="flex gap-2">
+                <span className="text-prylom-gold">•</span>
+                <span><strong className="text-[#002147]">Nossos Valores:</strong> Confiança, Segurança, Expertise, Ética e Tradição.</span>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* COLUNA DIREITA: ECOSSISTEMA E CICLO */}
-        <div className="space-y-8">
-          <div>
-            <h3 className="text-xl font-bold text-[#000080] mb-2 uppercase">
+        {/* COLUNA DIREITA */}
+        <div className="flex flex-col">
+          <div className="mb-10">
+            <h3 className="text-xl font-bold text-prylom-dark mb-4 uppercase">
               O ECOSSISTEMA PRYLOM
             </h3>
-            <div className="text-gray-600 leading-relaxed space-y-3 text-left">
-              <p className="text-sm md:text-base">
-                Enquanto o mercado atua de forma fragmentada, a Prylom se posiciona como um verdadeiro ecossistema integrado de negócios. 
-                Nosso maior patrimônio não é apenas o que negociamos, mas quem nós conectamos. Nós unimos o capital produtivo à expertise 
-                operacional em todas as etapas da cadeia.
+            <div className="text-gray-500 leading-relaxed text-justify text-sm md:text-base">
+              <p>
+                Enquanto o mercado atua de forma fragmentada, a Prylom se posiciona como um verdadeiro ecossistema integrado de negócios. Nosso maior patrimônio não é apenas o que negociamos, mas quem nós conectamos. Nós unimos o capital produtivo à expertise operacional, gerando valor e oportunidades em todas as etapas da cadeia do agronegócio.
               </p>
             </div>
           </div>
 
-          <div>
-            <h3 className="text-lg font-bold text-prylom-gold mb-3">
+          <div className="flex-grow">
+            <h3 className="text-lg font-bold text-prylom-gold mb-4">
               O Ciclo do Ativo:
             </h3>
-            <div className="text-gray-600 leading-relaxed space-y-3 text-left text-xs md:text-sm bg-white/50 p-6 rounded-2xl border border-white">
+            <div className="text-gray-500 leading-relaxed space-y-4 text-justify text-sm md:text-base">
               <p>
-                Pense na jornada de um grande ativo rural. Quando um investidor consolida uma negociação através da nossa mesa, a nossa atuação vai muito além do aperto de mão. Nós ativamos a nossa rede estratégica para conectar essa nova fazenda a tudo o que ela precisa.
+                Pense na jornada de um grande ativo rural. Quando um investidor ou um produtor consolida a negociação de uma propriedade através da nossa mesa, a nossa atuação vai muito além do aperto de mão. Nós ativamos a nossa rede estratégica para conectar essa nova fazenda a tudo o que ela precisa para iniciar ou expandir sua produção.
               </p>
               <p>
-                Do mapeamento e inteligência agronômica até as conexões com maquinário e comercialização de safra, nós intermediamos o relacionamento entre o proprietário e os parceiros mais sólidos do mercado.
+                Do mapeamento e inteligência agronômica até as conexões com as melhores tecnologias de maquinário e vias de comercialização de safra, nós intermediamos o relacionamento entre o proprietário e os parceiros mais sólidos do mercado.
               </p>
               <p>
-                Para os nossos clientes, isso significa previsibilidade e força corporativa. É um ciclo contínuo: nós mapeamos a oportunidade, estruturamos a transação e integramos as pontas certas. Tudo centralizado em um único Hub.
+                Para os nossos clientes, isso significa previsibilidade e força corporativa. É um ciclo contínuo de confiança: nós mapeamos a oportunidade, estruturamos a transação e integramos as pontas certas para que o seu negócio atinja a máxima performance operacional. Tudo centralizado em um único Hub.
               </p>
             </div>
           </div>
         </div>
       </div>
-          {/* BOTÕES DE AÇÃO - Fora do quadrado para flutuarem no fundo branco da section */}
-    <div className="flex justify-center flex-wrap gap-8 md:gap-16 pt-12 mt-4">
-      <button className="text-prylom-gold font-black text-xs uppercase tracking-[0.2em] border-b-2 border-prylom-gold pb-1 hover:text-[#000080] hover:border-[#000080] transition-all">
-        Inteligência Agro
-      </button>
-      <button className="text-prylom-gold font-black text-xs uppercase tracking-[0.2em] border-b-2 border-prylom-gold pb-1 hover:text-[#000080] hover:border-[#000080] transition-all">
-        Explorar Ativo
-      </button>
-    </div>
-    </div>
 
-
-  </div>
-</section>
-
-{/* SECTION: PRYLOM GLOBAL REAL ASSETS - FIDELIDADE TOTAL AO LAYOUT */}
-<section className="py-24 bg-[#FDFCFB]">
-  <div className="max-w-5xl mx-auto px-6">
-    
-    {/* BARRA SUPERIOR (TÍTULO DISCRETO FORA DO CARD) */}
-    <div className="bg-[#001529] py-2 px-4 text-center rounded-t-xl">
-       <span className="text-white text-[10px] font-medium tracking-[0.3em] uppercase opacity-70">
-         Prylom Global Real Assets
-       </span>
-    </div>
-
-    {/* CONTEÚDO PRINCIPAL (CARD) */}
-    <div className="bg-white shadow-2xl overflow-hidden relative border-x border-b border-gray-100 rounded-b-[2rem]">
-      
-      {/* HEADER: IMAGEM MUNDI/TECH AZUL */}
-      <div className="relative h-72 md:h-96 overflow-hidden">
-        {/* Imagem que remete a conexões globais digitais em azul */}
-        <img 
-          src="https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?auto=format&fit=crop&q=80&w=2000" 
-          className="w-full h-full object-cover"
-          alt="Global Business Connections"
-        />
-        {/* Overlay Azul Profundo (idêntico à imagem de referência) */}
-        <div className="absolute inset-0 bg-[#001D3D]/85 mix-blend-multiply"></div>
-        
-        {/* LOGO PRYLOM NO HEADER (LADO ESQUERDO) */}
-        <div className="absolute inset-0 flex flex-col justify-center px-10 md:px-16">
-          <h2 className="text-white text-4xl md:text-5xl font-serif tracking-tight leading-none">
-            PRYLOM
-          </h2>
-          <p className="text-white text-[11px] font-black uppercase tracking-[0.4em] mt-2 opacity-80">
-            Global Real Assets
-          </p>
-        </div>
+      {/* RODAPÉ COM LINKS/BOTÕES ESTILO IMAGEM */}
+      <div className="flex justify-around md:justify-end md:gap-24 pt-12">
+        <button className="text-prylom-gold font-bold text-base md:text-lg border-b-2 border-transparent hover:border-[#b8975d] transition-all pb-1">
+          Inteligência Agro
+        </button>
+        <button className="text-prylom-gold font-bold text-base md:text-lg border-b-2 border-transparent hover:border-[#b8975d] transition-all pb-1">
+          Explorar Ativo
+        </button>
       </div>
-
-      {/* ÁREA BRANCA SOBREPOSTA (OFFSET NEGATIVO) */}
-      <div className="relative z-20 -mt-20 mx-6 md:mx-12 bg-white rounded-2xl p-8 md:p-14 shadow-xl">
-        
-        {/* FRASE DE IMPACTO */}
-        <div className="max-w-3xl mb-12">
-          <h3 className="text-2xl md:text-3xl font-light text-prylom-dark leading-tight mb-6">
-            Connecting Brazilian agribusiness <span className="font-semibold">to global capital</span>
-          </h3>
-          
-          <p className="text-gray-500 text-sm md:text-base leading-relaxed text-justify">
-            "Conectando o patrimônio do Agronegócio Brasileiro ao Capital Institucional Global. 
-            Nossa mesa de operações internacionais estrutura e qualifica ativos reais sob os mais 
-            rigorosos padrões de ESG e Due Diligence para Fundos de Private Equity, Family Offices 
-            e Sovereign Wealth Funds da América do Norte, Europa e Ásia. Atendimento multilingue 
-            e compliance jurídico rigoroso para transações transnacionais seguras."
-          </p>
-        </div>
-
-        {/* PERFIL DO PROFESSOR */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-start border-t border-gray-50 pt-10">
-          
-<div className="md:col-span-4">
-  <div className="relative p-1">
-    {/* Linha dourada superior na foto conforme solicitado */}
-    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-prylom-gold to-transparent"></div>
-    <div className="aspect-[3/4] overflow-hidden rounded-sm shadow-lg mt-2">
-      <img 
-        src={professorHernandez}
-        alt="Prof. Me. Victor E. Pérez Hernández" 
-
-        className="w-full h-full object-cover transition-all duration-700"
-      />
-    </div>
-  </div>
-</div>
-
-          {/* BIO TEXTO */}
-          <div className="md:col-span-8 space-y-4">
-            <div>
-              <h4 className="text-xl font-bold text-prylom-dark">Prof. Me. Victor E. Pérez Hernández</h4>
-              <p className="text-prylom-gold font-bold text-xs uppercase tracking-widest mt-1">Senior Advisor - Global Markets</p>
-            </div>
-
-            <div className="text-gray-500 text-[13px] leading-relaxed space-y-4">
-              <p>
-                Com sólida formação analítica e científica, o Prof. Me. Victor Hernández é a ponte estratégica entre o capital institucional estrangeiro e as oportunidades de alto valor no agronegócio brasileiro.
-              </p>
-              <p>
-Engenheiro Químico com Mestrado em Ciências pela prestigiada Universidade de São Paulo
-(USP), atua como docente universitário e autor de artigos publicados. Essa presença
-acadêmica constante confere a ele não apenas rigor técnico, mas uma rede de
-relacionamento institucional (networking) viva e de altíssimo nível. Victor une essa
-autoridade científica à sua vasta experiência executiva em comércio exterior e estruturação
-de operações transfronteiriças de ativos reais (Cross-Border). Radicado em São Paulo, possui
-expertise focada na atração de capital para o desenvolvimento de infraestrutura e grandes
-propriedades rurais.
-              </p>
-              <p>
-À frente da divisão Prylom Global Real Assets, atua como Senior Advisor na atração,
-qualificação e direcionamento de investidores globais. Seu foco é garantir que a alocação de
-capital estrangeiro no 'Deep Market' brasileiro seja estruturada com segurança, visão
-analítica e alinhamento aos mais altos padrões de compliance transacional.              </p>
-            </div>
-          </div>
-
-        </div>
-      </div>
-      
-      {/* ESPAÇO FINAL PARA O CARD NÃO FICAR COLADO NA BORDA */}
-      <div className="h-12 bg-white"></div>
     </div>
   </div>
 </section>
-
 
       {/* SECTION 5: BELLE — AGENTE DE IA (ABAIXO DE VISÃO SOBERANA) */}
 <section className="py-32 px-6 bg-[#FDFCFB] border-t border-gray-100">

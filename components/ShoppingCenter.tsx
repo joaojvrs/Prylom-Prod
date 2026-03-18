@@ -8,7 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import agro_brasil from "../assets/agro_brasil.jpg";
 import mapaBrasil from "../assets/mapaBrasil.png";
 import { createPortal } from 'react-dom';
-
+import professorHernandez from "../assets/professor-hernandez.jpg";
 interface Product {
   id: string;
   categoria: string;
@@ -70,7 +70,7 @@ const getStatusTextColor = (status: string) => {
 const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, currency }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [transactionType, setTransactionType] = useState<'all' | 'venda' | 'arrendamento'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'map' | 'equipe'| 'off'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'map' | 'equipe'| 'global'| 'off'>('grid');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -1199,6 +1199,123 @@ regulatório e segurança absoluta para os investidores.
   );
 };
 
+const GlobalView = ({ t }) => {
+  return (
+    <>
+      {/* SECTION: PRYLOM GLOBAL REAL ASSETS - FIDELIDADE TOTAL AO LAYOUT */}
+      <section className="py-18 bg-[#FDFCFB]">
+        <div className="max-w-5xl mx-auto px-6">
+          
+          {/* BARRA SUPERIOR (TÍTULO DISCRETO FORA DO CARD) */}
+          <div className="bg-[#001529] py-2 px-6 text-center rounded-t-xl">
+            <span className="text-white text-[10px] font-medium tracking-[0.3em] uppercase opacity-70">
+              Prylom Global Real Assets
+            </span>
+          </div>
+
+          {/* CONTEÚDO PRINCIPAL (CARD) */}
+          <div className="bg-white shadow-2xl overflow-hidden relative border-x border-b border-gray-100 rounded-b-[2rem]">
+            
+            {/* HEADER: IMAGEM MUNDI/TECH AZUL */}
+<div className="relative h-56 md:h-64 overflow-hidden">
+  <img 
+    src="https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?auto=format&fit=crop&q=80&w=2000" 
+    className="w-full h-full object-cover"
+    alt="Global Business Connections"
+  />
+  <div className="absolute inset-0 bg-[#001D3D]/85 mix-blend-multiply"></div>
+  
+  <div className="absolute inset-0 flex flex-col justify-center px-10 md:px-16">
+    <h2 className="text-white text-3xl md:text-4xl font-serif tracking-tight leading-none">
+      PRYLOM
+    </h2>
+    <p className="text-white text-[9px] font-black uppercase tracking-[0.4em] mt-2 opacity-80">
+      Global Real Assets
+    </p>
+  </div>
+</div>
+
+            {/* ÁREA BRANCA SOBREPOSTA (OFFSET NEGATIVO) */}
+            <div className="relative z-20 -mt-20 mx-6 md:mx-12 bg-white rounded-2xl p-8 md:p-14 shadow-xl">
+              
+              {/* FRASE DE IMPACTO */}
+<div className="max-w-3xl mb-12">
+  <h3 className="text-xl md:text-2xl font-light text-prylom-dark leading-tight mb-5">
+    Connecting Brazilian agribusiness <span className="font-semibold">to global capital</span>
+  </h3>
+  
+  <p className="text-gray-500 text-[13px] md:text-sm leading-relaxed text-justify opacity-90">
+Conectando o patrimônio do Agronegócio Brasileiro ao Capital Institucional Global. Nossa mesa de operações
+internacionais estrutura e qualifica ativos reais sob os mais rigorosos padrões de ESG e Due Diligence para
+Fundos de Private Equity, Family Offices e Sovereign Wealth Funds da América do Norte, Europa e Ásia.
+Atendimento multilingue e compliance jurídico rigoroso para transações transnacionais seguras.
+  </p>
+</div>
+
+              {/* PERFIL DO PROFESSOR - ALINHAMENTO RIGOROSO PELA LINHA SUPERIOR */}
+<div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-stretch border-t border-gray-50 pt-10">
+  
+  {/* COLUNA DA FOTO - Agora usando h-full para alinhar com o fundo do texto */}
+  <div className="md:col-span-5 flex flex-col">
+    <div className="relative flex-grow">
+      {/* Linha dourada superior na foto */}
+      <div className="absolute -top-4 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-prylom-gold to-transparent"></div>
+      
+      {/* Removi o aspect-ratio e usei h-full para forçar o alinhamento com o texto ao lado */}
+      <div className="h-full min-h-[400px] overflow-hidden rounded-sm shadow-md">
+        <img 
+          src={professorHernandez}
+          alt="Prof. Me. Victor E. Pérez Hernández" 
+          className="w-full h-full object-cover object-top"
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* BIO TEXTO */}
+  <div className="md:col-span-7 flex flex-col justify-start">
+    <div className="mb-4">
+      <h4 className="text-xl font-bold text-prylom-dark leading-none">Prof. Me. Victor E. Pérez Hernández</h4>
+      <p className="text-prylom-gold font-bold text-[10px] uppercase tracking-widest mt-2">Senior Advisor - Global Markets</p>
+    </div>
+
+    <div className="text-gray-500 text-[13px] leading-relaxed space-y-4 text-justify">
+      <p>
+Com sólida formação analítica e científica, o Prof. Me. Victor Hernández é a ponte
+estratégica entre o capital institucional estrangeiro e as oportunidades de alto valor no
+agronegócio brasileiro.
+      </p>
+      <p>
+Engenheiro Químico com Mestrado em Ciências pela prestigiada Universidade de São Paulo
+(USP), atua como docente universitário e autor de artigos publicados. Essa presença
+acadêmica constante confere a ele não apenas rigor técnico, mas uma rede de
+relacionamento institucional (networking) viva e de altíssimo nível. Victor une essa
+autoridade científica à sua vasta experiência executiva em comércio exterior e estruturação
+de operações transfronteiriças de ativos reais (Cross-Border). Radicado em São Paulo, possui
+expertise focada na atração de capital para o desenvolvimento de infraestrutura e grandes
+propriedades rurais.
+
+      </p>
+      <p>
+À frente da divisão Prylom Global Real Assets, atua como Senior Advisor na atração,
+qualificação e direcionamento de investidores globais. Seu foco é garantir que a alocação de
+capital estrangeiro no 'Deep Market' brasileiro seja estruturada com segurança, visão
+analítica e alinhamento aos mais altos padrões de compliance transacional
+      </p>
+    </div>
+  </div>
+
+</div>
+            </div>
+            
+            <div className="h-12 bg-white"></div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+};
+
   const OffMarketView = ({ t }) => (
   <div className="w-full py-16 px-6 bg-[#F4F5F7] min-h-screen flex items-center justify-center animate-fadeIn font-sans">
     <div className="max-w-5xl mx-auto bg-white rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.06)] border border-white relative overflow-hidden">
@@ -1331,38 +1448,10 @@ regulatório e segurança absoluta para os investidores.
                     {cat.label}
                   </button>
                 ))}
-            </div>
-
-            <div className="flex bg-gray-100 p-1 rounded-full">
-                <button onClick={() => setViewMode('grid')} className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'grid' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}>{t.viewGrid}</button>
-                <button onClick={() => setViewMode('map')} className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${viewMode === 'map' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}>{t.viewMap}</button>
-                <button 
-  onClick={() => setViewMode('off')}
-  className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-    viewMode === 'off' 
-    ? 'bg-prylom-dark text-prylom-gold shadow-lg ring-2 ring-prylom-gold/20' 
-    : 'text-gray-400 hover:text-prylom-dark'
-  }`}
-> 
-  OFF MARKET
-</button>
-
-               <button 
-  onClick={() => setViewMode('equipe')}
-  className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-    viewMode === 'equipe' 
-    ? 'bg-prylom-dark text-prylom-gold shadow-lg ring-2 ring-prylom-gold/20' 
-    : 'text-gray-400 hover:text-prylom-dark'
-  }`}
-> 
-  Equipe de Organização Estratégica
-</button>
-            </div>
-            
-            <button onClick={() => setShowFilters(!showFilters)} className={`bg-white border-2 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${showFilters ? 'border-prylom-gold text-prylom-gold' : 'border-gray-100 text-prylom-dark'}`}>
+                            <button onClick={() => setShowFilters(!showFilters)} className={`bg-white border-2 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${showFilters ? 'border-prylom-gold text-prylom-gold' : 'border-gray-100 text-prylom-dark'}`}>
               {showFilters ? t.hideFilters : t.advancedFilters}
             </button>
-<button
+            <button
   onClick={onBack}
   className="
     bg-white
@@ -1379,6 +1468,58 @@ regulatório e segurança absoluta para os investidores.
 >
   ← {t.btnBack}
 </button>
+
+            </div>
+
+  <div className="flex bg-gray-100 p-1.5 rounded-full w-fit">
+  <button 
+    onClick={() => setViewMode('grid')} 
+    className={`px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}
+  >
+    {t.viewGrid}
+  </button>
+
+  <button 
+    onClick={() => setViewMode('map')} 
+    className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${viewMode === 'map' ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}
+  >
+    {t.viewMap}
+  </button>
+
+  <button 
+    onClick={() => setViewMode('off')}
+    className={`px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+      viewMode === 'off' 
+      ? 'bg-prylom-dark text-prylom-gold shadow-lg ring-2 ring-prylom-gold/20' 
+      : 'text-gray-400 hover:text-prylom-dark'
+    }`}
+  > 
+    OFF MARKET
+  </button>
+
+  <button 
+    onClick={() => setViewMode('equipe')}
+    className={`px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+      viewMode === 'equipe' 
+      ? 'bg-prylom-dark text-prylom-gold shadow-lg ring-2 ring-prylom-gold/20' 
+      : 'text-gray-400 hover:text-prylom-dark'
+    }`}
+  > 
+    Equipe de Organização Estratégica
+  </button>
+
+  <button 
+    onClick={() => setViewMode('global')}
+    className={`px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+      viewMode === 'global' 
+      ? 'bg-prylom-dark text-prylom-gold shadow-lg ring-2 ring-prylom-gold/20' 
+      : 'text-gray-400 hover:text-prylom-dark'
+    }`}
+  > 
+    Prylom Global Assets
+  </button>
+</div>       
+
 
 
         </div>
@@ -1883,6 +2024,8 @@ regulatório e segurança absoluta para os investidores.
       <OffMarketView t={t} />
     ) : viewMode === 'equipe' ? (
       <EquipeView t={t} />
+    ) : viewMode === 'global' ? (
+      <GlobalView t={t} />
     ) : filteredProducts.length === 0 ? (
       <div className="py-20 text-center bg-white rounded-[3rem] border border-gray-100 shadow-sm">
         <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">{t.marketEmpty}</p>

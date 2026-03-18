@@ -7,7 +7,15 @@ import DataRoomModal from './DataRoomModal'; // Certifique-se de que o caminho e
 import PropertyRegistrationForm from './PropertyRegistrationForm';
 import logoPrylom from "../assets/logo-prylom.png";
 import { useParams, useNavigate } from 'react-router-dom';
-
+// No topo do arquivo ProductDetails.tsx
+import { 
+  ArrowLeft, 
+  Share2, 
+  MapPin, 
+  Shield, 
+  FileText, 
+  Download // <--- ADICIONE ESTE AQUI
+} from 'lucide-react';
 
 interface Props {
   productId: string | null;
@@ -69,6 +77,17 @@ const [selectedFormType, setSelectedFormType] = useState<'open' | 'offmarket' | 
   window.addEventListener('keydown', handleKeyDown);
   return () => window.removeEventListener('keydown', handleKeyDown);
 }, [isLightboxOpen, activeImage, images]); // Adicionado activeImage e images aqui
+
+// Dentro do componente ProductDetails
+const [user, setUser] = useState<any>(null);
+
+useEffect(() => {
+  const getUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+  };
+  getUser();
+}, []);
 
 const [showFraudModal, setShowFraudModal] = useState(false);
 
@@ -507,6 +526,64 @@ const fetchRelatedProducts = async (currentProd: any) => {
 };
 
 
+
+const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+const handleDownloadPdf = async () => {
+  try {
+    setIsGeneratingPdf(true);
+
+    // 1. Pega a imagem de capa correta
+    const primaryImageObj = images.find(img => img.ordem === 1) || images[0];
+    const imageUrl = primaryImageObj?.image_url || 'https://via.placeholder.com/800x400';
+
+    // 2. Blindagem do Spec: Se spec estiver vazio, tenta extrair de baseData (caso venha achatado)
+    const finalSpec = spec || product.fazenda_data || product.arrendamento_info || {};
+
+    const payload = {
+      productData: {
+        ...product,
+        specData: finalSpec, // Enviamos os dados técnicos achatados
+        imagem_principal: imageUrl,
+        logo_url: "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/marca-prylom.png"
+      },
+      economics: farmEconomics, 
+      mode: economicsMode, 
+      isLease: isLease,
+      meta: {
+        userName: user?.user_metadata?.full_name || user?.email,
+        userEmail: user?.email,
+        timestamp: new Date().toISOString(),
+      }
+    };
+
+    const response = await fetch('https://webhook.saveautomatik.shop/webhook/gerarPDF', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) throw new Error('Falha ao gerar dossiê');
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Dossie_Prylom_${product?.codigo}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao gerar documento.');
+  } finally {
+    setIsGeneratingPdf(false);
+  }
+};
+
+
   const analyzePrylomScore = async (p: any, s: any) => {
     setAnalyzingScore(true);
     try {
@@ -540,11 +617,16 @@ const fetchRelatedProducts = async (currentProd: any) => {
   return boldFormatted;
 };
 
-
-
   return (
 <>
 
+<div className="pdf-sidebar-metadata">
+      {Array(15).fill(`PRYLOM COMPLIANCE — ATIVO: ${product?.codigo} — USER: ${user?.email} — IP: ${user?.ip || 'SECURE_NODE'} — DATA: ${new Date().toLocaleDateString('pt-BR')}`).join('   |   ')}
+    </div>
+
+<div className="pdf-watermark-container">
+      <img src="/assets/logo-prylom.png" alt="Prylom" />
+    </div>
 
 <div className="prylom-pdf-footer-fixed">
         <p>
@@ -556,86 +638,65 @@ const fetchRelatedProducts = async (currentProd: any) => {
     </div>
     
 <div className="print-main-container max-w-7xl mx-auto px-4 py-12 animate-fadeIn pb-40 space-y-12 print:p-0 print:space-y-4 print:m-0">
-      
-
-
-
-<style
-  dangerouslySetInnerHTML={{
-    __html: `
-      /* Esconde os elementos de PDF na visualização do navegador */
-      .prylom-pdf-footer-fixed, .pdf-watermark-container {
-        display: none;
+   <div className="hidden print:flex justify-between items-center border-b-2 border-[#002D4B] pb-4 mb-8">
+           <h1 className="text-4xl font-bold text-[#002D4B]">DOSSIÊ DE ATIVO REAL</h1>
+           <div className="text-right">
+              {/* O QR Code deve apontar para a validação do produto */}
+              <div className="bg-black w-20 h-20 ml-auto mb-1"></div> 
+              <p className="text-[8px] font-bold uppercase">Scan for Compliance</p>
+           </div>
+        </div>
+           
+<style dangerouslySetInnerHTML={{ __html: `
+      /* Esconde tudo no navegador para não poluir o site */
+      .prylom-pdf-footer-fixed, .pdf-watermark-container, .pdf-sidebar-metadata {
+        display: none !important;
       }
 
       @media print {
-        @page {
-          margin: 1.5cm 1cm 2.5cm 1cm;
+        @page { margin: 1cm 1.5cm 2cm 1cm; }
+
+        /* Ativa a Sidebar Lateral Direita no PDF */
+        .pdf-sidebar-metadata {
+          display: block !important;
+          position: fixed !important;
+          top: 0; right: 0; width: 30px; height: 100%;
+          background: #002D4B !important;
+          color: rgba(255, 255, 255, 0.4) !important;
+          writing-mode: vertical-rl;
+          font-size: 7pt;
+          text-transform: uppercase;
+          white-space: nowrap;
+          overflow: hidden;
+          padding: 20px 0;
+          z-index: 99999;
+          -webkit-print-color-adjust: exact;
         }
 
-        /* Configuração da Marca d'Água */
+        /* Ativa a Marca d'Água */
         .pdf-watermark-container {
           display: flex !important;
           position: fixed !important;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          align-items: center;
-          justify-content: center;
-          z-index: -1; /* Fica atrás do conteúdo */
-          pointer-events: none;
-          opacity: 0.08; /* Ajuste aqui a intensidade da marca d'água */
+          top: 0; left: 0; width: 100%; height: 100%;
+          align-items: center; justify-content: center;
+          z-index: -1;
+          opacity: 0.05;
         }
 
-        .pdf-watermark-container img {
-          width: 600px; /* Tamanho da logo no fundo */
-          transform: rotate(-35deg); /* Inclinação elegante */
-        }
-
-        /* Rodapé Fixo */
+        /* Ativa o Rodapé de Segurança */
         .prylom-pdf-footer-fixed {
           display: block !important;
           position: fixed !important;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          width: 100%;
-          text-align: center;
-          font-size: 10pt;
-          color: #999;
-          border-top: 1px solid #eee;
-          background: white !important;
-          padding-top: 10px;
-          line-height: 1.4;
-          z-index: 9999;
+          bottom: 0; left: 0; right: 0;
+          text-align: center; font-size: 8pt; color: #999 !important;
+          border-top: 1px solid #eee; padding: 10px; z-index: 9999;
         }
 
-        /* Reset de Containers */
-        html, body {
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-          background: white !important;
-        }
-
-        .print-main-container {
-          display: block !important; 
-          overflow: visible !important;
-          position: relative !important;
-          z-index: 1; /* Garante que o texto fique acima da marca d'água */
-        }
-
-        .no-print, button { display: none !important; }
-        
-        section { 
-          page-break-inside: avoid !important; 
-          break-inside: avoid !important;
-        }
+        /* Blindagem: Impede que o "corretor pastinha" selecione o texto */
+        body { -webkit-user-select: none; user-select: none; }
+        .no-print, button, .lucide { display: none !important; }
       }
-    `,
-  }}
-/>
+    `}} />
 
 
       <button onClick={onBack} className="flex items-center gap-2 text-[10px] font-black uppercase text-prylom-gold tracking-widest transition-all no-print">
@@ -1255,12 +1316,23 @@ const fetchRelatedProducts = async (currentProd: any) => {
       {copyFeedback ? t.linkCopied : t.btnShare}
     </button>
 
-    <button onClick={handleDownloadPDF} className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[10px] uppercase tracking-widest hover:bg-prylom-gold transition-all flex items-center justify-center gap-3 shadow-lg">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-      {t.btnDownloadPDF}
-    </button>
+<button
+  onClick={handleDownloadPdf}
+  disabled={isGeneratingPdf}
+className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[10px] uppercase tracking-widest hover:bg-prylom-gold transition-all flex items-center justify-center gap-3 shadow-lg">
+  {isGeneratingPdf ? (
+    <>
+      <div className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[10px] uppercase tracking-widest hover:bg-prylom-gold transition-all flex items-center justify-center gap-3 shadow-lg"></div>
+      Gerando Dossiê Securitizado...
+    </>
+  ) : (
+    <>
+      <Download size={20} />
+      Download Dossiê PDF
+    </>
+  )}
+</button>
+   
   </div>
 </div>
 
