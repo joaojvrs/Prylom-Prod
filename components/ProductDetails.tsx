@@ -6,7 +6,9 @@ import { createPortal } from 'react-dom';
 import DataRoomModal from './DataRoomModal'; // Certifique-se de que o caminho está correto
 import PropertyRegistrationForm from './PropertyRegistrationForm';
 import logoPrylom from "../assets/logo-prylom.png";
+import qrcode from "../assets/qrcode.png";
 import { useParams, useNavigate } from 'react-router-dom';
+
 // No topo do arquivo ProductDetails.tsx
 import { 
   ArrowLeft, 
@@ -14,7 +16,7 @@ import {
   MapPin, 
   Shield, 
   FileText, 
-  Download // <--- ADICIONE ESTE AQUI
+  Download, Lock // <--- ADICIONE ESTE AQUI
 } from 'lucide-react';
 
 interface Props {
@@ -526,6 +528,10 @@ const fetchRelatedProducts = async (currentProd: any) => {
 };
 
 
+// ============================================================
+// handleDownloadPdf — HTML gerado no cliente, n8n só converte
+// Cores: #2c5363 (primária) | #bba219 (secundária) | #ffffff
+// ============================================================
 
 const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -533,56 +539,555 @@ const handleDownloadPdf = async () => {
   try {
     setIsGeneratingPdf(true);
 
-    // 1. Pega a imagem de capa correta
-    const primaryImageObj = images.find(img => img.ordem === 1) || images[0];
-    const imageUrl = primaryImageObj?.image_url || 'https://via.placeholder.com/800x400';
+    // ── Imagem de capa ──────────────────────────────────────
+    const primaryImageObj = images.find((img) => img.ordem === 1) || images[0];
+    const imageUrl = primaryImageObj?.image_url
+      ? getFullImage(primaryImageObj.image_url)
+      : "https://via.placeholder.com/800x400";
 
-    // 2. Blindagem do Spec: Se spec estiver vazio, tenta extrair de baseData (caso venha achatado)
-    const finalSpec = spec || product.fazenda_data || product.arrendamento_info || {};
+    const logoUrl =
+      "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/marca-prylom.png";
 
-    const payload = {
-      productData: {
-        ...product,
-        specData: finalSpec, // Enviamos os dados técnicos achatados
-        imagem_principal: imageUrl,
-        logo_url: "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/marca-prylom.png"
-      },
-      economics: farmEconomics, 
-      mode: economicsMode, 
-      isLease: isLease,
-      meta: {
-        userName: user?.user_metadata?.full_name || user?.email,
-        userEmail: user?.email,
-        timestamp: new Date().toISOString(),
+    const qrCodeUrl =
+      "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/qrcode.png";
+
+    // ── Helpers locais ──────────────────────────────────────
+    const fmtV = (val: number) =>
+      new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        maximumFractionDigits: 0,
+      }).format(val || 0);
+
+    const fmtN = (val: number, dec = 1) =>
+      new Intl.NumberFormat("pt-BR", { maximumFractionDigits: dec }).format(
+        val || 0
+      );
+
+    // ── Meta do usuário ─────────────────────────────────────
+    const userName = user?.user_metadata?.full_name ?? user?.email ?? "--";
+    const dateStr  = new Date().toLocaleDateString("pt-BR");
+
+    // ── Valor de arrendamento — campo correto ───────────────
+    // Salvo como "valor" dentro de spec (tabela fazendas/arrendamentos)
+    const valorScHa: string | number =
+      spec?.valor_sc_ha ?? spec?.valor ?? product?.valor ?? "--";
+
+    // ── 1. Economics HTML ───────────────────────────────────
+    const economicsHtml = farmEconomics
+      ? (() => {
+          const isAgricola = economicsMode === "agricola";
+          return `
+          <div class="section-title">💰 Economics do Ativo
+            <span class="mode-badge">${isAgricola ? "🌱 Agrícola" : "🐂 Pecuária"}</span>
+          </div>
+          <div class="eco-grid">
+            <div class="eco-stats">
+              ${
+                isAgricola
+                  ? `
+                <div class="perf-card">
+                  <span class="perf-label">Produtividade Soja</span>
+                  <span class="perf-val">${fmtN(farmEconomics.prodSoja)} sc/ha</span>
+                </div>
+                <div class="perf-card">
+                  <span class="perf-label">Produtividade Milho</span>
+                  <span class="perf-val">${fmtN(farmEconomics.prodMilho)} sc/ha</span>
+                </div>`
+                  : `
+                <div class="perf-card">
+                  <span class="perf-label">Produção de Carne</span>
+                  <span class="perf-val">${fmtN(farmEconomics.producaoCarne)} @/ha ano</span>
+                </div>
+                <div class="perf-card">
+                  <span class="perf-label">Capacidade / Lotação</span>
+                  <span class="perf-val">${fmtN(farmEconomics.lotacao)} UA/ha</span>
+                </div>`
+              }
+              <div class="perf-card perf-card--transparent">
+                <span class="perf-label">Faturamento Anual Bruto</span>
+                <span class="perf-val">${fmtV(farmEconomics.receitaBruta)}</span>
+              </div>
+            </div>
+            <div class="eco-highlight">
+              <div class="dark-card">
+                <div class="dark-card__block">
+                  <span class="gold-label">EBITDA Projetado</span>
+                  <span class="dark-card__val">${fmtV(farmEconomics.ebitda)}</span>
+                </div>
+                <div class="dark-card__block dark-card__block--border">
+                  <span class="gold-label">✦ Lucro Líquido (Pós-Tax)</span>
+                  <span class="dark-card__val dark-card__val--lg">${fmtV(farmEconomics.lucroLiquido)}</span>
+                </div>
+                ${
+                  !isLease
+                    ? `<div class="dark-card__footer">
+                        <div class="mini-card mini-card--green">
+                          <p class="mini-label">Cap Rate</p>
+                          <p class="mini-val">${fmtN(farmEconomics.roiRange?.pessimista)}% – ${fmtN(farmEconomics.roiRange?.otimista)}%</p>
+                        </div>
+                        <div class="mini-card mini-card--blue">
+                          <p class="mini-label">Payback</p>
+                          <p class="mini-val">${fmtN(farmEconomics.paybackReal)} anos</p>
+                        </div>
+                      </div>`
+                    : ""
+                }
+              </div>
+            </div>
+          </div>
+          <p class="disclaimer">As projeções financeiras têm caráter declaratório ou baseiam-se em médias históricas regionais, não constituindo garantia de produtividade ou rentabilidade futura.</p>`;
+        })()
+      : "";
+
+    // ── 2. Indicadores Agrotecnológicos (arrendamento) ─────
+    const leaseTechHtml =
+      isLease && farmEconomics?.indices
+        ? `
+      <div class="section-title" style="margin-top:28px;">💰 Economics & Indicadores Agrotecnológicos</div>
+      <div class="indices-grid">
+        ${[
+          { label: "Teor Médio de Argila", val: farmEconomics.indices.argila?.atual,            media: farmEconomics.indices.argila?.mediaEstado },
+          { label: "Índice Pluviométrico",  val: farmEconomics.indices.pluviometrico?.atual,      media: farmEconomics.indices.pluviometrico?.mediaEstado },
+          { label: "Índice de Altimetria",  val: farmEconomics.indices.altimetria?.atual,         media: farmEconomics.indices.altimetria?.mediaEstado },
+          { label: "Índice de Relevo",      val: farmEconomics.indices.relevo?.atual,            media: farmEconomics.indices.relevo?.mediaEstado },
+        ]
+          .map(
+            (item) => `
+          <div class="idx-card">
+            <p class="idx-label">${item.label}</p>
+            <div class="idx-row">
+              <span class="idx-city">${product.cidade ?? "--"}:</span>
+              <span class="idx-val">${item.val ?? "--"}</span>
+            </div>
+            <div class="idx-row idx-row--faded">
+              <span class="idx-city">Média ${product.estado ?? "--"}:</span>
+              <span class="idx-val">${item.media ?? "--"}</span>
+            </div>
+          </div>`
+          )
+          .join("")}
+      </div>`
+        : "";
+
+    // ── HTML completo ───────────────────────────────────────
+    const htmlContent = `<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page { size: A4; margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #2c5363;
+      background: #ffffff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .watermark {
+      position: fixed; top: 25%; left: 8%;
+      width: 84%; opacity: 0.70;
+      transform: rotate(-32deg);
+      pointer-events: none; z-index: 0;
+    }
+    .sidebar {
+      position: fixed; top: 0; right: 0;
+      width: 22px; height: 100%;
+      background: #2c5363;
+      border-left: 2px solid #bba219;
+      writing-mode: vertical-rl;
+      text-align: center;
+      font-size: 6px; font-weight: 900;
+      padding: 24px 0; z-index: 200;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+    }
+    .page-header {
+      position: fixed; top: 0; right: 22px;
+      width: 58px; padding: 6px;
+      z-index: 150;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 3px;
+    }
+    .page-header__qr {
+      width: 46px; height: 46px; object-fit: contain;
+      border-radius: 6px; background: #ffffff;
+      border: 1px solid #dce6ea; padding: 2px;
+    }
+    .page-header__qr-label {
+      font-size: 5px; font-weight: 900; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.12em; text-align: center;
+    }
+    .page-footer {
+      position: fixed; bottom: 0; left: 0;
+      width: calc(100% - 22px);
+      background: #eaf0f3;
+      border-top: 2px solid #bba219;
+      padding: 8px 20px 7px;
+      z-index: 150;
+    }
+    .page-footer__legal {
+      font-size: 7px; color: #2c5363;
+      line-height: 1.6; text-align: center;
+    }
+    .page-footer__legal strong { font-weight: 900; color: #1a3340; }
+    .page-footer__sep { margin: 0 6px; color: #bba219; font-weight: 900; }
+    .page-footer__meta {
+      font-size: 6.5px; color: #4a7585;
+      text-align: center; margin-top: 4px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      border-top: 1px solid rgba(44,83,99,0.12); padding-top: 4px;
+    }
+    .page-footer__meta strong { color: #2c5363; }
+    .container {
+      padding: 70px 42px 64px 36px;
+      position: relative; z-index: 10;
+    }
+    .asset-identity {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; gap: 20px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #dce6ea; padding-bottom: 16px;
+    }
+    .asset-identity__left { flex: 1; min-width: 0; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+    .badge {
+      font-size: 7px; font-weight: 900;
+      padding: 4px 11px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .badge-dark     { background: #2c5363; color: #ffffff; }
+    .badge-selected { background: #1a3340; color: #bba219; border: 1px solid #bba219; }
+    .badge-verified { background: #2c5363; color: #ffffff; border: 1px solid rgba(187,162,25,0.4); }
+    .badge-open     { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
+    .badge-creci    { background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; font-size: 6.5px; }
+    .location {
+      font-size: 8.5px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.18em; margin-bottom: 5px;
+    }
+    h1 {
+      font-size: 22px; font-weight: 900; color: #2c5363;
+      text-transform: uppercase; letter-spacing: -0.03em;
+      line-height: 1.05; margin-bottom: 6px;
+    }
+    .meta-row { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
+    .codigo-tag {
+      font-size: 7.5px; font-weight: 900; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.15em;
+    }
+    .status-row { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: #22c55e; }
+    .dot-red   { background: #dc2626; }
+    .status-label {
+      font-size: 8px; font-weight: 900;
+      text-transform: uppercase; letter-spacing: 0.1em; color: #2c5363;
+    }
+    .asset-identity__right {
+      flex-shrink: 0; background: #f0f5f7;
+      border: 1px solid #dce6ea; border-radius: 20px;
+      padding: 16px 22px; text-align: right; min-width: 180px;
+    }
+    .price-label {
+      font-size: 7.5px; font-weight: 900; color: #7a9baa;
+      text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 5px;
+    }
+    .price-val { font-size: 26px; font-weight: 900; color: #2c5363; line-height: 1; }
+    .price-per-ha { font-size: 10px; font-weight: 900; color: #94a3b8; margin-top: 5px; }
+    .price-lease-qty { font-size: 10px; font-weight: 900; color: #bba219; margin-top: 5px; }
+    .asset-img {
+      width: 100%; height: 228px; border-radius: 22px;
+      object-fit: cover; margin-bottom: 22px;
+      border: 1px solid #dce6ea; display: block;
+    }
+    .section-title {
+      font-size: 9.5px; font-weight: 900; color: #2c5363;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      margin: 20px 0 12px;
+      border-left: 3px solid #bba219; padding-left: 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .mode-badge {
+      font-size: 7px; font-weight: 700;
+      background: rgba(187,162,25,0.1); color: #bba219;
+      padding: 3px 9px; border-radius: 20px;
+      border: 1px solid rgba(187,162,25,0.25); letter-spacing: 0.08em;
+    }
+    .eco-grid { display: flex; gap: 18px; margin-bottom: 8px; align-items: flex-start; }
+    .eco-stats { flex: 1.6; display: flex; flex-direction: column; gap: 9px; }
+    .eco-highlight { flex: 1; }
+    .perf-card {
+      background: #f0f5f7; padding: 11px 15px;
+      border-radius: 12px; border: 1px solid #dce6ea;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .perf-card--transparent { background: transparent; border-color: transparent; }
+    .perf-label { font-size: 7px; font-weight: 900; color: #4a7585; text-transform: uppercase; letter-spacing: 0.1em; }
+    .perf-val   { font-size: 13px; font-weight: 900; color: #2c5363; }
+    .dark-card {
+      background: #2c5363; color: #ffffff;
+      padding: 18px; border-radius: 20px;
+      display: flex; flex-direction: column;
+    }
+    .dark-card__block { padding: 0 0 12px; }
+    .dark-card__block--border { border-top: 1px solid rgba(255,255,255,0.12); padding: 12px 0 0; }
+    .gold-label {
+      font-size: 7px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      display: block; margin-bottom: 5px;
+    }
+    .dark-card__val     { font-size: 17px; font-weight: 900; color: #ffffff; display: block; }
+    .dark-card__val--lg { font-size: 20px; }
+    .dark-card__footer {
+      display: flex; gap: 7px; margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.12); padding-top: 12px;
+    }
+    .mini-card { flex: 1; padding: 9px 11px; border-radius: 11px; }
+    .mini-card--green { background: rgba(34,197,94,0.12); }
+    .mini-card--blue  { background: rgba(255,255,255,0.08); }
+    .mini-label { font-size: 6px; font-weight: 900; color: #bba219; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 3px; }
+    .mini-val   { font-size: 12px; font-weight: 900; color: #ffffff; }
+    .disclaimer {
+      font-size: 7px; color: #7a9baa; font-style: italic;
+      line-height: 1.5; margin-top: 12px; padding: 0 2px;
+    }
+    .indices-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-bottom: 22px;
+    }
+    .idx-card { background: #ffffff; border: 1px solid #dce6ea; border-radius: 16px; padding: 14px; }
+    .idx-label {
+      font-size: 7px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin-bottom: 9px; line-height: 1.4;
+    }
+    .idx-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .idx-row--faded { opacity: 0.45; border-top: 1px solid #e8eef1; padding-top: 5px; margin-top: 5px; }
+    .idx-city { font-size: 7px; font-weight: 900; color: #2c5363; text-transform: uppercase; opacity: 0.6; }
+    .idx-val  { font-size: 8.5px; font-weight: 700; color: #2c5363; }
+    .specs-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      gap: 12px; background: #ffffff;
+      border: 1px solid #dce6ea; padding: 16px 20px;
+      border-radius: 18px; margin-bottom: 22px;
+    }
+    .spec-box { display: flex; flex-direction: column; }
+    .s-lab { font-size: 6px; font-weight: 900; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+    .s-val { font-size: 9.5px; font-weight: 900; color: #2c5363; text-transform: uppercase; }
+    .desc-wrapper { page-break-before: always; padding-top: 10px; }
+    .desc-header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 12px;
+    }
+    .desc-header-title {
+      font-size: 9.5px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.18em;
+    }
+    .desc-header-note { font-size: 6.5px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; }
+    .desc-box {
+      background: rgba(44,83,99,0.03); border: 1px solid #dce6ea;
+      border-radius: 16px; padding: 22px 30px;
+    }
+    .desc-text {
+      font-size: 13px; line-height: 1.78; color: #1e3a46;
+      text-align: justify; white-space: pre-wrap;
+      font-style: italic; letter-spacing: 0; word-spacing: 0.02em;
+    }
+  </style>
+</head>
+<body>
+
+  <img class="watermark" src="${logoUrl}" alt="">
+
+  <div class="sidebar">Dossiê gerado para: ${userName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Protocolo de Segurança Prylom Asset Management © 2026</div>
+
+  <div class="page-header">
+    <img class="page-header__qr" src="${qrCodeUrl}" alt="QR Code">
+    <span class="page-header__qr-label">Acesse online</span>
+  </div>
+
+  <div class="page-footer">
+    <div class="page-footer__legal">
+      Sujeito aos Termos de Uso e Limitações de Responsabilidade aceitos na plataforma. Dados declaratórios e simulações não auditadas.
+      <span class="page-footer__sep">|</span>
+      <strong>Sigilo (LGPD):</strong> Por segurança patrimonial, NÃO enviamos documentos (Matrícula/GEO/CAR) sem prévia identificação e assinatura de NDA.
+      <span class="page-footer__sep">|</span>
+      <strong>COAF:</strong> Todas as operações seguem a Lei nº 9.613/98 (Prevenção à Lavagem de Dinheiro).
+    </div>
+    <div class="page-footer__meta">
+      Dossiê gerado para: <strong>${userName}</strong> &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Protocolo de Segurança Prylom Asset Management © 2026
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div class="asset-identity">
+      <div class="asset-identity__left">
+        <div class="badge-row">
+          <span class="badge badge-dark">
+            ${
+              isFarm
+                ? "🌾 " + (isLease ? "Arrendamento Agrícola" : "Fazenda à Venda")
+                : isPlane   ? "🛩️ Aeronave"
+                : isMachine ? "🚜 Maquinário"
+                : isGrain   ? "🌾 Grão Físico"
+                : "Ativo Rural"
+            }
+          </span>
+          ${
+            spec?.relevancia_anuncio
+              ? `<span class="badge ${
+                  spec.relevancia_anuncio === "Prylom Selected" ? "badge-selected"
+                  : spec.relevancia_anuncio === "Prylom Verified" ? "badge-verified"
+                  : "badge-open"
+                }">
+                ${spec.relevancia_anuncio === "Prylom Selected" ? "✦ " : spec.relevancia_anuncio === "Prylom Verified" ? "✓ " : ""}${spec.relevancia_anuncio}
+              </span>`
+              : ""
+          }
+          ${spec?.corretor?.creci ? `<span class="badge badge-creci">🛡 Supervisão: CRECI ${spec.corretor.creci}</span>` : ""}
+        </div>
+
+        <div class="location">📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}</div>
+        <h1>${
+          isGrain
+            ? `${spec?.cultura ?? "Soja"} – Grão Físico | Safra ${spec?.safra ?? "24/25"}`
+            : isPlane && spec?.fabricante
+            ? `${spec.fabricante} ${spec.modelo ?? ""}`
+            : product.titulo ?? "Dossiê do Ativo"
+        }</h1>
+
+        <div class="meta-row">
+          <span class="codigo-tag">Código: ${product.codigo ?? "--"}</span>
+          <div class="status-row">
+            <div class="dot ${product.status === "vendido" ? "dot-red" : "dot-green"}"></div>
+            <span class="status-label">${
+              product.status === "vendido" ? "Indisponível — Registro Histórico"
+              : isGrain ? `${fmtN(spec?.estoque_toneladas ?? 0, 0)} t disponíveis`
+              : isLease ? "Arrendamento Disponível"
+              : "Disponível"
+            }</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="asset-identity__right">
+        <div class="price-label">${
+          isGrain ? "Valor Total do Lote"
+          : isLease ? "Área Disponível"
+          : "Valor Total do Ativo"
+        }</div>
+        <div class="price-val">${
+          isGrain
+            ? fmtV((spec?.estoque_toneladas ?? 0) * (product.valor ?? 0))
+            : isLease
+            ? `${fmtN(spec?.area_total_ha ?? 0)} ha`
+            : fmtV(product.valor)
+        }</div>
+        ${
+          isLease
+            // ── Valor corrigido: lê spec.valor_sc_ha → spec.valor → product.valor
+            ? `<div class="price-lease-qty">Pedido: ${valorScHa} Sc Soja/ha</div>`
+            : isGrain
+            ? `<div class="price-per-ha">${fmtV(product.valor ?? 0)} / t</div>`
+            : spec?.area_total_ha && product.valor
+            ? `<div class="price-per-ha">${fmtN(product.valor / spec.area_total_ha, 0)} / ha</div>`
+            : ""
+        }
+      </div>
+    </div>
+
+    <img class="asset-img" src="${imageUrl}" alt="${product.titulo ?? "Ativo"}">
+
+    ${economicsHtml}
+    ${leaseTechHtml}
+
+    <div class="section-title">
+      ${isFarm ? "🌱 Características Técnicas da Área" : isPlane ? "📋 Dossiê Técnico" : isGrain ? "🌾 Especificações de Lote" : "⚙️ Dados Técnicos"}
+    </div>
+    <div class="specs-grid">
+      ${
+        isFarm ? `
+        <div class="spec-box"><span class="s-lab">Área Total</span><span class="s-val">${fmtN(spec?.area_total_ha ?? 0, 2)} ha</span></div>
+        <div class="spec-box"><span class="s-lab">Área Produtiva</span><span class="s-val">${fmtN(spec?.area_produtiva ?? 0, 2)} ha</span></div>
+        <div class="spec-box"><span class="s-lab">Aptidão</span><span class="s-val">${spec?.aptidao ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Argila</span><span class="s-val">${spec?.teor_argila ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Topografia</span><span class="s-val">${spec?.topografia ?? "Plana"}</span></div>
+        <div class="spec-box"><span class="s-lab">Pluviometria</span><span class="s-val">${spec?.precipitacao_mm ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Altitude</span><span class="s-val">${spec?.altitude_m ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Asfalto / Cidade</span><span class="s-val">${spec?.km_asfalto ? spec.km_asfalto + " km" : "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Reserva Legal</span><span class="s-val">${spec?.reserva_legal ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Estuda Permuta</span><span class="s-val">${spec?.permuta ?? "Não"}</span></div>`
+        : isPlane ? `
+        <div class="spec-box"><span class="s-lab">Fabricante</span><span class="s-val">${spec?.fabricante ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Modelo</span><span class="s-val">${spec?.modelo ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Ano</span><span class="s-val">${spec?.ano ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">TTAF</span><span class="s-val">${spec?.horas_voo ?? "--"} h</span></div>
+        <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
+        : isGrain ? `
+        <div class="spec-box"><span class="s-lab">Cultura</span><span class="s-val">${spec?.cultura ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Safra</span><span class="s-val">${spec?.safra ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Volume</span><span class="s-val">${fmtN(spec?.estoque_toneladas ?? 0, 0)} t</span></div>
+        <div class="spec-box"><span class="s-lab">Qualidade</span><span class="s-val">${spec?.qualidade ?? "Exportação"}</span></div>
+        <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
+        : `<div class="spec-box"><span class="s-val" style="opacity:.4">Dados sob consulta.</span></div>`
       }
-    };
+    </div>
 
-    const response = await fetch('https://webhook.saveautomatik.shop/webhook/gerarPDF', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    ${
+      product.descricao
+        ? `<div class="desc-wrapper">
+          <div class="desc-header">
+            <span class="desc-header-title">📄 Descrição Comercial e Observações</span>
+            <span class="desc-header-note">Informações declaratórias, fornecidas pelo originador.</span>
+          </div>
+          <div class="desc-box">
+            <p class="desc-text">"${product.descricao}"</p>
+          </div>
+        </div>`
+        : ""
+    }
 
-    if (!response.ok) throw new Error('Falha ao gerar dossiê');
+  </div>
+</body>
+</html>`;
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Dossie_Prylom_${product?.codigo}.pdf`);
+    // ── Envia o HTML; n8n retorna texto com a URL do PDF ────
+    const response = await fetch(
+      "https://webhook.saveautomatik.shop/webhook/gerarPDF",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html: htmlContent }),
+      }
+    );
+
+    if (!response.ok) throw new Error("Falha ao gerar dossiê");
+
+    // n8n retorna texto puro com a URL do PDF gerado
+    const pdfUrl = (await response.text()).trim();
+
+    if (!pdfUrl || !pdfUrl.startsWith("http")) {
+      throw new Error("URL do PDF inválida retornada pelo servidor.");
+    }
+
+    // ── Dispara o download imediatamente para o usuário ─────
+    const link = document.createElement("a");
+    link.href = pdfUrl;
+    link.setAttribute("download", `Dossie_Prylom_${product?.codigo}.pdf`);
+    link.setAttribute("target", "_blank"); // fallback caso download seja bloqueado por CORS
     document.body.appendChild(link);
     link.click();
-    link.parentNode?.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    document.body.removeChild(link);
 
   } catch (error) {
-    console.error('Erro:', error);
-    alert('Erro ao gerar documento.');
+    console.error("Erro:", error);
+    alert("Erro ao gerar documento. Tente novamente.");
   } finally {
     setIsGeneratingPdf(false);
   }
 };
-
 
   const analyzePrylomScore = async (p: any, s: any) => {
     setAnalyzingScore(true);
@@ -609,7 +1114,7 @@ const handleDownloadPdf = async () => {
   // Substitui conteúdo entre **texto** por <strong>texto</strong>
   const boldFormatted = text.split(/(\*\*.*?\*\*)/g).map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-black text-[#000080]">{part.slice(2, -2)}</strong>;
+      return <strong key={i} className="font-black text-[#2c5363]">{part.slice(2, -2)}</strong>;
     }
     return part;
   });
@@ -719,10 +1224,10 @@ const handleDownloadPdf = async () => {
       spec.relevancia_anuncio === 'Prylom Selected'
         ? 'bg-[#000033] text-prylom-gold border-prylom-gold shadow-[0_0_10px_rgba(197,163,118,0.3)]' 
         : spec.relevancia_anuncio === 'Prylom Verified'
-          ? 'bg-[#000080] text-white border-blue-400/30' // Azul com borda de destaque
+          ? 'bg-[#2c5363] text-white border-blue-400/30' // Azul com borda de destaque
           : spec.relevancia_anuncio === 'Open Market'
             ? 'bg-gray-100 text-gray-400 border-gray-200 shadow-none' // Cinza
-            : 'bg-[#000080] text-white border-transparent' // Padrão
+            : 'bg-[#2c5363] text-white border-transparent' // Padrão
     }`}
   >
     {spec.relevancia_anuncio === 'Prylom Selected' && <span className="mr-1">✦</span>}
@@ -742,7 +1247,7 @@ const handleDownloadPdf = async () => {
 )}
               {product.certificacao && <span className="text-[8px] font-black text-prylom-gold bg-prylom-gold/5 px-3 py-1 rounded-md border border-prylom-gold/10 uppercase tracking-widest">🔒 Prylom Verified | 📑 Compliance OK</span>}
            </div>
-           <h1 className="text-3xl font-black text-[#000080] tracking-tighter leading-none mb-2">
+           <h1 className="text-3xl font-black text-prylom-dark tracking-tighter leading-none mb-2">
 
              {isGrain
   ? `${spec?.cultura || 'Soja'} – Grão Físico | Safra ${spec?.safra || '24/25'}`
@@ -805,7 +1310,7 @@ const handleDownloadPdf = async () => {
     className={`text-sm font-black uppercase tracking-tighter truncate ${
       product.status === 'vendido' 
         ? 'text-red-600' 
-        : 'text-[#000080]'
+        : 'text-prylom-dark'
     }`}
   >
     {product.status === 'vendido' 
@@ -827,7 +1332,7 @@ const handleDownloadPdf = async () => {
   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
     Código
   </p>
-  <span className="text-sm font-black text-[#000080] uppercase tracking-tighter">
+  <span className="text-sm font-black text-prylom-dark uppercase tracking-tighter">
     {product.codigo}
   </span>
 </div>
@@ -841,7 +1346,7 @@ const handleDownloadPdf = async () => {
         </div>
         <div className="col-span-1 bg-gray-100/70 p-6 rounded-[2.5rem] border border-gray-200 flex flex-col justify-center">
            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{isGrain ? 'Valor Total Lote' : (isLease ? 'Área Disponível' : t.priceTotal)}</p>
-           <p className="text-[1.6rem] font-black text-[#000080] leading-tight">
+           <p className="text-[1.6rem] font-black text-prylom-dark leading-tight">
              {isGrain
   ? formatV((spec?.estoque_toneladas || 120000) * (product.valor || 1000))
   : isLease
@@ -880,14 +1385,14 @@ const handleDownloadPdf = async () => {
       {/* SNAPSHOT INDICADORES (ESTRATÉGICOS) */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4 print-full">
         {[
-          { label: isGrain ? 'Preço Spot (Hoje)' : (isPlane ? 'Positioning' : (isLease ? 'Perfil do Operador' : 'Perfil do Investidor')), val: isGrain ? <div className="flex flex-col"><span className="text-[#000080]">CBOT: US$ {grainMarketData?.cbotPrice}</span><span className="text-[7px] opacity-60">Basis: {grainMarketData?.basis} | FOB: {grainMarketData?.fobSantos}</span></div> : isPlane ? 'Operação Regional / Pista Curta' : (isFarm ? (isLease ? 'Produtor | Grupo Agro' : 'Produção | Arrendamento') : 'Corporativo') },
+          { label: isGrain ? 'Preço Spot (Hoje)' : (isPlane ? 'Positioning' : (isLease ? 'Perfil do Operador' : 'Perfil do Investidor')), val: isGrain ? <div className="flex flex-col"><span className="text-prylom-dark">CBOT: US$ {grainMarketData?.cbotPrice}</span><span className="text-[7px] opacity-60">Basis: {grainMarketData?.basis} | FOB: {grainMarketData?.fobSantos}</span></div> : isPlane ? 'Operação Regional / Pista Curta' : (isFarm ? (isLease ? 'Produtor | Grupo Agro' : 'Produção | Arrendamento') : 'Corporativo') },
           { label: isGrain ? 'Tendência (30d)' : (isPlane ? 'Hours vs Média' : 'Aptidão Mecanizavel'), val: isGrain ? <span className="text-green-600">📈 Alta moderada ({grainMarketData?.trend})</span> : isPlane ? '✔ Abaixo da Média (Low Time)' : (isFarm ? '✔ Produção de grãos mecanizada' : t.highPerformance) },
           { label: isGrain ? 'Liquidez do Ativo' : (isPlane ? 'Selo de Robustez' : (isLease ? 'Liquidez Operacional' : 'Liquidez Patrimonial')), val: isGrain ? grainMarketData?.liquidez : isPlane ? 'Agro Ready: Pista não pavimentada' : (isFarm ? '✔ Alta consolidação regional' : 'Auditada') },
           { label: t.valuationConfidence, val: <div className="flex flex-col items-center"><span className="text-prylom-gold font-black">{prylomScore || '8.2'} / 10</span><span className="text-[6px] font-bold text-gray-400 uppercase text-center mt-1">Analytics Real-Time</span></div> }
         ].map((item, i) => (
           <div key={i} className="bg-white p-6 rounded-[2rem] border border-gray-100 text-center shadow-sm flex flex-col justify-center">
             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">{item.label}</p>
-            <div className="text-[10px] font-black text-[#000080] uppercase leading-tight">{item.val}</div>
+            <div className="text-[10px] font-black text-prylom-dark uppercase leading-tight">{item.val}</div>
           </div>
         ))}
       </section>
@@ -948,7 +1453,7 @@ const handleDownloadPdf = async () => {
   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
     {/* LADO ESQUERDO: TÍTULO E BADGE DE PROJEÇÃO */}
     <div className="flex items-center gap-4">
-      <h3 className="text-2xl md:text-3xl font-black text-[#000080] uppercase tracking-tighter flex items-center gap-3">
+      <h3 className="text-2xl md:text-3xl font-black text-prylom-dark uppercase tracking-tighter flex items-center gap-3">
         <span className="text-2xl">💰</span> Economics do Ativo
       </h3>
       <span className="hidden md:inline-block bg-prylom-gold/10 text-prylom-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.2em]">
@@ -964,7 +1469,7 @@ const handleDownloadPdf = async () => {
             spec.relevancia_anuncio === 'Prylom Selected'
               ? 'bg-[#000033] text-prylom-gold border-prylom-gold shadow-lg shadow-gold/20' 
               : spec.relevancia_anuncio === 'Prylom Verified'
-                ? 'bg-[#000080] text-white border-blue-400/30'
+                ? 'bg-[#2c5363] text-white border-blue-400/30'
                 : 'bg-gray-50 text-gray-400 border-gray-200'
           }`}
         >
@@ -979,7 +1484,7 @@ const handleDownloadPdf = async () => {
           type="button"
           onClick={() => setEconomicsMode('agricola')}
           className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-            economicsMode === 'agricola' ? 'bg-white text-[#000080] shadow-sm' : 'text-gray-400 hover:text-gray-600'
+            economicsMode === 'agricola' ? 'bg-white text-prylom-dark shadow-sm' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
           Agrícola
@@ -988,7 +1493,7 @@ const handleDownloadPdf = async () => {
           type="button"
           onClick={() => setEconomicsMode('pecuaria')}
           className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-            economicsMode === 'pecuaria' ? 'bg-white text-[#000080] shadow-sm' : 'text-gray-400 hover:text-gray-600'
+            economicsMode === 'pecuaria' ? 'bg-white text-prylom-dark shadow-sm' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
           Pecuária
@@ -1009,7 +1514,7 @@ const handleDownloadPdf = async () => {
     <div className="absolute -bottom-2 left-0 w-full translate-y-full px-0 animate-fadeIn">
       <div className="p-3 bg-gray-50 border border-dashed border-gray-200 rounded-2xl">
         <p className="text-[8px] font-bold text-gray-400 uppercase leading-relaxed tracking-wider italic">
-          <span className="text-[#000080] not-italic">Nota de Compliance:</span> Para ativos Open Market, este filtro baseia-se exclusivamente em dados declaratórios do anunciante.
+          <span className="text-prylom-dark not-italic">Nota de Compliance:</span> Para ativos Open Market, este filtro baseia-se exclusivamente em dados declaratórios do anunciante.
         </p>
       </div>
     </div>
@@ -1032,14 +1537,14 @@ const handleDownloadPdf = async () => {
       <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl border border-gray-100 animate-fadeIn">
         <span className="text-sm font-bold text-prylom-dark uppercase tracking-tighter">Produtividade Soja</span>
         <div className="text-right">
-          <span className="text-2xl font-black text-[#000080]">{formatNumber(farmEconomics.prodSoja, 1)} sc/ha</span>
+          <span className="text-2xl font-black text-prylom-dark">{formatNumber(farmEconomics.prodSoja, 1)} sc/ha</span>
           <p className="text-[7px] text-gray-400 font-bold uppercase tracking-widest">Média Histórica Local</p>
         </div>
       </div>
       <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl border border-gray-100 animate-fadeIn">
         <span className="text-sm font-bold text-prylom-dark uppercase tracking-tighter">Produtividade Milho</span>
         <div className="text-right">
-          <span className="text-2xl font-black text-[#000080]">{formatNumber(farmEconomics.prodMilho, 1)} sc/ha</span>
+          <span className="text-2xl font-black text-prylom-dark">{formatNumber(farmEconomics.prodMilho, 1)} sc/ha</span>
           <p className="text-[7px] text-gray-400 font-bold uppercase tracking-widest">Segunda Safra Estimada</p>
         </div>
       </div>
@@ -1049,7 +1554,7 @@ const handleDownloadPdf = async () => {
     Faturamento Estimado Anual
   </p>
   <div className="flex items-baseline gap-1">
-    <p className="text-lg font-black text-[#000080]">
+    <p className="text-lg font-black text-prylom-dark">
       {formatV(farmEconomics.receitaBruta || 0)}
     </p>
     <span className="text-[8px] font-bold text-gray-400 uppercase">/ ano projetado</span>
@@ -1067,10 +1572,10 @@ const handleDownloadPdf = async () => {
       <div className="text-right flex flex-col items-end">
         <div className="flex items-baseline gap-1">
           {/* Tamanho reduzido para 1.25rem (text-xl) para melhor encaixe */}
-          <span className="text-xl font-black text-[#000080] tabular-nums">
+          <span className="text-xl font-black text-prylom-dark tabular-nums">
             {formatNumber(farmEconomics.producaoCarne, 1)}
           </span>
-          <span className="text-[10px] font-bold text-[#000080]/60 uppercase">@/ha ano</span>
+          <span className="text-[10px] font-bold text-prylom-dark/60 uppercase">@/ha ano</span>
         </div>
         <p className="text-[7px] text-prylom-gold font-bold uppercase tracking-widest mt-0.5">Produtividade Estimada</p>
       </div>
@@ -1084,10 +1589,10 @@ const handleDownloadPdf = async () => {
       </div>
       <div className="text-right flex flex-col items-end">
         <div className="flex items-baseline gap-1">
-          <span className="text-xl font-black text-[#000080] tabular-nums">
+          <span className="text-xl font-black text-prylom-dark tabular-nums">
             {formatNumber(farmEconomics.lotacao, 1)}
           </span>
-          <span className="text-[10px] font-bold text-[#000080]/60 uppercase">UA/ha</span>
+          <span className="text-[10px] font-bold text-prylom-dark/60 uppercase">UA/ha</span>
         </div>
         <p className="text-[7px] text-prylom-gold font-bold uppercase tracking-widest mt-0.5">Lotação Estimada</p>
       </div>
@@ -1097,7 +1602,7 @@ const handleDownloadPdf = async () => {
     Faturamento Estimado Anual
   </p>
   <div className="flex items-baseline gap-1">
-    <p className="text-lg font-black text-[#000080]">
+    <p className="text-lg font-black text-prylom-dark">
       {formatV(farmEconomics.receitaBruta || 0)}
     </p>
     <span className="text-[8px] font-bold text-gray-400 uppercase">/ ano projetado</span>
@@ -1148,7 +1653,7 @@ const handleDownloadPdf = async () => {
                   {formatNumber(farmEconomics.roiRange.pessimista, 1)}% - {formatNumber(farmEconomics.roiRange.otimista, 1)}%
                 </p>
               </div>
-              <div className="p-6 bg-[#000080] rounded-3xl">
+              <div className="p-6 bg-[#2c5363] rounded-3xl">
                 <p className="text-[8px] font-black text-prylom-gold uppercase mb-2">Payback Estimado</p>
                 <p className="text-xl font-black text-white">{formatNumber(farmEconomics.paybackReal || 0, 1)} anos</p>
               </div>
@@ -1192,7 +1697,7 @@ const handleDownloadPdf = async () => {
 
           <div className="space-y-4">
             <div className="flex flex-col">
-              <p className="text-[10px] font-black text-[#000080] uppercase opacity-60 mb-1">
+              <p className="text-[10px] font-black text-prylom-dark uppercase opacity-60 mb-1">
                 {product.cidade}:
               </p>
               <p className="text-sm font-bold text-gray-600 truncate">
@@ -1201,7 +1706,7 @@ const handleDownloadPdf = async () => {
             </div>
 
             <div className="pt-3 border-t border-gray-50 flex flex-col">
-              <p className="text-[10px] font-black text-[#000080] uppercase opacity-40 mb-1">
+              <p className="text-[10px] font-black text-prylom-dark uppercase opacity-40 mb-1">
                 Média {product.estado}:
               </p>
               <p className="text-sm font-bold text-gray-400 truncate">
@@ -1224,7 +1729,7 @@ const handleDownloadPdf = async () => {
 
            {/* ESPECIFICAÇÕES TÉCNICAS */}
            <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-sm print-full">
-              <h3 className="text-xl font-black text-[#000080] uppercase tracking-tighter mb-10">
+              <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tighter mb-10">
                 {isGrain ? "🌾 Especificações de Lote" : isPlane ? "📋 Dossiê Técnico da Aeronave" : (isFarm ? "🌱 Características Técnicas da Área" : "⚙️ Dados Técnicos")}
               </h3>
               
@@ -1316,22 +1821,26 @@ const handleDownloadPdf = async () => {
       {copyFeedback ? t.linkCopied : t.btnShare}
     </button>
 
-<button
-  onClick={handleDownloadPdf}
-  disabled={isGeneratingPdf}
-className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[10px] uppercase tracking-widest hover:bg-prylom-gold transition-all flex items-center justify-center gap-3 shadow-lg">
-  {isGeneratingPdf ? (
-    <>
-      <div className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[10px] uppercase tracking-widest hover:bg-prylom-gold transition-all flex items-center justify-center gap-3 shadow-lg"></div>
-      Gerando Dossiê Securitizado...
-    </>
-  ) : (
-    <>
-      <Download size={20} />
-      Download Dossiê PDF
-    </>
+<div className="flex flex-col items-center gap-1.5">
+  <button
+    onClick={user ? handleDownloadPdf : () => navigate("/login")}
+    disabled={isGeneratingPdf}
+    className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[10px] uppercase tracking-widest hover:bg-prylom-gold transition-all flex items-center justify-center gap-3 shadow-lg"
+  >
+    {isGeneratingPdf ? (
+      <>Gerando Dossiê Securitizado...</>
+    ) : (
+      <><Download size={20} /> Download Dossiê PDF</>
+    )}
+  </button>
+
+  {!user && (
+    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
+      <Lock size={10} />
+      Necessário login para baixar
+    </p>
   )}
-</button>
+</div>
    
   </div>
 </div>
@@ -1363,17 +1872,26 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
     </label>
 
     <div className="space-y-4">
-<button 
-  disabled={!hasAcceptedTerms}
-  onClick={() => navigate(`/dataroom/${id}`)} // id vem do useParams do seu ProductDetails
-  className={`w-full font-black py-6 rounded-full text-[11px] uppercase tracking-widest transition-all shadow-xl active:scale-95 ${
-    hasAcceptedTerms 
-      ? 'bg-green-600 text-white hover:bg-green-500 shadow-green-900/20' 
-      : 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
-  }`}
->
-  {isGrain ? 'Solicitar Dossiê de Qualidade' : 'Acessar Documentos'}
-</button>
+<div className="flex flex-col items-center gap-1.5">
+  <button 
+    disabled={!hasAcceptedTerms}
+    onClick={user ? () => navigate(`/dataroom/${id}`) : () => navigate("/login")}
+    className={`w-full font-black py-6 rounded-full text-[11px] uppercase tracking-widest transition-all shadow-xl active:scale-95 ${
+      hasAcceptedTerms 
+        ? 'bg-green-600 text-white hover:bg-green-500 shadow-green-900/20' 
+        : 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
+    }`}
+  >
+    {isGrain ? 'Solicitar Dossiê de Qualidade' : 'Acessar Documentos'}
+  </button>
+
+  {!user && (
+    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
+      <Lock size={10} />
+      Necessário login para acessar
+    </p>
+  )}
+</div>
 
     </div>
   </div>
@@ -1436,7 +1954,7 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
         : null;
 
       return (
-        <div className="bg-[#000080]/5 p-6 rounded-[2rem] border border-[#000080]/10 shadow-sm relative overflow-hidden">
+        <div className="bg-[#2c5363]/5 p-6 rounded-[2rem] border border-[#2c5363]/10 shadow-sm relative overflow-hidden">
           
           {/* Header */}
           <div className="mb-5 flex justify-between items-start gap-3">
@@ -1444,13 +1962,13 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
               <h4 className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.2em] mb-0.5">
                 Inteligência de Mercado Prylom
               </h4>
-              <p className="text-base font-black text-[#000080] uppercase tracking-tighter leading-tight">
+              <p className="text-base font-black text-prylom-dark uppercase tracking-tighter leading-tight">
                 Comparativo de Mercado
               </p>
             </div>
-            <div className="bg-white/60 backdrop-blur-sm px-2.5 py-1.5 rounded-lg border border-[#000080]/10 shrink-0">
+            <div className="bg-white/60 backdrop-blur-sm px-2.5 py-1.5 rounded-lg border border-[#2c5363]/10 shrink-0">
                <p className="text-[7px] font-black text-gray-400 uppercase leading-none mb-1">Análise em</p>
-               <p className="text-[8px] font-bold text-[#000080]">{new Date().toLocaleDateString('pt-BR')}</p>
+               <p className="text-[8px] font-bold text-prylom-dark">{new Date().toLocaleDateString('pt-BR')}</p>
             </div>
           </div>
 
@@ -1493,10 +2011,10 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
                 Valor Pedido por Hectares
               </p>
               <div className="flex items-baseline gap-1 h-8">
-                <p className="text-2xl font-black text-[#000080] tracking-tighter leading-none">
+                <p className="text-2xl font-black text-prylom-dark tracking-tighter leading-none">
                   {currentAssetValueHa ? formatV(currentAssetValueHa) : '---'}
                 </p>
-                <span className="text-xs font-bold opacity-60 text-[#000080] whitespace-nowrap">/ ha</span>
+                <span className="text-xs font-bold opacity-60 text-prylom-dark whitespace-nowrap">/ ha</span>
               </div>
             </div>
 
@@ -1515,27 +2033,35 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
 
 {isFarm && (
 <div className="px-0 no-print"> 
-    <button 
-      onClick={() => setShowFraudForm(true)}
+<div className="flex flex-col items-center gap-1.5">
+<button 
+  onClick={user ? () => setShowFraudForm(true) : () => navigate("/login")}
+  className="w-full flex flex-col items-center overflow-hidden rounded-[2.5rem] bg-white border border-gray-100 shadow-sm transition-all hover:border-red-200"
+>
+  <div className="w-full bg-[#2d525d] py-5 px-10 flex items-center justify-center gap-2">
+    <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+      Canal de Transparência & Compliance
+    </span>
+  </div>
   
-   className="w-full flex flex-col items-center overflow-hidden rounded-[2.5rem] bg-white border border-gray-100 shadow-sm transition-all hover:border-red-200"
-    >
-      {/* Aumentei px-6 para px-10 para o cabeçalho parecer mais largo */}
-      <div className="w-full bg-[#2d525d] py-5 px-10 flex items-center justify-center gap-2">
-         <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-           Canal de Transparência & Compliance
-         </span>
-      </div>
-      
-      {/* Aumentei p-5 para p-8 e adicionei leading-relaxed */}
-<div className="px-12 py-6">
-        <p className="text-[13px] text-[#2d525d] font-bold text-center leading-relaxed">
-          É o titular legal desta área? Caso identifique qualquer inconformidade nos dados declarados pelo originador: 
-          <br className="hidden sm:block" />
-          <span className="underline ml-1">Clique aqui para acionar nossa Ouvidoria.</span>
-        </p>
-      </div>
-    </button>
+  <div className="px-12 py-6 flex flex-col items-center gap-2">
+    <p className="text-[13px] text-[#2d525d] font-bold text-center leading-relaxed">
+      É o titular legal desta área? Caso identifique qualquer inconformidade nos dados declarados pelo originador: 
+      <br className="hidden sm:block" />
+      <span className="underline ml-1">Clique aqui para acionar nossa Ouvidoria.</span>
+    </p>
+
+    {!user && (
+      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
+        <Lock size={10} />
+        Necessário login para acessar
+      </p>
+    )}
+  </div>
+</button>
+
+
+</div>
   </div>
 )}
 
@@ -1543,12 +2069,10 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
   <>
 
 <div className="mt-10 px-0 no-print animate-fadeIn">
-  {/* O padding (p) e o espaçamento entre elementos (space-y) diminuem se for isLease */}
   <div className={`bg-white rounded-[3rem] border border-gray-100 shadow-sm transition-all ${
     isLease ? 'p-3 space-y-3' : 'p-5 space-y-6'
   }`}>
     
-    {/* A faixa azul ajusta as margens negativas e o padding interno */}
     <div className={`bg-[#2c5363] text-center transition-all ${
       isLease 
         ? '-mx-3 -mt-3 p-3 rounded-t-[3rem]' 
@@ -1559,7 +2083,6 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
       </h4>
     </div>
 
-    {/* O espaço entre os parágrafos diminui de 4 para 2 */}
     <div className={`${isLease ? 'space-y-2' : 'space-y-4'} text-center px-4`}>
       <p className="text-[11px] font-bold text-[#2c5363] leading-relaxed">
         Conecte sua propriedade a Investidores Qualificados e Fundos.
@@ -1569,18 +2092,27 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
       </p>
     </div>
 
-    {/* A altura do botão (py) diminui de 5 para 3 */}
-    <button 
-      onClick={() => setShowSelectionModal(true)}
-      className={`w-full bg-[#607D8B] hover:bg-[#455A64] text-white rounded-[2rem] shadow-lg transition-all flex items-center justify-center gap-3 group ${
-        isLease ? 'py-3' : 'py-5'
-      }`}
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-70 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-      </svg>
-      <span className="text-[11px] font-black uppercase tracking-[0.2em]">Cadastrar Propriedade</span>
-    </button>
+    <div className="flex flex-col items-center gap-1.5">
+      <button 
+        onClick={user ? () => setShowSelectionModal(true) : () => navigate("/login")}
+        className={`w-full bg-[#607D8B] hover:bg-[#455A64] text-white rounded-[2rem] shadow-lg transition-all flex items-center justify-center gap-3 group ${
+          isLease ? 'py-3' : 'py-5'
+        }`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-70 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+        </svg>
+        <span className="text-[11px] font-black uppercase tracking-[0.2em]">Cadastrar Propriedade</span>
+      </button>
+
+      {!user && (
+        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
+          <Lock size={10} />
+          Necessário login para acessar
+        </p>
+      )}
+    </div>
+
   </div>
 </div>
 
@@ -1862,7 +2394,7 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
 
 {relatedProducts.length > 0 && (
   <section className="pt-12 border-t border-gray-100 space-y-10 no-print">
-    <h3 className="text-2xl font-black text-[#000080] tracking-tighter uppercase">
+    <h3 className="text-2xl font-black text-prylom-dark tracking-tighter uppercase">
       {t.relatedRegionAssets}
     </h3>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -2003,7 +2535,7 @@ className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[1
     
     {/* Coluna do Disclaimer */}
     <div className="md:col-span-8 space-y-4">
-      <h5 className="text-[10px] font-black text-[#000080] uppercase tracking-[0.2em]">
+      <h5 className="text-[10px] font-black text-prylom-dark uppercase tracking-[0.2em]">
         Disclaimer Legal & Compliance
       </h5>
       <p className="text-[10px] leading-relaxed text-gray-400 font-medium text-justify uppercase tracking-tight">
@@ -2040,7 +2572,7 @@ atípicas ao COAF.
           <p className="text-[7px] font-black text-prylom-dark uppercase leading-none">Criptografia</p>
           <p className="text-[9px] font-bold text-prylom-dark">SSL 256-bit</p>
         </div>
-        <svg className="w-8 h-8 text-[#000080]" fill="currentColor" viewBox="0 0 24 24">
+        <svg className="w-8 h-8 text-prylom-dark" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
         </svg>
       </div>
@@ -2142,9 +2674,9 @@ atípicas ao COAF.
 
       <div className="p-8 md:p-12 overflow-y-auto space-y-8">
         <p className="text-[11px] text-gray-500 font-bold uppercase text-center border-b pb-4">
-          Ativo Cód: <span className="text-[#000080]">{product?.codigo}</span> — Localidade: {product?.cidade}/{product?.estado}
-        </p>
-
+          Ativo Cód: <span className="text-prylom-dark">{product?.codigo}</span> — Localidade: {product?.cidade}/{product?.estado}
+        </p> 
+         
         {/* Campos de Identificação */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">

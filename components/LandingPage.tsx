@@ -4,6 +4,17 @@ import { supabase } from '../supabaseClient';
 import { AppLanguage } from '../types';
 import landingPrylom from "../assets/landingPrylom.jpeg";
 import professorHernandez from "../assets/professor-hernandez.jpg";
+import { useParams, useNavigate } from 'react-router-dom';
+
+import { 
+  ArrowLeft, 
+  Share2, 
+  MapPin, 
+  Shield, 
+  FileText, 
+  Download, Lock // <--- ADICIONE ESTE AQUI
+} from 'lucide-react';
+
 interface Props {
   onSelectOwner: () => void;
   onSelectBroker: () => void;
@@ -32,7 +43,7 @@ const LandingPage: React.FC<Props> = ({
   const [loadingBelle, setLoadingBelle] = useState(false);
   const [inventorySummary, setInventorySummary] = useState<string>('');
   const belleScrollRef = useRef<HTMLDivElement>(null);
-
+  const navigate = useNavigate();
   useEffect(() => {
     fetchInventorySummary();
   }, []);
@@ -144,6 +155,17 @@ const LandingPage: React.FC<Props> = ({
       span: "md:col-span-1"
     }
   ];
+
+  const [user, setUser] = useState<any>(null);
+  
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+  }, []);
+  
 
   return (
     <div className="w-full flex flex-col animate-fadeIn bg-[#FDFCFB]">
@@ -475,20 +497,28 @@ const LandingPage: React.FC<Props> = ({
           )}
         </div>
 
-        <form onSubmit={handleBelleSubmit} className="p-6 bg-white border-t border-gray-50 relative z-10">
-          <div className="flex bg-gray-50 rounded-full p-2 border-2 border-transparent focus-within:border-prylom-gold transition-all shadow-inner">
-            <input 
-              type="text" 
-              value={belleMessage} 
-              onChange={e => setBelleMessage(e.target.value)}
-              placeholder={t.bellePlaceholder}
-              className="flex-1 bg-transparent px-6 py-3 text-sm font-medium outline-none text-prylom-dark"
-            />
-            <button type="submit" disabled={loadingBelle} className="bg-prylom-dark text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-prylom-gold transition-all shadow-xl disabled:opacity-50">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-            </button>
-          </div>
-        </form>
+<form onSubmit={handleBelleSubmit} className="p-6 bg-white border-t border-gray-50 relative z-10">
+  <div className="flex bg-gray-50 rounded-full p-2 border-2 border-transparent focus-within:border-prylom-gold transition-all shadow-inner">
+    <input 
+      type="text" 
+      value={belleMessage} 
+      onChange={e => setBelleMessage(e.target.value)}
+      placeholder={user ? t.bellePlaceholder : "Faça o login para conversar com a Belle ✨"}
+      disabled={!user}
+      className="flex-1 bg-transparent px-6 py-3 text-sm font-medium outline-none text-prylom-dark disabled:cursor-not-allowed disabled:opacity-50"
+    />
+    <button 
+      type="submit" 
+      disabled={loadingBelle || !user} 
+      onClick={!user ? () => navigate("/login") : undefined}
+      className="bg-prylom-dark text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-prylom-gold transition-all shadow-xl disabled:opacity-50"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+      </svg>
+    </button>
+  </div>
+</form>
       </div>
 
       {/* AVISO DE COMPLIANCE - Fora da caixa branca para não empurrar o layout */}
