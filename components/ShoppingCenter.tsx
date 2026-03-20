@@ -738,6 +738,9 @@ const slotsFaltantes = Math.max(0, 4 - parceirosCredenciados.length);
 
 <style> </style>
 
+const BANDEIRA_URL = (uf) =>
+  `https://cdn.jsdelivr.net/gh/akagabi/bandeira-dos-estados-do-brasil@master/${uf.toLowerCase()}.svg`;
+
   return (
 <>
     <style>{`
@@ -749,7 +752,7 @@ const slotsFaltantes = Math.max(0, 4 - parceirosCredenciados.length);
       .animate-scroll {
         display: flex;
         width: max-content;
-        animation: scrollLoop 30s linear infinite;
+        animation: scrollLoop 10s linear infinite;
       }
 
       .animate-scroll:hover {
@@ -905,8 +908,21 @@ regulatório e segurança absoluta para os investidores.
           {/* CARD ESTILO IMAGEM REFERÊNCIA */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all group-hover:-translate-y-1 group-hover:shadow-lg">
             
+            
             {/* Header Verde Escuro com a Foto */}
             <div className="bg-[#1a3a2a] p-3 flex justify-center items-center h-28 relative">
+<div className="absolute top-2 right-2 z-20 flex flex-col items-center">
+    <img
+      src={BANDEIRA_URL(item.estado)}
+      alt={`Bandeira ${item.estado}`}
+      className="w-7 h-auto rounded-sm shadow-xl border border-white/30 backdrop-blur-sm transition-transform group-hover:scale-110"
+      onError={(e) => { e.target.style.display = 'none' }}
+    />
+    {/* Opcional: Sigla do estado bem pequena abaixo da bandeira */}
+    <span className="text-[6px] text-white/50 font-black mt-0.5 uppercase tracking-tighter">
+      {item.estado}
+    </span>
+  </div>
               <div className="w-20 h-24 bg-gray-200 rounded-lg overflow-hidden shadow-lg border-2 border-white/20">
                 {item.foto_url ? (
                   <img src={item.foto_url} className="w-full h-full object-cover" alt={item.nome} />
@@ -914,6 +930,7 @@ regulatório e segurança absoluta para os investidores.
                   <div className="w-full h-full flex items-center justify-center text-3xl opacity-20 bg-white">👤</div>
                 )}
               </div>
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none"></div>
             </div>
 
             {/* Área de Texto Branca */}
@@ -939,18 +956,21 @@ regulatório e segurança absoluta para os investidores.
   </div>
 </div>
 
-{/* SEÇÃO 2: ORIGINAÇÃO - TAMBÉM ADICIONADO CONTAINER DE ISOLAMENTO */}
+{/* SEÇÃO 2: ORIGINAÇÃO - COM CARROSSEL E BRILHO LATERAL */}
 <div className="space-y-8 relative isolate z-10">
   <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
     Originação e Campo
   </h3>
 
   <div className="relative w-full overflow-hidden">
-    {/* Máscaras de gradiente restritas a este container */}
+    {/* Máscaras de gradiente laterais (Brilho) */}
+    <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none"></div>
+    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white via-white/80 to-transparent z-10 pointer-events-none"></div>
 
-    {/* Scroll Horizontal */}
-    <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
-      {equipeOriginaçao.map((membro, index) => (
+    {/* Scroll Automático (Carrossel) */}
+    <div className="flex gap-6 animate-scroll pb-6">
+      {/* Duplicamos a lista para o efeito de loop infinito ser contínuo */}
+      {[...equipeOriginaçao, ...equipeOriginaçao].map((membro, index) => (
         <div 
           key={index} 
           className="min-w-[180px] max-w-[180px] cursor-pointer group"
@@ -960,15 +980,38 @@ regulatório e segurança absoluta para os investidores.
           <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all group-hover:-translate-y-1 group-hover:shadow-lg">
             
             {/* Header Verde Escuro com a Foto centralizada */}
-            <div className="bg-[#1a3a2a] p-3 flex justify-center items-center h-28 relative">
-              <div className="w-20 h-24 bg-gray-200 rounded-lg overflow-hidden shadow-lg border-2 border-white/20">
-                {membro.foto_url ? (
-                  <img src={membro.foto_url} className="w-full h-full object-cover" alt={membro.nome} />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl opacity-20 bg-white">👤</div>
-                )}
-              </div>
-            </div>
+<div className="bg-[#1a3a2a] p-3 flex justify-center items-center h-28 relative overflow-hidden">
+  
+  {/* Bandeira do Estado - Posicionada na Superior Direita */}
+  <div className="absolute top-2 right-2 z-20 flex flex-col items-center">
+    <img
+      src={BANDEIRA_URL(membro.estado)}
+      alt={`Bandeira ${membro.estado}`}
+      className="w-7 h-auto rounded-sm shadow-xl border border-white/30 backdrop-blur-sm transition-transform group-hover:scale-110"
+      onError={(e) => { e.target.style.display = 'none' }}
+    />
+    {/* Opcional: Sigla do estado bem pequena abaixo da bandeira */}
+    <span className="text-[6px] text-white/50 font-black mt-0.5 uppercase tracking-tighter">
+      { membro.estado}
+    </span>
+  </div>
+
+  {/* Moldura da Foto do Corretor/Membro */}
+  <div className="w-20 h-24 bg-gray-200 rounded-lg overflow-hidden shadow-lg border-2 border-white/20 relative z-10 transition-transform group-hover:scale-105">
+    { (membro?.foto_url) ? (
+      <img 
+        src={ membro.foto_url} 
+        className="w-full h-full object-cover" 
+        alt={ membro.nome} 
+      />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center text-3xl opacity-20 bg-white">👤</div>
+    )}
+  </div>
+
+  {/* Detalhe estético: Brilho no fundo para dar profundidade */}
+  <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none"></div>
+</div>
 
             {/* Área de Informações Técnicas */}
             <div className="p-3 space-y-1.5 bg-white">
