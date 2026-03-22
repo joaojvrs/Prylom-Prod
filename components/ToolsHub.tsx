@@ -149,53 +149,62 @@ const regionalCosts: Record<string, any> = {
     fetchLocalInsight();
   }, [lang]);
 
-  const fetchLocalInsight = async (specificLocation?: string) => {
-    setLoadingInsight(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const analyze = async (locInfo: string, lat?: number, lng?: number) => {
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `Atue como um Product Designer e Consultor Sênior de agronegócio Prylom especializado em análise regional de ativos rurais.
-          Localização alvo: ${locInfo}. 
-          ${lat ? `Coordenadas: ${lat}, ${lng}.` : ''}
-          Forneça um insight estratégico curto no tom premium e técnico da Prylom. 
-          Inclua informações sobre aptidão produtiva, regime de chuvas e potencial de valorização da região.
-          Divida a resposta em Parte 1 (Análise Técnica Profunda) e Parte 2 (Resumo Executivo Simples) separando com "|||". 
-          Responda estritamente no idioma: ${lang}.`,
-          config: {
-            tools: [{ googleSearch: {} }]
-          }
-        });
-        const [technical, simple] = (response.text || "").split("|||").map(s => s.trim());
-        setLocalInsight({
-          technical: technical || response.text || "",
-          simple: simple || "",
-          coords: lat ? `${lat.toFixed(4)}, ${lng?.toFixed(4)}` : "Referência Geográfica",
-          locationName: locInfo === "Sua Localização Atual" ? "Detectado por Geovisualização" : locInfo
-        });
+const fetchLocalInsight = async (specificLocation?: string) => {
+  setLoadingInsight(true);
+  const WEBHOOK_URL = "https://webhook.saveautomatik.shop/webhook/terminalAgro";
 
-        if (locInfo.toLowerCase().includes('mt') || locInfo.toLowerCase().includes('mato grosso')) setRegion('MT - Médio Norte');
-        else if (locInfo.toLowerCase().includes('go') || locInfo.toLowerCase().includes('goiás')) setRegion('GO - Sudoeste');
-        else if (locInfo.toLowerCase().includes('pr') || locInfo.toLowerCase().includes('paraná')) setRegion('PR - Oeste');
-        else if (locInfo.toLowerCase().includes('ms') || locInfo.toLowerCase().includes('mato grosso do sul')) setRegion('MS - Sul');
+  try {
+    const analyze = async (locInfo: string, lat?: number, lng?: number) => {
+      const payload = {
+        location: locInfo,
+        latitude: lat || null,
+        longitude: lng || null,
+        language: lang, // vindo do seu estado/contexto
       };
 
-      if (specificLocation) {
-        await analyze(specificLocation);
-      } else {
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          await analyze("Sua Localização Atual", pos.coords.latitude, pos.coords.longitude);
-        }, async () => {
-          await analyze("Brasil - Hub Regional");
-        });
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingInsight(false);
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Erro na resposta do Webhook");
+
+      const data = await res.json();
+      
+      // Ajuste aqui: acessando data.response que é onde seu n8n envia o texto
+      const fullText = data.response || "";
+      const [technical, simple] = fullText.split("|||").map((s: string) => s.trim());
+
+      setLocalInsight({
+        technical: technical || fullText,
+        simple: simple || "",
+        coords: lat ? `${lat.toFixed(4)}, ${lng?.toFixed(4)}` : "Referência Geográfica",
+        locationName: locInfo === "Sua Localização Atual" ? "Detectado por Geovisualização" : locInfo
+      });
+
+      // Lógica de região (opcional, baseada no nome da localização)
+      const locLower = locInfo.toLowerCase();
+      if (locLower.includes('mt') || locLower.includes('mato grosso')) setRegion('MT - Médio Norte');
+      else if (locLower.includes('go') || locLower.includes('goiás')) setRegion('GO - Sudoeste');
+      else if (locLower.includes('pr') || locLower.includes('paraná')) setRegion('PR - Oeste');
+      else if (locLower.includes('ms') || locLower.includes('mato grosso do sul')) setRegion('MS - Sul');
+    };
+
+    if (specificLocation) {
+      await analyze(specificLocation);
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => await analyze("Sua Localização Atual", pos.coords.latitude, pos.coords.longitude),
+        async () => await analyze("Brasil - Hub Regional")
+      );
     }
-  };
+  } catch (e) {
+    console.error("Falha ao processar insight:", e);
+  } finally {
+    setLoadingInsight(false);
+  }
+};
 
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,6 +247,43 @@ const regionalCosts: Record<string, any> = {
          </button>
       </div>
 
+          <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-gray-100 space-y-8 min-h-[400px]">
+             <header className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-prylom-dark text-prylom-gold rounded-2xl flex items-center justify-center text-2xl shadow-lg">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <div>
+                   <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight">Análise de Região Prylom AI</h3>
+                   <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">{localInsight?.locationName || 'Detectando...'}</p>
+                </div>
+             </header>
+
+             {loadingInsight ? (
+               <div className="py-20 flex flex-col items-center justify-center gap-6">
+                  <div className="w-10 h-10 border-4 border-prylom-gold/20 border-t-prylom-gold rounded-full animate-spin"></div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse tracking-[0.4em]">Auditando Dados Regionais...</p>
+               </div>
+             ) : localInsight ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-fadeIn">
+                  <div className="space-y-4">
+                     <span className="text-prylom-gold text-[10px] font-black uppercase tracking-widest">Dossiê Técnico</span>
+                     <p className="text-sm font-medium text-prylom-dark leading-relaxed whitespace-pre-wrap">{localInsight.technical}</p>
+                  </div>
+                  <div className="bg-gray-50 p-8 rounded-[2rem] border border-gray-100 flex flex-col">
+                     <span className="text-prylom-dark/40 text-[10px] font-black uppercase tracking-widest mb-4">Em Resumo</span>
+                     <p className="text-sm font-bold text-[#000080] italic leading-relaxed mb-8">"{localInsight.simple}"</p>
+                     <div className="mt-auto pt-6 border-t border-gray-200 flex justify-between items-center">
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ref: {localInsight.coords}</span>
+                     </div>
+                  </div>
+               </div>
+             ) : (
+               <div className="py-20 text-center opacity-40">
+                  <p className="text-sm font-medium">Selecione uma região ou use sua localização para iniciar o diagnóstico.</p>
+               </div>
+             )}
+          </div>
+          
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           {/* Dashboard Barter */}
@@ -386,42 +432,7 @@ const regionalCosts: Record<string, any> = {
             </div>
           </div>
 
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-gray-100 space-y-8 min-h-[400px]">
-             <header className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-prylom-dark text-prylom-gold rounded-2xl flex items-center justify-center text-2xl shadow-lg">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </div>
-                <div>
-                   <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight">Análise de Região Prylom AI</h3>
-                   <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">{localInsight?.locationName || 'Detectando...'}</p>
-                </div>
-             </header>
 
-             {loadingInsight ? (
-               <div className="py-20 flex flex-col items-center justify-center gap-6">
-                  <div className="w-10 h-10 border-4 border-prylom-gold/20 border-t-prylom-gold rounded-full animate-spin"></div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse tracking-[0.4em]">Auditando Dados Regionais...</p>
-               </div>
-             ) : localInsight ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-fadeIn">
-                  <div className="space-y-4">
-                     <span className="text-prylom-gold text-[10px] font-black uppercase tracking-widest">Dossiê Técnico</span>
-                     <p className="text-sm font-medium text-prylom-dark leading-relaxed whitespace-pre-wrap">{localInsight.technical}</p>
-                  </div>
-                  <div className="bg-gray-50 p-8 rounded-[2rem] border border-gray-100 flex flex-col">
-                     <span className="text-prylom-dark/40 text-[10px] font-black uppercase tracking-widest mb-4">Em Resumo</span>
-                     <p className="text-sm font-bold text-[#000080] italic leading-relaxed mb-8">"{localInsight.simple}"</p>
-                     <div className="mt-auto pt-6 border-t border-gray-200 flex justify-between items-center">
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ref: {localInsight.coords}</span>
-                     </div>
-                  </div>
-               </div>
-             ) : (
-               <div className="py-20 text-center opacity-40">
-                  <p className="text-sm font-medium">Selecione uma região ou use sua localização para iniciar o diagnóstico.</p>
-               </div>
-             )}
-          </div>
         </div>
 
 <div className="space-y-8">

@@ -9,6 +9,7 @@ import agro_brasil from "../assets/agro_brasil.jpg";
 import mapaBrasil from "../assets/mapaBrasil.png";
 import { createPortal } from 'react-dom';
 import professorHernandez from "../assets/professor-hernandez.jpg";
+import lidia from "../assets/lidia.jpeg";
 interface Product {
   id: string;
   categoria: string;
@@ -645,7 +646,7 @@ useEffect(() => {
     zoomControl: false,
     attributionControl: false,
     center: [-15.78, -52.00],
-    zoom: 3.2, // Um pouco mais longe para ver as bordas do Brasil
+    zoom: 2.4, // Um pouco mais longe para ver as bordas do Brasil
     scrollWheelZoom: false,
     fadeAnimation: true
   });
@@ -740,6 +741,7 @@ const slotsFaltantes = Math.max(0, 4 - parceirosCredenciados.length);
 
 const BANDEIRA_URL = (uf) =>
   `https://cdn.jsdelivr.net/gh/akagabi/bandeira-dos-estados-do-brasil@master/${uf.toLowerCase()}.svg`;
+const [showAcademyModal, setShowAcademyModal] = useState(false);
 
   return (
 <>
@@ -831,6 +833,93 @@ const BANDEIRA_URL = (uf) =>
   </div>,
   document.body
 )}
+{showAcademyModal && createPortal(
+  <div 
+    className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+    style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
+    onClick={() => setShowAcademyModal(false)}
+  >
+    <div 
+      className="bg-white w-[95vw] max-w-[1350px] rounded-[2.5rem] shadow-2xl relative flex flex-col overflow-hidden animate-scaleUp border border-white/20"
+      style={{ maxHeight: '90vh' }}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Botão Fechar */}
+      <button 
+        onClick={() => setShowAcademyModal(false)}
+        className="absolute top-8 right-10 z-[100] text-gray-400 hover:text-prylom-gold transition-colors text-3xl font-light"
+      >
+        ✕
+      </button>
+
+      {/* Conteúdo Horizontal */}
+      <div className="p-10 md:p-14 lg:p-20 overflow-y-auto">
+        <div className="flex flex-col md:flex-row gap-12 lg:gap-16 items-start">
+          
+          {/* LADO ESQUERDO: ÍCONE OU IMAGEM REPRESENTATIVA */}
+          <div className="w-56 lg:w-72 shrink-0">
+            <div className="aspect-[3/4] shadow-2xl rounded-2xl overflow-hidden border border-gray-100 bg-[#2c5363] flex flex-col items-center justify-center p-6 text-center">
+              <span className="text-8xl mb-4">🎓</span>
+              <h5 className="text-white font-black uppercase tracking-widest text-xl">
+                Elite <br /> Performance
+              </h5>
+              <div className="mt-6 h-1 w-12 bg-prylom-gold"></div>
+            </div>
+          </div>
+
+          {/* LADO DIREITO: TEXTO DA ACADEMY */}
+          <div className="flex-1 min-w-0">
+            <div className="mb-8">
+              <h4 className="text-4xl lg:text-5xl font-black text-prylom-dark uppercase tracking-tighter leading-none mb-4"
+                  style={{
+                    background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}>
+                Prylom Academy
+              </h4>
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-prylom-gold"></span>
+                <p className="text-prylom-gold font-bold text-sm uppercase tracking-[0.2em]">
+                  Educação Corporativa — Hub de Performance
+                </p>
+              </div>
+            </div>
+
+            {/* BIO TEXTO (Enchendo linguiça premium) */}
+            <div className="text-gray-500 text-base lg:text-lg leading-relaxed lg:columns-2 gap-12 border-t border-gray-50 pt-10">
+              <p className="mb-4 text-justify font-medium">
+                A <strong>Prylom Academy</strong> nasceu da necessidade de padronizar a excelência. Em um mercado saturado, a diferenciação surge através do conhecimento técnico profundo e da execução impecável. Nosso hub não apenas ensina, mas forja especialistas em ativos reais.
+              </p>
+              
+              <p className="mb-4 text-justify font-medium">
+                O currículo abrange desde a <strong>Inteligência Territorial</strong> avançada até o domínio completo da plataforma <strong>FlyImob</strong>. Entendemos que a tecnologia só é poderosa quando operada por mentes brilhantes e bem treinadas.
+              </p>
+
+              <p className="mb-4 text-justify font-medium">
+                Nossos módulos de <strong>Hard Skills</strong> focam em geoprocessamento, análise de viabilidade financeira e legislação imobiliária complexa. Já as <strong>Soft Skills</strong> preparam o profissional para negociações de alto nível com clientes institucionais.
+              </p>
+
+              <p className="mb-4 text-justify font-medium italic border-l-4 border-prylom-gold pl-4 bg-gray-50 py-2">
+                "Não treinamos corretores, capacitamos arquitetos de negócios imobiliários. A Academy é onde a teoria do mercado encontra a prática Prylom."
+              </p>
+              
+              <p className="mb-4 text-justify font-medium">
+                Ao final de cada ciclo, os membros são certificados em Performance Nacional, garantindo que a cultura de resultados da Sede seja replicada em cada polo de atuação no Brasil.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Detalhe estético inferior */}
+      <div className="h-2 w-full bg-gray-50 shrink-0">
+        <div className="h-full w-1/2 bg-prylom-gold rounded-r-full animate-pulse"></div>
+      </div>
+    </div>
+  </div>,
+  document.body
+)}
     <div className="w-full py-10 px-6 bg-[#F4F5F7] min-h-screen animate-fadeIn font-sans">
       <div className="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.06)] border border-white overflow-hidden">
         
@@ -910,19 +999,18 @@ regulatório e segurança absoluta para os investidores.
             
             
             {/* Header Verde Escuro com a Foto */}
-            <div className="bg-[#1a3a2a] p-3 flex justify-center items-center h-28 relative">
+            <div className="bg-[#2c5363] p-3 flex justify-center items-center h-28 relative">
 <div className="absolute top-2 right-2 z-20 flex flex-col items-center">
-    <img
-      src={BANDEIRA_URL(item.estado)}
-      alt={`Bandeira ${item.estado}`}
-      className="w-7 h-auto rounded-sm shadow-xl border border-white/30 backdrop-blur-sm transition-transform group-hover:scale-110"
-      onError={(e) => { e.target.style.display = 'none' }}
-    />
-    {/* Opcional: Sigla do estado bem pequena abaixo da bandeira */}
-    <span className="text-[6px] text-white/50 font-black mt-0.5 uppercase tracking-tighter">
-      {item.estado}
-    </span>
-  </div>
+  <img
+    src={BANDEIRA_URL(item.estado)}
+    alt={`Bandeira ${item.estado}`}
+    className="w-9 h-auto rounded-md shadow-2xl border-2 border-white/50 backdrop-blur-sm transition-transform group-hover:scale-110 drop-shadow-lg"
+    onError={(e) => { e.target.style.display = 'none' }}
+  />
+  <span className="text-[10px] text-white font-black mt-1 uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+    {item.estado}
+  </span>
+</div>
               <div className="w-20 h-24 bg-gray-200 rounded-lg overflow-hidden shadow-lg border-2 border-white/20">
                 {item.foto_url ? (
                   <img src={item.foto_url} className="w-full h-full object-cover" alt={item.nome} />
@@ -980,19 +1068,18 @@ regulatório e segurança absoluta para os investidores.
           <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all group-hover:-translate-y-1 group-hover:shadow-lg">
             
             {/* Header Verde Escuro com a Foto centralizada */}
-<div className="bg-[#1a3a2a] p-3 flex justify-center items-center h-28 relative overflow-hidden">
+<div className="bg-[#2c5363] p-3 flex justify-center items-center h-28 relative overflow-hidden">
   
   {/* Bandeira do Estado - Posicionada na Superior Direita */}
   <div className="absolute top-2 right-2 z-20 flex flex-col items-center">
     <img
       src={BANDEIRA_URL(membro.estado)}
       alt={`Bandeira ${membro.estado}`}
-      className="w-7 h-auto rounded-sm shadow-xl border border-white/30 backdrop-blur-sm transition-transform group-hover:scale-110"
+      className="w-9 h-auto rounded-md shadow-2xl border-2 border-white/50 backdrop-blur-sm transition-transform group-hover:scale-110 drop-shadow-lg"
       onError={(e) => { e.target.style.display = 'none' }}
     />
-    {/* Opcional: Sigla do estado bem pequena abaixo da bandeira */}
-    <span className="text-[6px] text-white/50 font-black mt-0.5 uppercase tracking-tighter">
-      { membro.estado}
+    <span className="text-[10px] text-white font-black mt-1 uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+      {membro.estado}
     </span>
   </div>
 
@@ -1032,22 +1119,242 @@ regulatório e segurança absoluta para os investidores.
         </div>
       ))}
     </div>
+    <div className="flex justify-center pb-6">
+
+
+</div>
   </div>
+  
 </div>
 </div>
 
+<div className="flex items-stretch gap-4 w-full max-w-[1400px] mx-auto p-4">
+
+  {/* --- HEAD JURÍDICO --- */}
+  <div className="flex flex-col items-center gap-4 p-4 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-[220px] flex-shrink-0">
+    <h2 className="text-[13px] font-black uppercase tracking-tighter text-center text-[#2c5363]">
+      HEAD JURÍDICO
+    </h2>
+    <div className="flex items-stretch gap-3 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[130px] w-full">
+      <div className="w-16 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
+        <span className="text-2xl opacity-20">⚖️</span>
+      </div>
+      <div className="flex flex-col justify-center py-1 overflow-hidden">
+        <p className="text-[11px] font-black uppercase text-[#2c5363] truncate mb-1">[Aguardando]</p>
+        <div className="space-y-1 pt-2 border-t border-gray-100">
+          <p className="text-[9px] text-gray-500 leading-tight line-clamp-3">Apoio jurídico integral à Mesa de Operações e Due Diligence.</p>
+          <p className="text-[9px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* --- HEAD OPERAÇÃO M&A --- */}
+  <div className="flex flex-col items-center gap-4 p-4 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-[220px] flex-shrink-0">
+    <h2 className="text-[13px] font-black uppercase tracking-tighter text-center text-[#2c5363]">
+      HEAD OPERAÇÃO M&A
+    </h2>
+    <div className="flex items-stretch gap-3 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[130px] w-full">
+      <div className="w-16 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
+        <span className="text-2xl">🤝</span>
+      </div>
+      <div className="flex flex-col justify-center py-1 overflow-hidden">
+        <p className="text-[11px] font-black uppercase text-[#2c5363] truncate mb-1">Alice Brandão</p>
+        <div className="space-y-1 pt-2 border-t border-gray-100">
+          <p className="text-[9px] text-gray-500 leading-tight line-clamp-3">Deal Maker institucional e relação com Fundos e Boards.</p>
+          <p className="text-[9px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* --- HEAD OF PRYLOM ACADEMY --- */}
+  <div className="flex flex-col items-center gap-4 p-4 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner flex-1 min-w-0">
+    <h2 className="text-[13px] font-black uppercase tracking-tighter text-center"
+        style={{
+          background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))'
+        }}>
+      HEAD OF PRYLOM ACADEMY
+    </h2>
+
+    <div className="flex items-center gap-3 w-full">
+
+      {/* Card Lidia */}
+      <div className="flex-1 min-w-0 flex items-stretch gap-3 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[130px]">
+        <div className="w-16 h-full relative overflow-hidden bg-gray-200 rounded-xl flex-shrink-0">
+          <img src={lidia} className="w-full h-full object-cover" alt="Lidia" />
+          <div className="absolute top-1.5 right-1.5 z-20">
+
+          </div>
+        </div>
+        <div className="flex flex-col justify-center py-1 overflow-hidden">
+          <p className="text-[11px] font-black uppercase truncate" style={{ color: '#bba219' }}>Lidia</p>
+          <p className="text-[9px] leading-tight text-prylom-gold font-bold uppercase mb-2">Head of Academy</p>
+          <div className="space-y-1 pt-2 border-t border-gray-100">
+            <p className="text-[9px] text-gray-600 truncate"><span className="font-bold text-[#2c5363]">Área:</span> Talentos</p>
+            <p className="text-[9px] text-gray-600 truncate"><span className="font-bold text-[#2c5363]">Foco:</span> Performance</p>
+            <p className="text-[9px] text-gray-600 truncate"><span className="font-bold text-[#2c5363]">Status:</span> Nacional</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Card Explorar */}
+      <div
+        className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer h-[130px] w-[140px] flex flex-col flex-shrink-0 group"
+        onClick={() => setShowAcademyModal(true)}
+      >
+        <div className="bg-[#2c5363] py-2 px-2 flex items-center justify-center border-b border-gray-200">
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-center"
+              style={{
+                background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>
+            Prylom Academy
+          </h2>
+        </div>
+        <div className="flex-grow flex flex-col justify-center items-center text-center p-3">
+          <span className="text-3xl mb-1 group-hover:animate-bounce">🎓</span>
+          <p className="text-[9px] font-bold text-gray-800 uppercase tracking-tighter">Hub de Conhecimento</p>
+          <p className="text-[8px] text-gray-400 mt-1 uppercase">Clique para explorar</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div className="flex flex-col items-center gap-8 w-full max-w-[1400px] mx-auto p-4">
+  
+  {/* --- BLOCO SUPERIOR: ACADEMY (Lidia + Explorar) --- */}
+  <div className="flex flex-col items-center gap-4 p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-full max-w-[700px]">
+    <h2 className="text-2xl lg:text-3xl font-black uppercase tracking-tighter text-center"
+        style={{
+          background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))'
+        }}>
+      HEAD OF PRYLOM ACADEMY
+    </h2>
+    
+    <div className="flex items-center gap-6">
+      {/* Card Lidia */}
+    <div className="w-[300px] flex items-stretch gap-4 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[160px] flex-shrink-0">
+      {/* Foto da Lidia */}
+      <div className="w-28 h-full relative overflow-hidden bg-gray-200 rounded-xl flex-shrink-0">
+        <img 
+          src={lidia} 
+          className="w-full h-full object-cover" 
+          alt="Lidia" 
+        />
+        <div className="absolute top-1.5 right-1.5 z-20">
+
+        </div>
+      </div>
+
+      {/* Informações da Lidia */}
+      <div className="flex flex-col justify-center py-1 overflow-hidden">
+        <p className="text-[13px] font-black uppercase text-[#2c5363] truncate">Lidia</p>
+        <p className="text-[10px] leading-tight text-prylom-gold font-bold uppercase mb-2">Head of Academy</p>
+        
+        <div className="space-y-1 pt-2 border-t border-gray-100">
+          <p className="text-[10px] text-gray-600 truncate">
+            <span className="font-bold text-[#2c5363]">Área:</span> Talentos
+          </p>
+          <p className="text-[10px] text-gray-600 truncate">
+            <span className="font-bold text-[#2c5363]">Foco:</span> Performance
+          </p>
+           <p className="text-[10px] text-gray-600 truncate">
+            <span className="font-bold text-[#2c5363]">Status:</span> Nacional
+          </p>
+        </div>
+      </div>
+    </div>
+
+      {/* Card Explorar */}
+         <div 
+      className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer h-[160px] w-[200px] flex flex-col flex-shrink-0 group"
+      onClick={() => setShowAcademyModal(true)} 
+    >
+      {/* Header do Card */}
+      <div className="bg-[#2c5363] py-3 px-2 flex items-center justify-center border-b border-gray-200">
+        <h2 className="text-sm font-black uppercase tracking-widest text-center"
+            style={{
+              background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+          Prylom Academy
+        </h2>
+      </div>
+
+      {/* Conteúdo Simples */}
+      <div className="flex-grow flex flex-col justify-center items-center text-center p-3">
+        <span className="text-3xl mb-1 group-hover:animate-bounce">🎓</span>
+        <p className="text-[9px] font-bold text-gray-800 uppercase tracking-tighter">Hub de Conhecimento</p>
+        <p className="text-[8px] text-gray-400 mt-1 uppercase">Clique para explorar</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+  {/* --- BLOCO INFERIOR: MESA OPERACIONAL (Jurídico + M&A) --- */}
+  <div className="flex flex-wrap justify-center items-center gap-6 p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-full">
+    
+    {/* Head Jurídico */}
+    <div className="flex flex-col items-center gap-3 flex-shrink-0">
+      <h2 className="text-[12px] font-black uppercase tracking-widest text-prylom-dark/40 text-center">Head Jurídico</h2>
+      <div className="w-[320px] flex items-stretch gap-4 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[160px]">
+        <div className="w-28 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
+          <span className="text-4xl opacity-20">⚖️</span>
+        </div>
+        <div className="flex flex-col justify-center py-1 overflow-hidden">
+          <p className="text-[13px] font-black uppercase text-[#2c5363] truncate mb-1">[Aguardando]</p>
+          <div className="space-y-1 pt-2 border-t border-gray-100">
+            <p className="text-[10px] text-gray-500 leading-tight line-clamp-3">Apoio jurídico integral à Mesa de Operações e Due Diligence.</p>
+            <p className="text-[10px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Head Operação M&A */}
+    <div className="flex flex-col items-center gap-3 flex-shrink-0">
+      <h2 className="text-[12px] font-black uppercase tracking-widest text-prylom-dark/40 text-center">Head Operação M&A</h2>
+      <div className="w-[320px] flex items-stretch gap-4 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[160px]">
+        <div className="w-28 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
+          <span className="text-3xl">🤝</span>
+        </div>
+        <div className="flex flex-col justify-center py-1 overflow-hidden">
+          <p className="text-[13px] font-black uppercase text-[#2c5363] truncate mb-1">Alice Brandão</p>
+          <div className="space-y-1 pt-2 border-t border-gray-100">
+            <p className="text-[10px] text-gray-500 leading-tight line-clamp-3">Deal Maker institucional e relação com Fundos e Boards.</p>
+            <p className="text-[10px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 
         {/* 3. Rodapé (Mantido seu original) */}
 {/* 3. Rodapé com Botão de Cadastro */}
 <div className="p-10 border-t border-gray-50 bg-gray-50/30 flex flex-col items-center gap-6">
+
   <button 
     onClick={() => setShowRegisterModal(true)}
     className="group relative px-8 py-4 bg-prylom-dark text-white rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-xl"
   >
     <div className="absolute inset-0 bg-prylom-gold translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
     <span className="relative z-10 text-[10px] font-black uppercase tracking-[0.2em] group-hover:text-prylom-dark transition-colors">
-      Cadastre-se como corretor parceiro
+      Quero ser corretor/originador Prylom
     </span>
   </button>
   
@@ -1733,183 +2040,395 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
 </section>
 
 {activeCategory === 'fazendas' && (
-  <div className="space-y-4 animate-slideUp bg-blue-50/30 p-5 rounded-[1.5rem] border border-blue-100/50">
-    <header className="flex items-center gap-3">
-      <div className="w-8 h-8 bg-prylom-dark text-white rounded-lg flex items-center justify-center shadow-md">
-        <span className="text-lg">🛡️</span>
-      </div>
-      <h4 className="text-[11px] font-black text-prylom-dark uppercase tracking-[0.15em]">
-        {t.techFiltersFarm} <span className="text-blue-600">Específicos</span>
-      </h4>
-      <div className="h-px flex-1 bg-gradient-to-r from-blue-200 to-transparent"></div>
-    </header>
+  <div style={{ fontFamily: "'Montserrat', sans-serif" }} className="animate-slideUp">
+    <div className="rounded-2xl overflow-hidden border" style={{ background: '#fff', borderColor: '#dce5ec' }}>
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-      {[
-        { 
-          id: 'Prylom Selected', 
-          title: 'Prylom selected', 
-          desc: 'Ativos premium com Dossiê Preliminar executado. Documentação primária, viabilidade de solo e valuation previamente auditados pela nossa curadoria.', 
-          color: 'border-amber-400 text-amber-900 bg-amber-50/40',
-          badge: 'bg-amber-500'
-        },
-        { 
-          id: 'Prylom Verified', 
-          title: 'Prylom Verified', 
-          desc: 'Ativos com conformidade inicial. Documentação de posse e titularidade básicas apresentadas pelos originadores em nosso sistema.', 
-          color: 'border-indigo-500 text-indigo-900 bg-indigo-50/40',
-          badge: 'bg-indigo-400'
-        },
-        { 
-          id: 'Open Market', 
-          title: 'Open Market', 
-          desc: 'Informações declaratórias. Baseado apenas em imagens e descrição fornecidas pelo proprietário, sem validação documental prévia.', 
-          color: 'border-prylom-dark text-prylom-dark bg-gray-100',
-          badge: 'bg-slate-300'
-        },
-      ].map((tipo) => {
-        const isSelected = selectedTipoAnuncio === tipo.id;
-        return (
-          <button
-            key={tipo.id}
-            onClick={() => setSelectedTipoAnuncio(prev => prev === tipo.id ? "" : tipo.id)}
-            className={`relative flex items-start gap-3 p-3.5 rounded-[1rem] border-2 transition-all duration-300 text-left min-h-[90px] group ${
-              isSelected ? `${tipo.color} shadow-sm scale-[1.01]` : 'bg-white border-gray-100 opacity-80 hover:opacity-100 shadow-sm'
-            }`}
-          >
-            <div className={`shrink-0 w-1 h-8 rounded-full mt-0.5 ${tipo.badge}`} />
-            <div className="flex flex-col gap-1 pr-4">
-              <span className="text-[10px] font-black uppercase leading-none tracking-wider">{tipo.title}</span>
-              <p className="text-[9px] font-semibold leading-tight text-gray-600">
-                {tipo.desc}
-              </p>
-            </div>
-            {isSelected && (
-              <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
-            )}
-          </button>
-        );
-      })}
-    </div>
-
-    {/* --- SEÇÃO OFF MARKET --- */}
-    {(() => {
-      const isOffMarket = selectedTipoAnuncio === 'Off Market';
-      return (
-        <div 
-          onClick={() => setSelectedTipoAnuncio(prev => prev === 'Off Market' ? "" : 'Off Market')}
-          className={`relative p-4 rounded-[1.2rem] border-2 transition-all duration-500 cursor-pointer overflow-hidden ${
-            isOffMarket 
-            ? 'border-prylom-dark bg-blue-50/50 shadow-lg scale-[1.01]' 
-            : 'border-dashed border-gray-200 bg-white/40 hover:border-gray-400'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h5 className="text-[12px] font-black text-prylom-dark flex items-center gap-2 uppercase tracking-tight">
-              🔒 Carteira Private & Off Market
-              {isOffMarket && <span className="text-[8px] bg-prylom-dark text-white px-1.5 py-0.5 rounded-full">Filtro Ativado</span>}
-            </h5>
-            <div className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border transition-all ${
-              isOffMarket ? 'bg-prylom-dark text-white border-prylom-dark' : 'bg-gray-100 text-gray-400 border-gray-200'
-            }`}>
-              {isOffMarket ? '✓ Ativado' : 'Ativar Acesso'}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-            <div className="space-y-2">
-              <p className="text-[10px] leading-snug text-gray-700">
-                <strong className="text-prylom-dark">Acesse o acervo invisível ao mercado comum.</strong> Nesta categoria encontram-se ativos de alto valor estratégico cujos proprietários exigem sigilo absoluto.
-              </p>
-              <p className="text-[10px] leading-snug text-gray-700">
-                <span className="font-bold text-prylom-dark underline decoration-blue-200 underline-offset-2">Por que acessar?</span> Oportunidades exclusivas com menor concorrência.
-              </p>
-            </div>
-
-            <div className="bg-white/60 p-3 rounded-xl border border-blue-100/50 shadow-sm flex items-center">
-              <p className="text-[9.5px] leading-tight text-gray-500 italic">
-                <span className="font-bold text-prylom-dark not-italic block mb-0.5">🛡️ Como desbloquear:</span> 
-                Acesso liberado após identificação (KYC) e assinatura de NDA.
-              </p>
-            </div>
-          </div>
+      {/* ── HEADER ── */}
+      <div className="flex items-center gap-3 px-5 py-3" style={{ background: '#2c5363' }}>
+        <span style={{ color: '#bba219', fontSize: 16, fontWeight: 900, lineHeight: 1 }}>✦</span>
+        <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+          {t.techFiltersFarm}
+        </span>
+        <div className="flex items-center gap-5 ml-auto">
+          {['Filtro Financeiros', 'Filtro de Certificação', 'Off Marketing'].map((lbl, i) => (
+            <span key={lbl} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: i === 1 ? '#bba219' : 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: '0.12em', cursor: 'pointer' }}>
+              {lbl}
+            </span>
+          ))}
         </div>
-      );
-    })()}
-
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+      </div>
       
-      {/* 1. ÁREA TOTAL */}
-      <div className="group flex flex-col gap-1.5">
-        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">📏 Área Total</label>
-        <div className="flex items-center h-[45px] bg-white border-2 border-gray-100 rounded-xl p-1 transition-all focus-within:border-prylom-gold shadow-sm">
-          <input type="text" inputMode="numeric" placeholder="Min" className="w-1/2 h-full bg-gray-50/50 rounded-lg px-2 text-[11px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
-          <span className="px-1 text-gray-300 font-bold text-[9px]">ha</span>
-          <input type="text" inputMode="numeric" placeholder="Max" className="w-1/2 h-full bg-gray-50/50 rounded-lg px-2 text-[11px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
-        </div>
-      </div>
+      
 
-      {/* 2. ÁREA PRODUTIVA */}
-      <div className="group flex flex-col gap-1.5">
-        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">🚜 Área Produtiva</label>
-        <div className="flex items-center h-[45px] bg-white border-2 border-gray-100 rounded-xl p-1 transition-all focus-within:border-prylom-gold shadow-sm">
-          <input type="text" inputMode="numeric" placeholder="Min" className="w-full h-full bg-gray-50/50 rounded-lg px-2 text-[11px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
-          <span className="px-2 text-gray-300 font-bold text-[9px]">ha</span>
-        </div>
-      </div>
+{/* GRID 1 — 9 colunas, cada campo span 1 */}
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '12px 20px 16px', borderBottom: '1px solid #eef1f5' }}>
 
-      {/* 3. ARGILA & SOLO */}
-      <div className="group flex flex-col gap-1.5">
-        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">🧬 Argila & Solo</label>
-        <div className="flex items-stretch h-[45px] bg-white border-2 border-gray-100 rounded-xl overflow-hidden transition-all focus-within:border-prylom-gold shadow-sm">
-          <select className="w-[45%] bg-transparent pl-2 text-[10px] font-bold text-prylom-dark outline-none border-r border-gray-50">
-            <option value="">Argila%</option>
-            <option value="15-25">15-25%</option>
-            <option value="25-35">25-35%</option>
-            <option value="35+">35%+</option>
-          </select>
-          <input placeholder="Aptidão" className="flex-1 bg-transparent px-2 text-[10px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
-        </div>
-      </div>
+  {/* Código */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Código</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input placeholder="Código" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
+    </div>
+  </div>
 
-      {/* 4. PLUVIOMETRIA & ALTITUDE */}
-      <div className="group flex flex-col gap-1.5">
-        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">☁️ Clima</label>
-        <div className="flex items-center h-[45px] bg-white border-2 border-gray-100 rounded-xl p-1 transition-all focus-within:border-prylom-gold shadow-sm">
-          <input placeholder="Pluvio" className="w-full h-full bg-gray-50/50 rounded-lg px-2 text-[10px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
-          <div className="w-px h-4 bg-gray-100 mx-1"></div>
-          <input placeholder="Altitude" className="w-full h-full bg-gray-50/50 rounded-lg px-2 text-[10px] font-bold text-prylom-dark outline-none placeholder:text-[12px]" />
-        </div>
-      </div>
+  {/* Transação */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Transação</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+        <option value="">Todas</option>
+        <option>Venda</option>
+        <option>Arrendamento</option>
+        <option>Parceria</option>
+      </select>
+    </div>
+  </div>
 
-      {/* 5. TOPOGRAFIA */}
-<div className="group flex flex-col gap-1.5">
-  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">
-    ⛰️ Topografia
-  </label>
-  <select 
-    className="w-full h-[45px] bg-white border-2 border-gray-100 rounded-xl px-3 text-[9px] font-bold text-prylom-dark outline-none appearance-none shadow-sm cursor-pointer"
-  >
-    {/* A primeira opção herdará o text-[9px] do select */}
-    <option value="">{t.topographyAll}</option>
-    
-    {/* Você pode tentar forçar as opções a terem um tamanho maior ao abrir, 
-        mas o padrão do sistema costuma sobrescrever isso em muitos browsers */}
-    <option value="plana" className="text-[11px]">{t.topographyFlat}</option>
-    <option value="ondulada" className="text-[11px]">{t.topographyWavy}</option>
-  </select>
+  {/* Estado */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Estado</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+        <option value="">Todos</option>
+        {['GO','MT','MS','MG','SP','BA','PR','RS','SC','TO','PA','MA','PI','RO'].map(uf => <option key={uf}>{uf}</option>)}
+      </select>
+    </div>
+  </div>
+
+  {/* Município */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Município</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input placeholder="Município" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
+    </div>
+  </div>
+
+  {/* Aptidão */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Aptidão</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+        <option value="">Todas</option>
+        <option>Soja</option><option>Milho</option><option>Cana</option>
+        <option>Café</option><option>Pecuária</option><option>Algodão</option>
+      </select>
+    </div>
+  </div>
+
+  {/* Hectares */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <div style={{ height: 18, display: 'flex', gap: 4, alignItems: 'flex-end', justifyContent: 'center' }}>
+      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 5px', borderRadius: 3, background: '#2c5363', color: '#fff' }}>Total</span>
+      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 5px', borderRadius: 3, background: '#bba219', color: '#fff' }}>Prod.</span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
+    </div>
+  </div>
+
+  {/* Preço por ha */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço por ha.</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+    </div>
+  </div>
+
+  {/* Preço área total */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço área total</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+    </div>
+  </div>
+
+  {/* Teor de Argila */}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Teor de Argila</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+    </div>
+  </div>
+
 </div>
 
-      {/* 6. DOCUMENTAÇÃO */}
-      <div className="flex items-end h-[45px]">
-        <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-white rounded-xl border-2 border-gray-100 hover:border-prylom-gold transition-all w-full shadow-sm">
-          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${docOnlyOk ? 'bg-prylom-gold border-prylom-gold' : 'border-gray-200 bg-gray-50'}`}>
-            {docOnlyOk && <div className="w-2 h-2 bg-white rounded-full" />}
-          </div>
-          <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} className="hidden" />
-          <span className="text-[9px] font-black text-prylom-dark uppercase tracking-tight">{t.docOk}</span>
-        </label>
+{/* GRID 2 — 9 colunas, spans: 2+1+2+2+1+1=9 */}
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '12px 20px 16px', borderBottom: '1px solid #eef1f5' }}>
+
+  {/* Área Total — span 2 */}
+  <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Total</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
+    </div>
+  </div>
+
+  {/* Área Produtiva — span 1 */}
+  <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Prod.</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 6px', height: '100%' }} />
+    </div>
+  </div>
+
+  {/* Argila & Solo — span 2 */}
+  <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Argila &amp; Solo</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <select value={clayContent} onChange={e => setClayContent(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '50%', padding: '0 6px', height: '100%' }}>
+        <option value="">Argila%</option>
+        <option value="15-25">15-25%</option>
+        <option value="25-35">25-35%</option>
+        <option value="35+">35%+</option>
+      </select>
+      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+      <input placeholder="Tipo solo" value={soilType} onChange={e => setSoilType(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+    </div>
+  </div>
+
+  {/* Clima — span 2 */}
+  <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Clima</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <input placeholder="Pluvio." value={minPluviometria} onChange={e => setMinPluviometria(e.target.value)} inputMode="numeric" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+      <input placeholder="Altitude" value={minAltitude} onChange={e => setMinAltitude(e.target.value)} inputMode="numeric" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+    </div>
+  </div>
+
+  {/* Topografia — span 1 */}
+  <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Topografia</span>
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+      <select value={topography} onChange={e => setTopography(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+        <option value="">{t.topographyAll}</option>
+        <option value="plana">{t.topographyFlat}</option>
+        <option value="ondulada">{t.topographyWavy}</option>
+        <option value="montanhosa">Montanhosa</option>
+      </select>
+    </div>
+  </div>
+
+  {/* Documentação — span 1 */}
+  <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Documentação</span>
+    <label style={{ display: 'flex', alignItems: 'center', gap: 7, height: 34, background: '#f0f4f7', border: `1.5px solid ${docOnlyOk ? '#bba219' : '#dce5ec'}`, borderRadius: 9, padding: '0 10px', cursor: 'pointer', transition: 'border-color .15s', width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ width: 13, height: 13, border: `2px solid ${docOnlyOk ? '#bba219' : '#cdd8e0'}`, borderRadius: 3, background: docOnlyOk ? '#bba219' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .12s' }}>
+        {docOnlyOk && <div style={{ width: 5, height: 3, borderLeft: '2px solid #fff', borderBottom: '2px solid #fff', transform: 'rotate(-45deg) translateY(-1px)' }} />}
       </div>
+      <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} style={{ display: 'none' }} />
+      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 6.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#2c5363' }}>{t.docOk}</span>
+    </label>
+  </div>
+
+</div>
+
+{/* FILTROS FINANCEIROS — título */}
+<div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
+  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#2c5363', whiteSpace: 'nowrap' }}>
+    Filtros Financeiros
+  </span>
+  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+</div>
+
+{/* GRID 3 — 9 colunas, spans: 2+2+2+2+1=9 */}
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '12px 20px 16px' }}>
+  {[
+    { lbl: 'Produtiv. saca/ha', span: 2 },
+    { lbl: 'ROI anual produção', span: 2 },
+    { lbl: 'Valorização da Terra', span: 2 },
+    { lbl: 'Payback real', span: 2 },
+    { lbl: 'Faturamento estimado', span: 1 },
+  ].map(({ lbl, span }) => (
+    <div key={lbl} style={{ gridColumn: `span ${span}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+        {lbl}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+        <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+        <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+        <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+      </div>
+    </div>
+  ))}
+</div>
+      {/* ── FILTRO DE CERTIFICAÇÃO ── */}
+<div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
+  <div style={{ flex: 3, height: 1, background: '#e2e8ef' }} />
+  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#bba219', whiteSpace: 'nowrap' }}>
+    Filtro de Certificação
+  </span>
+  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+</div>
+<div className="px-5 py-3" style={{ borderBottom: '1px solid #eef1f5' }}>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    {[
+      {
+        id: 'Prylom Selected',
+        title: 'Prylom Selected',
+        desc: 'Ativos premium com Dossiê Preliminar executado. Documentação primária, viabilidade de solo e valuation previamente auditados pela nossa curadoria.',
+        barColor: '#c9a800',
+        borderSel: '#c9a800',
+        bgSel: '#fffbe6',
+        titleColor: '#8a6e00',
+      },
+      {
+        id: 'Prylom Verified',
+        title: 'Prylom Verified',
+        desc: 'Ativos com conformidade inicial. Documentação de posse e titularidade básicas apresentadas pelos originadores em nosso sistema.',
+        barColor: '#4a58d4',
+        borderSel: '#4a58d4',
+        bgSel: '#eef0fc',
+        titleColor: '#3040b0',
+      },
+      {
+        id: 'Open Market',
+        title: 'Open Market',
+        desc: 'Informações declaratórias. Baseado apenas em imagens e descrição fornecidas pelo proprietário, sem validação documental prévia.',
+        barColor: '#1e6b82',
+        borderSel: '#1e6b82',
+        bgSel: '#e6f4f8',
+        titleColor: '#1e6b82',
+      },
+    ].map((tipo) => {
+      const isSelected = selectedTipoAnuncio === tipo.id;
+      return (
+        <button
+          key={tipo.id}
+          onClick={() => setSelectedTipoAnuncio(prev => prev === tipo.id ? "" : tipo.id)}
+          style={{
+            display: 'flex',
+            alignItems: 'stretch',
+            borderRadius: 12,
+            border: `1.5px solid ${isSelected ? tipo.borderSel : '#c8d6e0'}`,
+            background: isSelected ? tipo.bgSel : '#fff',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            minHeight: 80,
+            position: 'relative',
+            textAlign: 'left',
+            transition: 'border-color .2s, background .2s',
+            padding: 0,
+          }}
+        >
+          <div style={{ width: 5, background: tipo.barColor, flexShrink: 0 }} />
+          <div style={{ padding: '10px 12px', flex: 1 }}>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: tipo.titleColor, marginBottom: 5 }}>
+              {tipo.title}
+            </p>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 600, color: '#3d5a6b', lineHeight: 1.6, margin: 0 }}>
+              {tipo.desc}
+            </p>
+          </div>
+          {isSelected && (
+            <div style={{ position: 'absolute', top: 9, right: 9, width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+          )}
+        </button>
+      );
+    })}
+  </div>
+</div>
+
+      {/* ── OFF MARKETING ── */}
+<div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
+  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+    Off Marketing
+  </span>
+</div>
+<div className="px-5 py-3" style={{ borderBottom: '1px solid #eef1f5' }}>
+  {(() => {
+    const isOffMarket = selectedTipoAnuncio === 'Off Market';
+    return (
+      <div
+        onClick={() => setSelectedTipoAnuncio(prev => prev === 'Off Market' ? "" : 'Off Market')}
+        style={{
+          border: isOffMarket ? '1.5px solid #2c5363' : '1.5px dashed #cdd8e0',
+          borderRadius: 13,
+          padding: '14px 16px',
+          background: isOffMarket ? '#edf4f7' : '#fff',
+          cursor: 'pointer',
+          transition: 'border-color .2s, background .2s',
+        }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 900, color: '#2c5363', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+              <rect x="3" y="7" width="10" height="8" rx="2" fill="#2c5363" />
+              <path d="M5 7V5a3 3 0 016 0v2" stroke="#2c5363" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            Carteira Private &amp; Off Market
+            {isOffMarket && (
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', background: '#2c5363', color: '#fff', padding: '2px 8px', borderRadius: 20 }}>
+                Filtro Ativado
+              </span>
+            )}
+          </span>
+          <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${isOffMarket ? '#2c5363' : '#cdd8e0'}`, background: isOffMarket ? '#2c5363' : '#f0f4f7', color: isOffMarket ? '#fff' : '#94a3b8', transition: 'all .2s' }}>
+            {isOffMarket ? '✓ Ativado' : 'Ativar Acesso'}
+          </span>
+        </div>
+
+        {/* Texto corrido — sem grid de 2 colunas */}
+        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 500, color: '#4a6070', lineHeight: 1.7, marginBottom: 14 }}>
+          <strong style={{ color: '#2c5363', fontWeight: 800 }}>Acesse o acervo invisível ao mercado comum.</strong> Nesta categoria encontram-se ativos de alto valor estratégico cujos proprietários exigem sigilo absoluto (non-disclosure).<br />
+          <strong style={{ color: '#2c5363', fontWeight: 800 }}>Por que acessar?</strong> Você encontrará oportunidades exclusivas com menor concorrência de compra e negociações preservadas.<br />
+          <strong style={{ color: '#2c5363', fontWeight: 800 }}>Como desbloquear:</strong> Em conformidade com a LGPD e rigoroso Compliance, o acesso é liberado exclusivamente após identificação do investidor (KYC) e assinatura digital de NDA (Termo de Confidencialidade).
+        </div>
+
+        {/* Botão alinhado à direita */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.12em', padding: '8px 20px', borderRadius: 20, border: 'none', background: '#b0bec5', color: '#fff', cursor: 'pointer' }}
+          >
+            Saiba Mais
+          </button>
+        </div>
+      </div>
+    );
+  })()}
+</div>
+
+      {/* ── LINHA EXTRA — TÉCNICOS COMPLEMENTARES ── */}
+      {/* Área Total, Área Produtiva, Argila & Solo, Clima, Topografia, Doc OK */}
+      {/* Variáveis existentes reaproveitadas abaixo */}
+
+
+      {/* ── FOOTER ── */}
+      <div className="flex justify-end px-5 py-2" style={{ background: '#fafbfc' }}>
+        <button
+          onClick={() => {
+            // limpar todas as variáveis existentes
+            setSelectedTipoAnuncio("");
+            setDocOnlyOk(false);
+            setClayContent("");
+            setSoilType("");
+            setMinPluviometria("");
+            setMinAltitude("");
+            setTopography("");
+          }}
+          style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
+          onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
+          onMouseOut={e => (e.currentTarget.style.color = '#94a3b8')}
+        >
+          Limpar todos os filtros
+        </button>
+      </div>
+
     </div>
   </div>
 )}

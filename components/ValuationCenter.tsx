@@ -103,18 +103,41 @@ const ValuationCenter: React.FC<Props> = ({ onBack, t, lang, currency }) => {
     return { landVal, infraVal, capexTotal, leaseLiability, netValue: capexTotal - leaseLiability, confidence };
   }, [landUser, infraItems, lease, landAudit, stressScenario, auditState]);
 
-  const runAIAudit = async () => {
-    setAuditState('running');
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Act as a Prylom Senior Technical Auditor. Analyze technical risks for this valuation in ${lang}: Land ${landUser.haPrice} R$/ha, CAPEX R$ ${calcResults.capexTotal}, OPEX R$ ${calcResults.leaseLiability}. BE EXTREMELY CONCISE AND BRIEF. Use short bullet points for risk points and a 2-sentence summary. Respond strictly in language: ${lang}.`;
-      const response = await ai.models.generateContent({ model: "gemini-3-flash-preview", contents: prompt });
-      setAiReport(response.text || "OK");
-      setAuditState(landUser.haPrice > 60000 ? 'divergent' : 'validated');
-    } catch (e) {
-      setAuditState('idle');
-    }
-  };
+const runAIAudit = async () => {
+  setAuditState('running');
+  const AUDIT_WEBHOOK_URL = "https://webhook.saveautomatik.shop/webhook/auditoria";
+
+  try {
+    const payload = {
+      pricePerHa: landUser.haPrice,
+      capex: calcResults.capexTotal,
+      opex: calcResults.leaseLiability,
+      language: lang,
+      context: "Prylom Senior Technical Auditor",
+      projectData: { ...landUser, ...calcResults } // Enviando o contexto completo para análise
+    };
+
+    const res = await fetch(AUDIT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error("Falha na comunicação com o serviço de auditoria");
+
+    const data = await res.json();
+    
+    // Seguindo a mesma estrutura de retorno: { response: "..." }
+    setAiReport(data.response || "Relatório não gerado.");
+
+    // Mantendo sua lógica de validação de estado baseada no preço
+    setAuditState(landUser.haPrice > 60000 ? 'divergent' : 'validated');
+
+  } catch (e) {
+    console.error("Erro na Auditoria:", e);
+    setAuditState('idle');
+  }
+};
 
   const rates = { [AppCurrency.BRL]: 1, [AppCurrency.USD]: 0.19, [AppCurrency.CNY]: 1.42, [AppCurrency.RUB]: 18.5 };
   const formatV = (val: number) => {
@@ -356,7 +379,7 @@ const ValuationCenter: React.FC<Props> = ({ onBack, t, lang, currency }) => {
                  <div className="w-10 h-10 bg-prylom-dark text-prylom-gold rounded-xl flex items-center justify-center text-xl">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                  </div>
-                 <div><h4 className="font-black text-[#000080] uppercase text-xs">Dica da Inteligência Artificial</h4></div>
+                 <div><h4 className="font-black text-[#000080] uppercase text-xs">Dica da Prylom AI</h4></div>
               </div>
               <div className="flex-1 overflow-y-auto no-scrollbar">
                 {auditState === 'running' ? (
@@ -375,3 +398,5 @@ const ValuationCenter: React.FC<Props> = ({ onBack, t, lang, currency }) => {
 };
 
 export default ValuationCenter;
+
+
