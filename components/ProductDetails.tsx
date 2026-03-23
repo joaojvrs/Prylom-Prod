@@ -528,52 +528,98 @@ const fetchRelatedProducts = async (currentProd: any) => {
 };
 
 
-// ============================================================
-// handleDownloadPdf — HTML gerado no cliente, n8n só converte
-// Cores: #2c5363 (primária) | #bba219 (secundária) | #ffffff
-// ============================================================
 
 const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-
+ 
 const handleDownloadPdf = async () => {
   try {
     setIsGeneratingPdf(true);
-
-    // ── Imagem de capa ──────────────────────────────────────
+ 
+    // ── PASSO 1 · IP público do usuário via ipify ─────────────────────────
+    let userIp = "Indisponível";
+    try {
+      const ipRes  = await fetch("https://api.ipify.org?format=json");
+      const ipData = await ipRes.json();
+      userIp = ipData.ip ?? "Indisponível";
+    } catch {
+      // IP não crítico — não bloqueia o download
+    }
+ 
+    // ── PASSO 2 · Data e hora exata do download ───────────────────────────
+    const now         = new Date();
+    const dateStr     = now.toLocaleDateString("pt-BR");
+    const timeStr     = now.toLocaleTimeString("pt-BR", {
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+    const dateTimeStr = `${dateStr} às ${timeStr}`;
+ 
+    // ── PASSO 3 · Nome do usuário logado ──────────────────────────────────
+    const userName = user?.user_metadata?.full_name ?? user?.email ?? "Usuário Desconhecido";
+ 
+    // ── PASSO 4 · CPF/CNPJ de profiles.cpf_cnpj ──────────────────────────
+    //  Join: profiles.id = auth.users.id (Supabase padrão)
+    let userCpfCnpj = "CPF/CNPJ não cadastrado";
+    try {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("cpf_cnpj")
+        .eq("id", user?.id)
+        .single();
+ 
+      if (!error && profile?.cpf_cnpj) {
+        userCpfCnpj = profile.cpf_cnpj;
+      }
+    } catch {
+      // Continua com fallback — não bloqueia
+    }
+ 
+    // ── PASSO 5 · Hash UUID único para este dossiê ────────────────────────
+    const dossieHash = crypto.randomUUID().toUpperCase();
+ 
+    // ── PASSO 6 · Registra em dossie_logs ────────────────────────────────
+    //  Se o PDF vazar: busque o hash na tabela e saberá quem, quando e de onde
+    try {
+      await supabase.from("dossie_logs").insert({
+        hash:        dossieHash,
+        user_id:     user?.id,
+        user_name:   userName,
+        cpf_cnpj:    userCpfCnpj,
+        ip:          userIp,
+        produto_id:  String(product?.id ?? ""),
+        produto_cod: product?.codigo ?? "",
+      });
+    } catch (logError) {
+      console.warn("dossie_logs: falha ao registrar.", logError);
+    }
+ 
+    // ── PASSO 7 · Imagens e URLs ──────────────────────────────────────────
     const primaryImageObj = images.find((img) => img.ordem === 1) || images[0];
     const imageUrl = primaryImageObj?.image_url
       ? getFullImage(primaryImageObj.image_url)
       : "https://via.placeholder.com/800x400";
-
+ 
     const logoUrl =
       "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/marca-prylom.png";
-
     const qrCodeUrl =
       "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/qrcode.png";
-
-    // ── Helpers locais ──────────────────────────────────────
+ 
+    // QR de autenticidade — cartório/banco escaneia para validar
+    const validationUrl   = `https://prylom.com/validar-doc?hash=${dossieHash}`;
+    const validationQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(validationUrl)}`;
+ 
+    // ── PASSO 8 · Helpers de formatação ──────────────────────────────────
     const fmtV = (val: number) =>
       new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-        maximumFractionDigits: 0,
+        style: "currency", currency: "BRL", maximumFractionDigits: 0,
       }).format(val || 0);
-
+ 
     const fmtN = (val: number, dec = 1) =>
-      new Intl.NumberFormat("pt-BR", { maximumFractionDigits: dec }).format(
-        val || 0
-      );
-
-    // ── Meta do usuário ─────────────────────────────────────
-    const userName = user?.user_metadata?.full_name ?? user?.email ?? "--";
-    const dateStr  = new Date().toLocaleDateString("pt-BR");
-
-    // ── Valor de arrendamento — campo correto ───────────────
-    // Salvo como "valor" dentro de spec (tabela fazendas/arrendamentos)
+      new Intl.NumberFormat("pt-BR", { maximumFractionDigits: dec }).format(val || 0);
+ 
     const valorScHa: string | number =
       spec?.valor_sc_ha ?? spec?.valor ?? product?.valor ?? "--";
-
-    // ── 1. Economics HTML ───────────────────────────────────
+ 
+    // ── PASSO 9 · Economics HTML ──────────────────────────────────────────
     const economicsHtml = farmEconomics
       ? (() => {
           const isAgricola = economicsMode === "agricola";
@@ -583,9 +629,7 @@ const handleDownloadPdf = async () => {
           </div>
           <div class="eco-grid">
             <div class="eco-stats">
-              ${
-                isAgricola
-                  ? `
+              ${isAgricola ? `
                 <div class="perf-card">
                   <span class="perf-label">Produtividade Soja</span>
                   <span class="perf-val">${fmtN(farmEconomics.prodSoja)} sc/ha</span>
@@ -593,8 +637,7 @@ const handleDownloadPdf = async () => {
                 <div class="perf-card">
                   <span class="perf-label">Produtividade Milho</span>
                   <span class="perf-val">${fmtN(farmEconomics.prodMilho)} sc/ha</span>
-                </div>`
-                  : `
+                </div>` : `
                 <div class="perf-card">
                   <span class="perf-label">Produção de Carne</span>
                   <span class="perf-val">${fmtN(farmEconomics.producaoCarne)} @/ha ano</span>
@@ -602,8 +645,7 @@ const handleDownloadPdf = async () => {
                 <div class="perf-card">
                   <span class="perf-label">Capacidade / Lotação</span>
                   <span class="perf-val">${fmtN(farmEconomics.lotacao)} UA/ha</span>
-                </div>`
-              }
+                </div>`}
               <div class="perf-card perf-card--transparent">
                 <span class="perf-label">Faturamento Anual Bruto</span>
                 <span class="perf-val">${fmtV(farmEconomics.receitaBruta)}</span>
@@ -619,41 +661,34 @@ const handleDownloadPdf = async () => {
                   <span class="gold-label">✦ Lucro Líquido (Pós-Tax)</span>
                   <span class="dark-card__val dark-card__val--lg">${fmtV(farmEconomics.lucroLiquido)}</span>
                 </div>
-                ${
-                  !isLease
-                    ? `<div class="dark-card__footer">
-                        <div class="mini-card mini-card--green">
-                          <p class="mini-label">Cap Rate</p>
-                          <p class="mini-val">${fmtN(farmEconomics.roiRange?.pessimista)}% – ${fmtN(farmEconomics.roiRange?.otimista)}%</p>
-                        </div>
-                        <div class="mini-card mini-card--blue">
-                          <p class="mini-label">Payback</p>
-                          <p class="mini-val">${fmtN(farmEconomics.paybackReal)} anos</p>
-                        </div>
-                      </div>`
-                    : ""
-                }
+                ${!isLease ? `
+                  <div class="dark-card__footer">
+                    <div class="mini-card mini-card--green">
+                      <p class="mini-label">Cap Rate</p>
+                      <p class="mini-val">${fmtN(farmEconomics.roiRange?.pessimista)}% – ${fmtN(farmEconomics.roiRange?.otimista)}%</p>
+                    </div>
+                    <div class="mini-card mini-card--blue">
+                      <p class="mini-label">Payback</p>
+                      <p class="mini-val">${fmtN(farmEconomics.paybackReal)} anos</p>
+                    </div>
+                  </div>` : ""}
               </div>
             </div>
           </div>
           <p class="disclaimer">As projeções financeiras têm caráter declaratório ou baseiam-se em médias históricas regionais, não constituindo garantia de produtividade ou rentabilidade futura.</p>`;
         })()
       : "";
-
-    // ── 2. Indicadores Agrotecnológicos (arrendamento) ─────
-    const leaseTechHtml =
-      isLease && farmEconomics?.indices
-        ? `
+ 
+    // ── PASSO 10 · Indicadores Agrotecnológicos ───────────────────────────
+    const leaseTechHtml = isLease && farmEconomics?.indices ? `
       <div class="section-title" style="margin-top:28px;">💰 Economics & Indicadores Agrotecnológicos</div>
       <div class="indices-grid">
         ${[
-          { label: "Teor Médio de Argila", val: farmEconomics.indices.argila?.atual,            media: farmEconomics.indices.argila?.mediaEstado },
-          { label: "Índice Pluviométrico",  val: farmEconomics.indices.pluviometrico?.atual,      media: farmEconomics.indices.pluviometrico?.mediaEstado },
-          { label: "Índice de Altimetria",  val: farmEconomics.indices.altimetria?.atual,         media: farmEconomics.indices.altimetria?.mediaEstado },
-          { label: "Índice de Relevo",      val: farmEconomics.indices.relevo?.atual,            media: farmEconomics.indices.relevo?.mediaEstado },
-        ]
-          .map(
-            (item) => `
+          { label: "Teor Médio de Argila", val: farmEconomics.indices.argila?.atual,          media: farmEconomics.indices.argila?.mediaEstado },
+          { label: "Índice Pluviométrico",  val: farmEconomics.indices.pluviometrico?.atual,    media: farmEconomics.indices.pluviometrico?.mediaEstado },
+          { label: "Índice de Altimetria",  val: farmEconomics.indices.altimetria?.atual,       media: farmEconomics.indices.altimetria?.mediaEstado },
+          { label: "Índice de Relevo",      val: farmEconomics.indices.relevo?.atual,           media: farmEconomics.indices.relevo?.mediaEstado },
+        ].map((item) => `
           <div class="idx-card">
             <p class="idx-label">${item.label}</p>
             <div class="idx-row">
@@ -664,13 +699,111 @@ const handleDownloadPdf = async () => {
               <span class="idx-city">Média ${product.estado ?? "--"}:</span>
               <span class="idx-val">${item.media ?? "--"}</span>
             </div>
-          </div>`
-          )
-          .join("")}
-      </div>`
-        : "";
-
-    // ── HTML completo ───────────────────────────────────────
+          </div>`).join("")}
+      </div>` : "";
+ 
+    // ─────────────────────────────────────────────────────────────────────
+    // ── PASSO 11 · Paginação da descrição ────────────────────────────────
+    //
+    //  CORREÇÃO: limite reduzido de 2.800 → 1.850 caracteres por página
+    //  para evitar sobreposição do rodapé fixo com o conteúdo.
+    // ─────────────────────────────────────────────────────────────────────
+ 
+    // [CORRIGIDO] Limite de 2800 → 1850 caracteres por página
+    const CHARS_PER_DESC_PAGE = 1_850;
+ 
+    // Helper: ícone e tipo do ativo para o cabeçalho de continuação
+    const assetTitleContinuation = isGrain
+      ? `${spec?.cultura ?? "Soja"} – Grão Físico | Safra ${spec?.safra ?? "24/25"}`
+      : isPlane && spec?.fabricante
+      ? `${spec.fabricante} ${spec.modelo ?? ""}`
+      : product.titulo ?? "Dossiê do Ativo";
+ 
+    const assetTypeContinuation = isFarm
+      ? (isLease ? "Arrendamento Agrícola" : "Fazenda à Venda")
+      : isPlane   ? "Aeronave"
+      : isMachine ? "Maquinário"
+      : isGrain   ? "Grão Físico"
+      : "Ativo Rural";
+ 
+    // Função que divide o texto respeitando palavras inteiras
+    const splitTextIntoChunks = (text: string, maxChars: number): string[] => {
+      if (!text || text.length <= maxChars) return text ? [text] : [];
+      const chunks: string[] = [];
+      let remaining = text;
+      while (remaining.length > maxChars) {
+        // Tenta quebrar no último espaço/newline antes do limite
+        let cutAt = maxChars;
+        const lastSpace = remaining.lastIndexOf(" ", maxChars);
+        const lastNewline = remaining.lastIndexOf("\n", maxChars);
+        const bestCut = Math.max(lastSpace, lastNewline);
+        if (bestCut > maxChars * 0.7) cutAt = bestCut; // só usa se não for muito cedo
+        chunks.push(remaining.slice(0, cutAt).trimEnd());
+        remaining = remaining.slice(cutAt).trimStart();
+      }
+      if (remaining.length > 0) chunks.push(remaining);
+      return chunks;
+    };
+ 
+    // Template reutilizável do cabeçalho de continuação
+    const continuationHeaderHtml = `
+      <div class="continuation-header">
+        <div class="continuation-header__left">
+          <img class="continuation-header__logo" src="${logoUrl}" alt="Prylom">
+          <div class="continuation-header__divider"></div>
+          <div class="continuation-header__titles">
+            <span class="continuation-header__asset">${assetTitleContinuation}</span>
+            <span class="continuation-header__sub">
+              📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}
+              &nbsp;·&nbsp; ${assetTypeContinuation}
+            </span>
+          </div>
+        </div>
+        <div class="continuation-header__right">
+          <span class="continuation-header__badge">📄 Continuação</span>
+          <span class="continuation-header__code">CÓD: ${product.codigo ?? "--"}</span>
+        </div>
+      </div>`;
+ 
+    // Gera o HTML completo de todas as páginas de descrição
+    const descricaoPaginadaHtml = (() => {
+      if (!product.descricao) return "";
+ 
+      const chunks = splitTextIntoChunks(product.descricao, CHARS_PER_DESC_PAGE);
+      const totalPages = chunks.length;
+ 
+      return chunks.map((chunk, index) => {
+        const isFirst      = index === 0;
+        const pageLabel    = totalPages > 1
+          ? ` <span class="desc-page-counter">${index + 1}/${totalPages}</span>`
+          : "";
+ 
+        // Primeira página da descrição: sempre força quebra de página
+        // Páginas seguintes: também forçam quebra + repetem cabeçalho
+        return `
+          <div class="page-break">
+            ${continuationHeaderHtml}
+ 
+            <div class="desc-header">
+              <span class="desc-header-title">
+                📄 ${isFirst ? "Descrição Comercial e Observações" : "Descrição (continuação)"}
+                ${pageLabel}
+              </span>
+              <span class="desc-header-note">Informações declaratórias, fornecidas pelo originador.</span>
+            </div>
+ 
+            <div class="desc-box ${isFirst ? "desc-box--first" : "desc-box--continuation"}">
+              ${isFirst ? `<span class="desc-open-quote">"</span>` : ""}
+              <p class="desc-text">${chunk}</p>
+              ${index === totalPages - 1 ? `<span class="desc-close-quote">"</span>` : ""}
+            </div>
+          </div>`;
+      }).join("\n");
+    })();
+ 
+    // ─────────────────────────────────────────────────────────────────────
+    // ── HTML FINAL ────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     const htmlContent = `<!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -680,33 +813,74 @@ const handleDownloadPdf = async () => {
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      color: #2c5363;
-      background: #ffffff;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      color: #2c5363; background: #ffffff;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
     }
-    .watermark {
-      position: fixed; top: 25%; left: 8%;
-      width: 84%; opacity: 0.70;
+ 
+    /* ── Logo Prylom como fundo (marca d'água visível) ── */
+    .watermark-logo {
+      position: fixed; top: 28%; left: 8%;
+      width: 84%; opacity: 0.26;
       transform: rotate(-32deg);
       pointer-events: none; z-index: 0;
     }
+ 
+    /* ════════════════════════════════════════════════════════════════
+       MARCA D'ÁGUA DE SEGURANÇA — MODO STEALTH
+       [CORRIGIDO] Centralizada verticalmente em cada página.
+       left: 50% com transform para centralização horizontal real.
+       Opacidade 0.07 — praticamente invisível, não é cortada por nada.
+    ════════════════════════════════════════════════════════════════ */
+    .watermark-security {
+      position: fixed;
+      top: 50%;
+      left: 2px;
+      transform: translateY(-50%);
+      width: 10px;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.07;
+      overflow: hidden;
+    }
+    .watermark-security__inner {
+      display: block;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .wm-line {
+      font-size: 5px;
+      font-weight: 700;
+      color: #1a3340;
+      font-family: 'Courier New', Courier, monospace;
+      letter-spacing: 0.05em;
+      display: inline;
+    }
+    .wm-sep {
+      font-size: 5px;
+      color: #bba219;
+      font-family: 'Courier New', Courier, monospace;
+      margin: 0 4px;
+      display: inline;
+    }
+ 
+    /* ── Barra lateral ── */
     .sidebar {
       position: fixed; top: 0; right: 0;
       width: 22px; height: 100%;
-      background: #2c5363;
-      border-left: 2px solid #bba219;
-      writing-mode: vertical-rl;
-      text-align: center;
-      font-size: 6px; font-weight: 900;
-      padding: 24px 0; z-index: 200;
-      letter-spacing: 2px; text-transform: uppercase;
-      color: rgba(255,255,255,0.5);
+      background: #2c5363; border-left: 3px solid #bba219;
+      writing-mode: vertical-rl; text-align: center;
+      font-size: 6px; font-weight: 900; padding: 24px 0;
+      z-index: 200; letter-spacing: 2px;
+      text-transform: uppercase; color: rgba(255,255,255,0.5);
     }
+ 
+    /* ── QR de acesso online (canto superior) ── */
     .page-header {
       position: fixed; top: 0; right: 22px;
-      width: 58px; padding: 6px;
-      z-index: 150;
+      width: 58px; padding: 6px; z-index: 150;
       display: flex; flex-direction: column;
       align-items: center; gap: 3px;
     }
@@ -719,31 +893,66 @@ const handleDownloadPdf = async () => {
       font-size: 5px; font-weight: 900; color: #94a3b8;
       text-transform: uppercase; letter-spacing: 0.12em; text-align: center;
     }
+ 
+    /* ════════════════════════════════════════════════════════════════
+       RODAPÉ FIXO — 3 camadas
+    ════════════════════════════════════════════════════════════════ */
     .page-footer {
       position: fixed; bottom: 0; left: 0;
       width: calc(100% - 22px);
-      background: #eaf0f3;
-      border-top: 2px solid #bba219;
-      padding: 8px 20px 7px;
-      z-index: 150;
+      background: #eaf0f3; border-top: 2px solid #bba219;
+      padding: 7px 20px 6px; z-index: 150;
     }
     .page-footer__legal {
-      font-size: 7px; color: #2c5363;
-      line-height: 1.6; text-align: center;
+      font-size: 7px; color: #2c5363; line-height: 1.6; text-align: center;
     }
     .page-footer__legal strong { font-weight: 900; color: #1a3340; }
     .page-footer__sep { margin: 0 6px; color: #bba219; font-weight: 900; }
-    .page-footer__meta {
-      font-size: 6.5px; color: #4a7585;
-      text-align: center; margin-top: 4px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.1em;
+ 
+    .page-footer__hash {
+      font-size: 5.8px; color: #94a3b8;
+      font-family: 'Courier New', Courier, monospace;
+      text-align: center; margin-top: 3px; letter-spacing: 0.1em;
+      border-top: 1px solid rgba(44,83,99,0.10); padding-top: 3px;
+    }
+    .page-footer__hash strong { color: #7a9baa; font-weight: 700; }
+ 
+    .page-footer__bottom {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-top: 4px; gap: 12px;
       border-top: 1px solid rgba(44,83,99,0.12); padding-top: 4px;
     }
-    .page-footer__meta strong { color: #2c5363; }
-    .container {
-      padding: 70px 42px 64px 36px;
-      position: relative; z-index: 10;
+    .page-footer__meta {
+      font-size: 6px; color: #4a7585; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      flex: 1; line-height: 1.7;
     }
+    .page-footer__meta strong { color: #2c5363; }
+    .page-footer__auth { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .page-footer__auth-qr {
+      width: 32px; height: 32px;
+      border: 1px solid #dce6ea; border-radius: 4px;
+      padding: 1px; background: #ffffff;
+    }
+    .page-footer__auth-info { display: flex; flex-direction: column; gap: 2px; }
+    .page-footer__auth-label {
+      font-size: 6px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .page-footer__auth-url {
+      font-size: 5px; color: #94a3b8;
+      letter-spacing: 0.04em; word-break: break-all; max-width: 90px;
+    }
+ 
+    /* ── Container ── */
+    .container {
+      padding: 74px 42px 110px 36px;
+      position: relative; z-index: 10;
+      border-top: 3px solid #bba219;
+    }
+ 
+    /* ── Identidade do ativo ── */
     .asset-identity {
       display: flex; justify-content: space-between;
       align-items: flex-start; gap: 20px;
@@ -793,20 +1002,26 @@ const handleDownloadPdf = async () => {
       font-size: 7.5px; font-weight: 900; color: #7a9baa;
       text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 5px;
     }
-    .price-val { font-size: 26px; font-weight: 900; color: #2c5363; line-height: 1; }
-    .price-per-ha { font-size: 10px; font-weight: 900; color: #94a3b8; margin-top: 5px; }
+    .price-val       { font-size: 26px; font-weight: 900; color: #2c5363; line-height: 1; }
+    .price-per-ha    { font-size: 10px; font-weight: 900; color: #94a3b8; margin-top: 5px; }
     .price-lease-qty { font-size: 10px; font-weight: 900; color: #bba219; margin-top: 5px; }
+ 
+    /* ── Imagem principal ── */
     .asset-img {
       width: 100%; height: 228px; border-radius: 22px;
       object-fit: cover; margin-bottom: 22px;
       border: 1px solid #dce6ea; display: block;
+      page-break-inside: avoid; break-inside: avoid;
     }
+ 
+    /* ── Títulos de seção ── */
     .section-title {
       font-size: 9.5px; font-weight: 900; color: #2c5363;
       text-transform: uppercase; letter-spacing: 0.18em;
       margin: 20px 0 12px;
       border-left: 3px solid #bba219; padding-left: 10px;
       display: flex; align-items: center; gap: 10px;
+      page-break-after: avoid; break-after: avoid;
     }
     .mode-badge {
       font-size: 7px; font-weight: 700;
@@ -814,8 +1029,13 @@ const handleDownloadPdf = async () => {
       padding: 3px 9px; border-radius: 20px;
       border: 1px solid rgba(187,162,25,0.25); letter-spacing: 0.08em;
     }
-    .eco-grid { display: flex; gap: 18px; margin-bottom: 8px; align-items: flex-start; }
-    .eco-stats { flex: 1.6; display: flex; flex-direction: column; gap: 9px; }
+ 
+    /* ── Economics ── */
+    .eco-grid {
+      display: flex; gap: 18px; margin-bottom: 8px; align-items: flex-start;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    .eco-stats     { flex: 1.6; display: flex; flex-direction: column; gap: 9px; }
     .eco-highlight { flex: 1; }
     .perf-card {
       background: #f0f5f7; padding: 11px 15px;
@@ -827,8 +1047,7 @@ const handleDownloadPdf = async () => {
     .perf-val   { font-size: 13px; font-weight: 900; color: #2c5363; }
     .dark-card {
       background: #2c5363; color: #ffffff;
-      padding: 18px; border-radius: 20px;
-      display: flex; flex-direction: column;
+      padding: 18px; border-radius: 20px; display: flex; flex-direction: column;
     }
     .dark-card__block { padding: 0 0 12px; }
     .dark-card__block--border { border-top: 1px solid rgba(255,255,255,0.12); padding: 12px 0 0; }
@@ -843,7 +1062,7 @@ const handleDownloadPdf = async () => {
       display: flex; gap: 7px; margin-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.12); padding-top: 12px;
     }
-    .mini-card { flex: 1; padding: 9px 11px; border-radius: 11px; }
+    .mini-card       { flex: 1; padding: 9px 11px; border-radius: 11px; }
     .mini-card--green { background: rgba(34,197,94,0.12); }
     .mini-card--blue  { background: rgba(255,255,255,0.08); }
     .mini-label { font-size: 6px; font-weight: 900; color: #bba219; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 3px; }
@@ -852,9 +1071,12 @@ const handleDownloadPdf = async () => {
       font-size: 7px; color: #7a9baa; font-style: italic;
       line-height: 1.5; margin-top: 12px; padding: 0 2px;
     }
+ 
+    /* ── Índices ── */
     .indices-grid {
       display: grid; grid-template-columns: repeat(4, 1fr);
       gap: 12px; margin-bottom: 22px;
+      page-break-inside: avoid; break-inside: avoid;
     }
     .idx-card { background: #ffffff; border: 1px solid #dce6ea; border-radius: 16px; padding: 14px; }
     .idx-label {
@@ -862,33 +1084,136 @@ const handleDownloadPdf = async () => {
       text-transform: uppercase; letter-spacing: 0.1em;
       margin-bottom: 9px; line-height: 1.4;
     }
-    .idx-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .idx-row       { display: flex; justify-content: space-between; margin-bottom: 5px; }
     .idx-row--faded { opacity: 0.45; border-top: 1px solid #e8eef1; padding-top: 5px; margin-top: 5px; }
     .idx-city { font-size: 7px; font-weight: 900; color: #2c5363; text-transform: uppercase; opacity: 0.6; }
     .idx-val  { font-size: 8.5px; font-weight: 700; color: #2c5363; }
+ 
+    /* ── Specs ── */
     .specs-grid {
       display: grid; grid-template-columns: repeat(5, 1fr);
       gap: 12px; background: #ffffff;
       border: 1px solid #dce6ea; padding: 16px 20px;
       border-radius: 18px; margin-bottom: 22px;
+      page-break-inside: avoid; break-inside: avoid;
     }
     .spec-box { display: flex; flex-direction: column; }
     .s-lab { font-size: 6px; font-weight: 900; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
     .s-val { font-size: 9.5px; font-weight: 900; color: #2c5363; text-transform: uppercase; }
-    .desc-wrapper { page-break-before: always; padding-top: 10px; }
+ 
+    /* ── Quebra de página ── */
+    .page-break {
+      page-break-before: always;
+      break-before: always;
+      padding-top: 0;
+    }
+ 
+    /* ── Cabeçalho de continuação ── */
+    .continuation-header {
+      width: 100%;
+      background: #1a3340;
+      border-bottom: 3px solid #bba219;
+      padding: 11px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: 0 0 14px 14px;
+      margin-bottom: 22px;
+    }
+    .continuation-header__left {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .continuation-header__logo {
+      height: 20px; width: auto; opacity: 0.90;
+      filter: brightness(0) invert(1);
+    }
+    .continuation-header__divider {
+      width: 1px; height: 24px;
+      background: rgba(187,162,25,0.5);
+    }
+    .continuation-header__titles { display: flex; flex-direction: column; gap: 2px; }
+    .continuation-header__asset {
+      font-size: 9px; font-weight: 900; color: #ffffff;
+      text-transform: uppercase; letter-spacing: 0.12em; line-height: 1.2;
+    }
+    .continuation-header__sub {
+      font-size: 6.5px; font-weight: 700; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.14em;
+    }
+    .continuation-header__right {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .continuation-header__badge {
+      font-size: 6.5px; font-weight: 900;
+      background: rgba(187,162,25,0.15);
+      color: #bba219;
+      border: 1px solid rgba(187,162,25,0.35);
+      padding: 4px 10px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .continuation-header__code {
+      font-size: 6px; font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.12em;
+    }
+ 
+    /* ── Descrição comercial ── */
     .desc-header {
-      display: flex; justify-content: space-between;
-      align-items: center; margin-bottom: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+      page-break-after: avoid; break-after: avoid;
     }
     .desc-header-title {
       font-size: 9.5px; font-weight: 900; color: #bba219;
       text-transform: uppercase; letter-spacing: 0.18em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .desc-page-counter {
+      font-size: 7px; font-weight: 700;
+      background: rgba(187,162,25,0.12);
+      color: #bba219; border: 1px solid rgba(187,162,25,0.3);
+      padding: 2px 7px; border-radius: 20px;
+      letter-spacing: 0.08em; font-style: normal;
     }
     .desc-header-note { font-size: 6.5px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; }
+ 
+    /*
+      ══ CAIXA DA DESCRIÇÃO ══════════════════════════════════════════
+      [CORRIGIDO] desc-box (primeira página) agora também recebe
+      border-left dourada, igual à classe desc-box--continuation.
+      border-top mantida como acento superior distintivo.
+    ══════════════════════════════════════════════════════════════════ */
     .desc-box {
-      background: rgba(44,83,99,0.03); border: 1px solid #dce6ea;
-      border-radius: 16px; padding: 22px 30px;
+      background: rgba(44,83,99,0.03);
+      border: 1px solid #dce6ea;
+      border-left: 3px solid #bba219; /* [CORRIGIDO] linha dourada na lateral esquerda */
+      border-radius: 16px;
+      padding: 22px 30px 18px;
+      position: relative;
     }
+ 
+    /* Versão continuação: mantém apenas borda esquerda dourada */
+    .desc-box--continuation {
+      background: rgba(44,83,99,0.025);
+      border: 1px solid #dce6ea;
+      border-left: 3px solid #bba219;
+      border-radius: 0 16px 16px 16px;
+      padding: 18px 30px;
+    }
+ 
+    /* Aspas ornamentais */
+    .desc-open-quote,
+    .desc-close-quote {
+      font-size: 52px; font-weight: 900;
+      color: rgba(187,162,25,0.18);
+      font-family: Georgia, serif;
+      line-height: 1; display: block;
+      user-select: none;
+    }
+    .desc-open-quote  { margin-bottom: -16px; margin-left: -4px; }
+    .desc-close-quote { text-align: right; margin-top: -10px; margin-right: -4px; }
+ 
     .desc-text {
       font-size: 13px; line-height: 1.78; color: #1e3a46;
       text-align: justify; white-space: pre-wrap;
@@ -897,16 +1222,31 @@ const handleDownloadPdf = async () => {
   </style>
 </head>
 <body>
-
-  <img class="watermark" src="${logoUrl}" alt="">
-
-  <div class="sidebar">Dossiê gerado para: ${userName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Protocolo de Segurança Prylom Asset Management © 2026</div>
-
+ 
+  <!-- Logo como fundo (muito sutil) -->
+  <img class="watermark-logo" src="${logoUrl}" alt="">
+ 
+  <!--
+    ══ MARCA D'ÁGUA STEALTH ═════════════════════════════════════════
+    [CORRIGIDO] Centralizada em cada página com top:50% / left:50%
+    e transform: translate(-50%, -50%).
+    ═════════════════════════════════════════════════════════════════
+  -->
+  <div class="watermark-security">
+    <div class="watermark-security__inner">
+      <span class="wm-line">PRYLOM · CONFIDENCIAL</span><span class="wm-sep">·</span><span class="wm-line">DESTINATÁRIO: ${userName}</span><span class="wm-sep">·</span><span class="wm-line">CPF/CNPJ: ${userCpfCnpj}</span><span class="wm-sep">·</span><span class="wm-line">IP: ${userIp}</span><span class="wm-sep">·</span><span class="wm-line">${dateTimeStr}</span><span class="wm-sep">·</span><span class="wm-line">HASH: ${dossieHash}</span><span class="wm-sep">·</span><span class="wm-line">USO EXCLUSIVO DO DESTINATÁRIO</span>
+    </div>
+  </div>
+ 
+  <div class="sidebar">
+    Dossiê gerado para: ${userName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Protocolo de Segurança Prylom Asset Management © 2026
+  </div>
+ 
   <div class="page-header">
     <img class="page-header__qr" src="${qrCodeUrl}" alt="QR Code">
     <span class="page-header__qr-label">Acesse online</span>
   </div>
-
+ 
   <div class="page-footer">
     <div class="page-footer__legal">
       Sujeito aos Termos de Uso e Limitações de Responsabilidade aceitos na plataforma. Dados declaratórios e simulações não auditadas.
@@ -915,40 +1255,58 @@ const handleDownloadPdf = async () => {
       <span class="page-footer__sep">|</span>
       <strong>COAF:</strong> Todas as operações seguem a Lei nº 9.613/98 (Prevenção à Lavagem de Dinheiro).
     </div>
-    <div class="page-footer__meta">
-      Dossiê gerado para: <strong>${userName}</strong> &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Protocolo de Segurança Prylom Asset Management © 2026
+ 
+    <div class="page-footer__hash">
+      <strong>RASTREIO:</strong> ${dossieHash}
+      &nbsp;·&nbsp; ${dateTimeStr}
+      &nbsp;·&nbsp; IP: ${userIp}
+      &nbsp;·&nbsp; ${userName} · ${userCpfCnpj}
+    </div>
+ 
+    <div class="page-footer__bottom">
+      <div class="page-footer__meta">
+        Emitido exclusivamente para: <strong>${userName}</strong>
+        &nbsp;·&nbsp; CPF/CNPJ: <strong>${userCpfCnpj}</strong>
+        &nbsp;·&nbsp; ${dateTimeStr}
+        &nbsp;·&nbsp; © 2026 Prylom Asset Management
+      </div>
+      <div class="page-footer__auth">
+        <img class="page-footer__auth-qr" src="${validationQrUrl}" alt="Validar autenticidade">
+        <div class="page-footer__auth-info">
+          <span class="page-footer__auth-label">✦ Autenticidade Verificável</span>
+          <span class="page-footer__auth-url">${validationUrl}</span>
+        </div>
+      </div>
     </div>
   </div>
-
+ 
   <div class="container">
-
+ 
     <div class="asset-identity">
       <div class="asset-identity__left">
         <div class="badge-row">
           <span class="badge badge-dark">
-            ${
-              isFarm
-                ? "🌾 " + (isLease ? "Arrendamento Agrícola" : "Fazenda à Venda")
-                : isPlane   ? "🛩️ Aeronave"
-                : isMachine ? "🚜 Maquinário"
-                : isGrain   ? "🌾 Grão Físico"
-                : "Ativo Rural"
-            }
+            ${isFarm
+              ? "🌾 " + (isLease ? "Arrendamento Agrícola" : "Fazenda à Venda")
+              : isPlane   ? "🛩️ Aeronave"
+              : isMachine ? "🚜 Maquinário"
+              : isGrain   ? "🌾 Grão Físico"
+              : "Ativo Rural"}
           </span>
-          ${
-            spec?.relevancia_anuncio
-              ? `<span class="badge ${
-                  spec.relevancia_anuncio === "Prylom Selected" ? "badge-selected"
-                  : spec.relevancia_anuncio === "Prylom Verified" ? "badge-verified"
-                  : "badge-open"
-                }">
-                ${spec.relevancia_anuncio === "Prylom Selected" ? "✦ " : spec.relevancia_anuncio === "Prylom Verified" ? "✓ " : ""}${spec.relevancia_anuncio}
-              </span>`
-              : ""
-          }
-          ${spec?.corretor?.creci ? `<span class="badge badge-creci">🛡 Supervisão: CRECI ${spec.corretor.creci}</span>` : ""}
+          ${spec?.relevancia_anuncio ? `
+            <span class="badge ${
+              spec.relevancia_anuncio === "Prylom Selected" ? "badge-selected"
+              : spec.relevancia_anuncio === "Prylom Verified" ? "badge-verified"
+              : "badge-open"
+            }">
+              ${spec.relevancia_anuncio === "Prylom Selected" ? "✦ "
+                : spec.relevancia_anuncio === "Prylom Verified" ? "✓ "
+                : ""}${spec.relevancia_anuncio}
+            </span>` : ""}
+          ${spec?.corretor?.creci
+            ? `<span class="badge badge-creci">🛡 Supervisão: CRECI ${spec.corretor.creci}</span>`
+            : ""}
         </div>
-
         <div class="location">📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}</div>
         <h1>${
           isGrain
@@ -957,7 +1315,6 @@ const handleDownloadPdf = async () => {
             ? `${spec.fabricante} ${spec.modelo ?? ""}`
             : product.titulo ?? "Dossiê do Ativo"
         }</h1>
-
         <div class="meta-row">
           <span class="codigo-tag">Código: ${product.codigo ?? "--"}</span>
           <div class="status-row">
@@ -971,7 +1328,7 @@ const handleDownloadPdf = async () => {
           </div>
         </div>
       </div>
-
+ 
       <div class="asset-identity__right">
         <div class="price-label">${
           isGrain ? "Valor Total do Lote"
@@ -985,30 +1342,29 @@ const handleDownloadPdf = async () => {
             ? `${fmtN(spec?.area_total_ha ?? 0)} ha`
             : fmtV(product.valor)
         }</div>
-        ${
-          isLease
-            // ── Valor corrigido: lê spec.valor_sc_ha → spec.valor → product.valor
-            ? `<div class="price-lease-qty">Pedido: ${valorScHa} Sc Soja/ha</div>`
-            : isGrain
-            ? `<div class="price-per-ha">${fmtV(product.valor ?? 0)} / t</div>`
-            : spec?.area_total_ha && product.valor
-            ? `<div class="price-per-ha">${fmtN(product.valor / spec.area_total_ha, 0)} / ha</div>`
-            : ""
-        }
+        ${isLease
+          ? `<div class="price-lease-qty">Pedido: ${valorScHa} Sc Soja/ha</div>`
+          : isGrain
+          ? `<div class="price-per-ha">${fmtV(product.valor ?? 0)} / t</div>`
+          : spec?.area_total_ha && product.valor
+          ? `<div class="price-per-ha">${fmtN(product.valor / spec.area_total_ha, 0)} / ha</div>`
+          : ""}
       </div>
     </div>
-
+ 
     <img class="asset-img" src="${imageUrl}" alt="${product.titulo ?? "Ativo"}">
-
+ 
     ${economicsHtml}
     ${leaseTechHtml}
-
+ 
     <div class="section-title">
-      ${isFarm ? "🌱 Características Técnicas da Área" : isPlane ? "📋 Dossiê Técnico" : isGrain ? "🌾 Especificações de Lote" : "⚙️ Dados Técnicos"}
+      ${isFarm ? "🌱 Características Técnicas da Área"
+        : isPlane ? "📋 Dossiê Técnico"
+        : isGrain ? "🌾 Especificações de Lote"
+        : "⚙️ Dados Técnicos"}
     </div>
     <div class="specs-grid">
-      ${
-        isFarm ? `
+      ${isFarm ? `
         <div class="spec-box"><span class="s-lab">Área Total</span><span class="s-val">${fmtN(spec?.area_total_ha ?? 0, 2)} ha</span></div>
         <div class="spec-box"><span class="s-lab">Área Produtiva</span><span class="s-val">${fmtN(spec?.area_produtiva ?? 0, 2)} ha</span></div>
         <div class="spec-box"><span class="s-lab">Aptidão</span><span class="s-val">${spec?.aptidao ?? "--"}</span></div>
@@ -1019,41 +1375,28 @@ const handleDownloadPdf = async () => {
         <div class="spec-box"><span class="s-lab">Asfalto / Cidade</span><span class="s-val">${spec?.km_asfalto ? spec.km_asfalto + " km" : "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Reserva Legal</span><span class="s-val">${spec?.reserva_legal ?? "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Estuda Permuta</span><span class="s-val">${spec?.permuta ?? "Não"}</span></div>`
-        : isPlane ? `
+      : isPlane ? `
         <div class="spec-box"><span class="s-lab">Fabricante</span><span class="s-val">${spec?.fabricante ?? "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Modelo</span><span class="s-val">${spec?.modelo ?? "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Ano</span><span class="s-val">${spec?.ano ?? "--"}</span></div>
         <div class="spec-box"><span class="s-lab">TTAF</span><span class="s-val">${spec?.horas_voo ?? "--"} h</span></div>
         <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
-        : isGrain ? `
+      : isGrain ? `
         <div class="spec-box"><span class="s-lab">Cultura</span><span class="s-val">${spec?.cultura ?? "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Safra</span><span class="s-val">${spec?.safra ?? "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Volume</span><span class="s-val">${fmtN(spec?.estoque_toneladas ?? 0, 0)} t</span></div>
         <div class="spec-box"><span class="s-lab">Qualidade</span><span class="s-val">${spec?.qualidade ?? "Exportação"}</span></div>
         <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
-        : `<div class="spec-box"><span class="s-val" style="opacity:.4">Dados sob consulta.</span></div>`
-      }
+      : `<div class="spec-box"><span class="s-val" style="opacity:.4">Dados sob consulta.</span></div>`}
     </div>
-
-    ${
-      product.descricao
-        ? `<div class="desc-wrapper">
-          <div class="desc-header">
-            <span class="desc-header-title">📄 Descrição Comercial e Observações</span>
-            <span class="desc-header-note">Informações declaratórias, fornecidas pelo originador.</span>
-          </div>
-          <div class="desc-box">
-            <p class="desc-text">"${product.descricao}"</p>
-          </div>
-        </div>`
-        : ""
-    }
-
+ 
+    ${descricaoPaginadaHtml}
+ 
   </div>
 </body>
 </html>`;
-
-    // ── Envia o HTML; n8n retorna texto com a URL do PDF ────
+ 
+    // ── Envia HTML → webhook → PDF ────────────────────────────────────────
     const response = await fetch(
       "https://webhook.saveautomatik.shop/webhook/gerarPDF",
       {
@@ -1062,32 +1405,916 @@ const handleDownloadPdf = async () => {
         body: JSON.stringify({ html: htmlContent }),
       }
     );
-
+ 
     if (!response.ok) throw new Error("Falha ao gerar dossiê");
-
-    // n8n retorna texto puro com a URL do PDF gerado
+ 
     const pdfUrl = (await response.text()).trim();
-
+ 
     if (!pdfUrl || !pdfUrl.startsWith("http")) {
       throw new Error("URL do PDF inválida retornada pelo servidor.");
     }
-
-    // ── Dispara o download imediatamente para o usuário ─────
+ 
     const link = document.createElement("a");
     link.href = pdfUrl;
     link.setAttribute("download", `Dossie_Prylom_${product?.codigo}.pdf`);
-    link.setAttribute("target", "_blank"); // fallback caso download seja bloqueado por CORS
+    link.setAttribute("target", "_blank");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
+ 
   } catch (error) {
-    console.error("Erro:", error);
+    console.error("Erro ao gerar dossiê:", error);
     alert("Erro ao gerar documento. Tente novamente.");
   } finally {
     setIsGeneratingPdf(false);
   }
 };
+
+const [isGeneratingPdfEn, setIsGeneratingPdfEn] = useState(false);
+ 
+const handleDownloadPdfEn = async () => {
+  try {
+    setIsGeneratingPdfEn(true);
+ 
+    // ── STEP 1 · User public IP via ipify ────────────────────────────────
+    let userIp = "Unavailable";
+    try {
+      const ipRes  = await fetch("https://api.ipify.org?format=json");
+      const ipData = await ipRes.json();
+      userIp = ipData.ip ?? "Unavailable";
+    } catch {
+      // Non-critical — does not block download
+    }
+ 
+    // ── STEP 2 · Exact download timestamp (en-US) ────────────────────────
+    const now         = new Date();
+    const dateStr     = now.toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric",
+    });
+    const timeStr     = now.toLocaleTimeString("en-US", {
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+    const dateTimeStr = `${dateStr} at ${timeStr}`;
+ 
+    // ── STEP 3 · Logged-in user name ─────────────────────────────────────
+    const userName = user?.user_metadata?.full_name ?? user?.email ?? "Unknown User";
+ 
+    // ── STEP 4 · CPF/CNPJ from profiles ─────────────────────────────────
+    let userCpfCnpj = "Tax ID not registered";
+    try {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("cpf_cnpj")
+        .eq("id", user?.id)
+        .single();
+      if (!error && profile?.cpf_cnpj) {
+        userCpfCnpj = profile.cpf_cnpj;
+      }
+    } catch {
+      // Continues with fallback — does not block
+    }
+ 
+    // ── STEP 5 · Unique UUID hash for this dossier ───────────────────────
+    const dossieHash = crypto.randomUUID().toUpperCase();
+ 
+    // ── STEP 6 · Log in dossie_logs ──────────────────────────────────────
+    try {
+      await supabase.from("dossie_logs").insert({
+        hash:        dossieHash,
+        user_id:     user?.id,
+        user_name:   userName,
+        cpf_cnpj:    userCpfCnpj,
+        ip:          userIp,
+        produto_id:  String(product?.id ?? ""),
+        produto_cod: product?.codigo ?? "",
+        lang:        "en",
+      });
+    } catch (logError) {
+      console.warn("dossie_logs: failed to register.", logError);
+    }
+ 
+    // ── STEP 7 · Images & URLs ───────────────────────────────────────────
+    const primaryImageObj = images.find((img) => img.ordem === 1) || images[0];
+    const imageUrl = primaryImageObj?.image_url
+      ? getFullImage(primaryImageObj.image_url)
+      : "https://via.placeholder.com/800x400";
+ 
+    const logoUrl =
+      "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/marca-prylom.png";
+    const qrCodeUrl =
+      "https://fqvfwnxfsswbggkzetre.supabase.co/storage/v1/object/public/produtos/Logo/qrcode.png";
+ 
+    const validationUrl   = `https://prylom.com/validate-doc?hash=${dossieHash}`;
+    const validationQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(validationUrl)}`;
+ 
+    // ── STEP 8 · Live BRL → USD exchange rate ────────────────────────────
+    // Uses open.er-api.com (free tier, no API key required)
+    // Falls back to 5.0 if unreachable
+    let brlToUsd = 1 / 5.0; // fallback
+    try {
+      const fxRes  = await fetch("https://open.er-api.com/v6/latest/BRL");
+      const fxData = await fxRes.json();
+      if (fxData?.rates?.USD) brlToUsd = fxData.rates.USD;
+    } catch {
+      // Fallback silently
+    }
+ 
+    // ── STEP 9 · Format helpers (USD, en-US numbers) ─────────────────────
+    const fmtV = (val: number) =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency", currency: "USD", maximumFractionDigits: 0,
+      }).format((val || 0) * brlToUsd);
+ 
+    // fmtVBrl kept for sc/ha lease values that stay in BRL by convention
+    const fmtVBrl = (val: number) =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency", currency: "BRL", maximumFractionDigits: 0,
+      }).format(val || 0);
+ 
+    const fmtN = (val: number, dec = 1) =>
+      new Intl.NumberFormat("en-US", { maximumFractionDigits: dec }).format(val || 0);
+ 
+    const valorScHa: string | number =
+      spec?.valor_sc_ha ?? spec?.valor ?? product?.valor ?? "--";
+ 
+    // ── STEP 10 · Auto-translate dynamic fields via Claude API ───────────
+    // We batch titulo + descricao in a single call to save latency.
+    // Returns { titulo, descricao } — falls back to originals on error.
+    let titleEn   = product?.titulo   ?? "Asset Dossier";
+    let descricaoEn = product?.descricao ?? "";
+ 
+    const textsToTranslate: Record<string, string> = {};
+    if (product?.titulo)    textsToTranslate.titulo    = product.titulo;
+    if (product?.descricao) textsToTranslate.descricao = product.descricao;
+ 
+    if (Object.keys(textsToTranslate).length > 0) {
+      try {
+        const translateRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 2000,
+            messages: [
+              {
+                role: "user",
+                content: `You are a professional translator specializing in Brazilian agribusiness and rural real estate.
+Translate the following fields from Brazilian Portuguese to English.
+Preserve technical terms, property names, city/state names as-is.
+Respond ONLY with a valid JSON object — no markdown, no preamble.
+Format: { "titulo": "...", "descricao": "..." }
+ 
+Fields to translate:
+${JSON.stringify(textsToTranslate, null, 2)}`,
+              },
+            ],
+          }),
+        });
+ 
+        const translateData = await translateRes.json();
+        const raw = translateData?.content
+          ?.filter((b: { type: string }) => b.type === "text")
+          ?.map((b: { text: string }) => b.text)
+          ?.join("") ?? "";
+ 
+        // Strip possible ```json fences before parsing
+        const clean = raw.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(clean);
+ 
+        if (parsed.titulo)    titleEn     = parsed.titulo;
+        if (parsed.descricao) descricaoEn = parsed.descricao;
+      } catch {
+        // Silent fallback to originals — translation is non-critical
+      }
+    }
+ 
+    // ── STEP 11 · Economics HTML (English) ───────────────────────────────
+    const economicsHtml = farmEconomics
+      ? (() => {
+          const isAgricola = economicsMode === "agricola";
+          return `
+          <div class="section-title">💰 Asset Economics
+            <span class="mode-badge">${isAgricola ? "🌱 Agriculture" : "🐂 Livestock"}</span>
+          </div>
+          <div class="eco-grid">
+            <div class="eco-stats">
+              ${isAgricola ? `
+                <div class="perf-card">
+                  <span class="perf-label">Soybean Yield</span>
+                  <span class="perf-val">${fmtN(farmEconomics.prodSoja)} bags/ha</span>
+                </div>
+                <div class="perf-card">
+                  <span class="perf-label">Corn Yield</span>
+                  <span class="perf-val">${fmtN(farmEconomics.prodMilho)} bags/ha</span>
+                </div>` : `
+                <div class="perf-card">
+                  <span class="perf-label">Beef Production</span>
+                  <span class="perf-val">${fmtN(farmEconomics.producaoCarne)} @/ha yr</span>
+                </div>
+                <div class="perf-card">
+                  <span class="perf-label">Stocking Capacity</span>
+                  <span class="perf-val">${fmtN(farmEconomics.lotacao)} AU/ha</span>
+                </div>`}
+              <div class="perf-card perf-card--transparent">
+                <span class="perf-label">Gross Annual Revenue</span>
+                <span class="perf-val">${fmtV(farmEconomics.receitaBruta)}</span>
+              </div>
+            </div>
+            <div class="eco-highlight">
+              <div class="dark-card">
+                <div class="dark-card__block">
+                  <span class="gold-label">Projected EBITDA</span>
+                  <span class="dark-card__val">${fmtV(farmEconomics.ebitda)}</span>
+                </div>
+                <div class="dark-card__block dark-card__block--border">
+                  <span class="gold-label">✦ Net Profit (After Tax)</span>
+                  <span class="dark-card__val dark-card__val--lg">${fmtV(farmEconomics.lucroLiquido)}</span>
+                </div>
+                ${!isLease ? `
+                  <div class="dark-card__footer">
+                    <div class="mini-card mini-card--green">
+                      <p class="mini-label">Cap Rate</p>
+                      <p class="mini-val">${fmtN(farmEconomics.roiRange?.pessimista)}% – ${fmtN(farmEconomics.roiRange?.otimista)}%</p>
+                    </div>
+                    <div class="mini-card mini-card--blue">
+                      <p class="mini-label">Payback</p>
+                      <p class="mini-val">${fmtN(farmEconomics.paybackReal)} yrs</p>
+                    </div>
+                  </div>` : ""}
+              </div>
+            </div>
+          </div>
+          <p class="disclaimer">Financial projections are declaratory or based on regional historical averages and do not constitute a guarantee of future productivity or profitability.</p>`;
+        })()
+      : "";
+ 
+    // ── STEP 12 · Agrotechnological Indicators (English) ─────────────────
+    const leaseTechHtml = isLease && farmEconomics?.indices ? `
+      <div class="section-title" style="margin-top:28px;">💰 Economics & Agrotechnological Indicators</div>
+      <div class="indices-grid">
+        ${[
+          { label: "Average Clay Content",   val: farmEconomics.indices.argila?.atual,          media: farmEconomics.indices.argila?.mediaEstado },
+          { label: "Rainfall Index",          val: farmEconomics.indices.pluviometrico?.atual,   media: farmEconomics.indices.pluviometrico?.mediaEstado },
+          { label: "Altitude Index",          val: farmEconomics.indices.altimetria?.atual,      media: farmEconomics.indices.altimetria?.mediaEstado },
+          { label: "Terrain Relief Index",    val: farmEconomics.indices.relevo?.atual,          media: farmEconomics.indices.relevo?.mediaEstado },
+        ].map((item) => `
+          <div class="idx-card">
+            <p class="idx-label">${item.label}</p>
+            <div class="idx-row">
+              <span class="idx-city">${product.cidade ?? "--"}:</span>
+              <span class="idx-val">${item.val ?? "--"}</span>
+            </div>
+            <div class="idx-row idx-row--faded">
+              <span class="idx-city">State avg. (${product.estado ?? "--"}):</span>
+              <span class="idx-val">${item.media ?? "--"}</span>
+            </div>
+          </div>`).join("")}
+      </div>` : "";
+ 
+    // ── STEP 13 · Description pagination ─────────────────────────────────
+    const CHARS_PER_DESC_PAGE = 1_850;
+ 
+    const assetTitleContinuation = isGrain
+      ? `${spec?.cultura ?? "Soybean"} – Physical Grain | Crop ${spec?.safra ?? "24/25"}`
+      : isPlane && spec?.fabricante
+      ? `${spec.fabricante} ${spec.modelo ?? ""}`
+      : titleEn;
+ 
+    const assetTypeContinuation = isFarm
+      ? (isLease ? "Agricultural Lease" : "Farm for Sale")
+      : isPlane   ? "Aircraft"
+      : isMachine ? "Machinery"
+      : isGrain   ? "Physical Grain"
+      : "Rural Asset";
+ 
+    const splitTextIntoChunks = (text: string, maxChars: number): string[] => {
+      if (!text || text.length <= maxChars) return text ? [text] : [];
+      const chunks: string[] = [];
+      let remaining = text;
+      while (remaining.length > maxChars) {
+        let cutAt = maxChars;
+        const lastSpace   = remaining.lastIndexOf(" ", maxChars);
+        const lastNewline = remaining.lastIndexOf("\n", maxChars);
+        const bestCut     = Math.max(lastSpace, lastNewline);
+        if (bestCut > maxChars * 0.7) cutAt = bestCut;
+        chunks.push(remaining.slice(0, cutAt).trimEnd());
+        remaining = remaining.slice(cutAt).trimStart();
+      }
+      if (remaining.length > 0) chunks.push(remaining);
+      return chunks;
+    };
+ 
+    const continuationHeaderHtml = `
+      <div class="continuation-header">
+        <div class="continuation-header__left">
+          <img class="continuation-header__logo" src="${logoUrl}" alt="Prylom">
+          <div class="continuation-header__divider"></div>
+          <div class="continuation-header__titles">
+            <span class="continuation-header__asset">${assetTitleContinuation}</span>
+            <span class="continuation-header__sub">
+              📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}
+              &nbsp;·&nbsp; ${assetTypeContinuation}
+            </span>
+          </div>
+        </div>
+        <div class="continuation-header__right">
+          <span class="continuation-header__badge">📄 Continued</span>
+          <span class="continuation-header__code">CODE: ${product.codigo ?? "--"}</span>
+        </div>
+      </div>`;
+ 
+    const descricaoPaginadaHtml = (() => {
+      if (!descricaoEn) return "";
+      const chunks     = splitTextIntoChunks(descricaoEn, CHARS_PER_DESC_PAGE);
+      const totalPages = chunks.length;
+ 
+      return chunks.map((chunk, index) => {
+        const isFirst   = index === 0;
+        const pageLabel = totalPages > 1
+          ? ` <span class="desc-page-counter">${index + 1}/${totalPages}</span>`
+          : "";
+ 
+        return `
+          <div class="page-break">
+            ${continuationHeaderHtml}
+            <div class="desc-header">
+              <span class="desc-header-title">
+                📄 ${isFirst ? "Commercial Description & Remarks" : "Description (continued)"}
+                ${pageLabel}
+              </span>
+              <span class="desc-header-note">Declaratory information provided by the originator.</span>
+            </div>
+            <div class="desc-box ${isFirst ? "desc-box--first" : "desc-box--continuation"}">
+              ${isFirst ? `<span class="desc-open-quote">"</span>` : ""}
+              <p class="desc-text">${chunk}</p>
+              ${index === totalPages - 1 ? `<span class="desc-close-quote">"</span>` : ""}
+            </div>
+          </div>`;
+      }).join("\n");
+    })();
+ 
+    // ── STEP 14 · Final HTML ──────────────────────────────────────────────
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page { size: A4; margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #2c5363; background: #ffffff;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+ 
+    .watermark-logo {
+      position: fixed; top: 28%; left: 8%;
+      width: 84%; opacity: 0.26;
+      transform: rotate(-32deg);
+      pointer-events: none; z-index: 0;
+    }
+ 
+    .watermark-security {
+      position: fixed;
+      top: 50%;
+      left: 2px;
+      transform: translateY(-50%);
+      width: 10px;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.07;
+      overflow: hidden;
+    }
+    .watermark-security__inner {
+      display: block;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: translateY(-50%) rotate(180deg);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .wm-line {
+      font-size: 5px; font-weight: 700; color: #1a3340;
+      font-family: 'Courier New', Courier, monospace;
+      letter-spacing: 0.05em; display: inline;
+    }
+    .wm-sep {
+      font-size: 5px; color: #bba219;
+      font-family: 'Courier New', Courier, monospace;
+      margin: 0 4px; display: inline;
+    }
+ 
+    .sidebar {
+      position: fixed; top: 0; right: 0;
+      width: 22px; height: 100%;
+      background: #2c5363; border-left: 2px solid #bba219;
+      writing-mode: vertical-rl; text-align: center;
+      font-size: 6px; font-weight: 900; padding: 24px 0;
+      z-index: 200; letter-spacing: 2px;
+      text-transform: uppercase; color: rgba(255,255,255,0.5);
+    }
+ 
+    .page-header {
+      position: fixed; top: 0; right: 22px;
+      width: 58px; padding: 6px; z-index: 150;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 3px;
+    }
+    .page-header__qr {
+      width: 46px; height: 46px; object-fit: contain;
+      border-radius: 6px; background: #ffffff;
+      border: 1px solid #dce6ea; padding: 2px;
+    }
+    .page-header__qr-label {
+      font-size: 5px; font-weight: 900; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.12em; text-align: center;
+    }
+ 
+    .page-footer {
+      position: fixed; bottom: 0; left: 0;
+      width: calc(100% - 22px);
+      background: #eaf0f3; border-top: 2px solid #bba219;
+      padding: 7px 20px 6px; z-index: 150;
+    }
+    .page-footer__legal {
+      font-size: 7px; color: #2c5363; line-height: 1.6; text-align: center;
+    }
+    .page-footer__legal strong { font-weight: 900; color: #1a3340; }
+    .page-footer__sep { margin: 0 6px; color: #bba219; font-weight: 900; }
+    .page-footer__hash {
+      font-size: 5.8px; color: #94a3b8;
+      font-family: 'Courier New', Courier, monospace;
+      text-align: center; margin-top: 3px; letter-spacing: 0.1em;
+      border-top: 1px solid rgba(44,83,99,0.10); padding-top: 3px;
+    }
+    .page-footer__hash strong { color: #7a9baa; font-weight: 700; }
+    .page-footer__bottom {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-top: 4px; gap: 12px;
+      border-top: 1px solid rgba(44,83,99,0.12); padding-top: 4px;
+    }
+    .page-footer__meta {
+      font-size: 6px; color: #4a7585; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      flex: 1; line-height: 1.7;
+    }
+    .page-footer__meta strong { color: #2c5363; }
+    .page-footer__auth { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .page-footer__auth-qr {
+      width: 32px; height: 32px;
+      border: 1px solid #dce6ea; border-radius: 4px;
+      padding: 1px; background: #ffffff;
+    }
+    .page-footer__auth-info { display: flex; flex-direction: column; gap: 2px; }
+    .page-footer__auth-label {
+      font-size: 6px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .page-footer__auth-url {
+      font-size: 5px; color: #94a3b8;
+      letter-spacing: 0.04em; word-break: break-all; max-width: 90px;
+    }
+ 
+    .container {
+      padding: 74px 42px 110px 36px;
+      position: relative; z-index: 10;
+      border-top: 3px solid #bba219;
+    }
+ 
+    .asset-identity {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; gap: 20px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #dce6ea; padding-bottom: 16px;
+    }
+    .asset-identity__left { flex: 1; min-width: 0; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+    .badge {
+      font-size: 7px; font-weight: 900;
+      padding: 4px 11px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .badge-dark     { background: #2c5363; color: #ffffff; }
+    .badge-selected { background: #1a3340; color: #bba219; border: 1px solid #bba219; }
+    .badge-verified { background: #2c5363; color: #ffffff; border: 1px solid rgba(187,162,25,0.4); }
+    .badge-open     { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
+    .badge-creci    { background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; font-size: 6.5px; }
+    .location {
+      font-size: 8.5px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.18em; margin-bottom: 5px;
+    }
+    h1 {
+      font-size: 22px; font-weight: 900; color: #2c5363;
+      text-transform: uppercase; letter-spacing: -0.03em;
+      line-height: 1.05; margin-bottom: 6px;
+    }
+    .meta-row { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
+    .codigo-tag {
+      font-size: 7.5px; font-weight: 900; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.15em;
+    }
+    .status-row { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: #22c55e; }
+    .dot-red   { background: #dc2626; }
+    .status-label {
+      font-size: 8px; font-weight: 900;
+      text-transform: uppercase; letter-spacing: 0.1em; color: #2c5363;
+    }
+    .asset-identity__right {
+      flex-shrink: 0; background: #f0f5f7;
+      border: 1px solid #dce6ea; border-radius: 20px;
+      padding: 16px 22px; text-align: right; min-width: 180px;
+    }
+    .price-label {
+      font-size: 7.5px; font-weight: 900; color: #7a9baa;
+      text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 5px;
+    }
+    .price-val       { font-size: 26px; font-weight: 900; color: #2c5363; line-height: 1; }
+    .price-per-ha    { font-size: 10px; font-weight: 900; color: #94a3b8; margin-top: 5px; }
+    .price-lease-qty { font-size: 10px; font-weight: 900; color: #bba219; margin-top: 5px; }
+ 
+    .asset-img {
+      width: 100%; height: 228px; border-radius: 22px;
+      object-fit: cover; margin-bottom: 22px;
+      border: 1px solid #dce6ea; display: block;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+ 
+    .section-title {
+      font-size: 9.5px; font-weight: 900; color: #2c5363;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      margin: 20px 0 12px;
+      border-left: 3px solid #bba219; padding-left: 10px;
+      display: flex; align-items: center; gap: 10px;
+      page-break-after: avoid; break-after: avoid;
+    }
+    .mode-badge {
+      font-size: 7px; font-weight: 700;
+      background: rgba(187,162,25,0.1); color: #bba219;
+      padding: 3px 9px; border-radius: 20px;
+      border: 1px solid rgba(187,162,25,0.25); letter-spacing: 0.08em;
+    }
+ 
+    .eco-grid {
+      display: flex; gap: 18px; margin-bottom: 8px; align-items: flex-start;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    .eco-stats     { flex: 1.6; display: flex; flex-direction: column; gap: 9px; }
+    .eco-highlight { flex: 1; }
+    .perf-card {
+      background: #f0f5f7; padding: 11px 15px;
+      border-radius: 12px; border: 1px solid #dce6ea;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .perf-card--transparent { background: transparent; border-color: transparent; }
+    .perf-label { font-size: 7px; font-weight: 900; color: #4a7585; text-transform: uppercase; letter-spacing: 0.1em; }
+    .perf-val   { font-size: 13px; font-weight: 900; color: #2c5363; }
+    .dark-card {
+      background: #2c5363; color: #ffffff;
+      padding: 18px; border-radius: 20px; display: flex; flex-direction: column;
+    }
+    .dark-card__block { padding: 0 0 12px; }
+    .dark-card__block--border { border-top: 1px solid rgba(255,255,255,0.12); padding: 12px 0 0; }
+    .gold-label {
+      font-size: 7px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      display: block; margin-bottom: 5px;
+    }
+    .dark-card__val     { font-size: 17px; font-weight: 900; color: #ffffff; display: block; }
+    .dark-card__val--lg { font-size: 20px; }
+    .dark-card__footer {
+      display: flex; gap: 7px; margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.12); padding-top: 12px;
+    }
+    .mini-card        { flex: 1; padding: 9px 11px; border-radius: 11px; }
+    .mini-card--green { background: rgba(34,197,94,0.12); }
+    .mini-card--blue  { background: rgba(255,255,255,0.08); }
+    .mini-label { font-size: 6px; font-weight: 900; color: #bba219; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 3px; }
+    .mini-val   { font-size: 12px; font-weight: 900; color: #ffffff; }
+    .disclaimer {
+      font-size: 7px; color: #7a9baa; font-style: italic;
+      line-height: 1.5; margin-top: 12px; padding: 0 2px;
+    }
+ 
+    .indices-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-bottom: 22px;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    .idx-card { background: #ffffff; border: 1px solid #dce6ea; border-radius: 16px; padding: 14px; }
+    .idx-label {
+      font-size: 7px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin-bottom: 9px; line-height: 1.4;
+    }
+    .idx-row        { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .idx-row--faded { opacity: 0.45; border-top: 1px solid #e8eef1; padding-top: 5px; margin-top: 5px; }
+    .idx-city { font-size: 7px; font-weight: 900; color: #2c5363; text-transform: uppercase; opacity: 0.6; }
+    .idx-val  { font-size: 8.5px; font-weight: 700; color: #2c5363; }
+ 
+    .specs-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      gap: 12px; background: #ffffff;
+      border: 1px solid #dce6ea; padding: 16px 20px;
+      border-radius: 18px; margin-bottom: 22px;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    .spec-box { display: flex; flex-direction: column; }
+    .s-lab { font-size: 6px; font-weight: 900; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+    .s-val { font-size: 9.5px; font-weight: 900; color: #2c5363; text-transform: uppercase; }
+ 
+    .page-break { page-break-before: always; break-before: always; padding-top: 0; }
+ 
+    .continuation-header {
+      width: 100%; background: #1a3340;
+      border-bottom: 3px solid #bba219;
+      padding: 11px 18px; display: flex;
+      align-items: center; justify-content: space-between;
+      border-radius: 0 0 14px 14px; margin-bottom: 22px;
+    }
+    .continuation-header__left  { display: flex; align-items: center; gap: 12px; }
+    .continuation-header__logo  { height: 20px; width: auto; opacity: 0.90; filter: brightness(0) invert(1); }
+    .continuation-header__divider { width: 1px; height: 24px; background: rgba(187,162,25,0.5); }
+    .continuation-header__titles { display: flex; flex-direction: column; gap: 2px; }
+    .continuation-header__asset {
+      font-size: 9px; font-weight: 900; color: #ffffff;
+      text-transform: uppercase; letter-spacing: 0.12em; line-height: 1.2;
+    }
+    .continuation-header__sub {
+      font-size: 6.5px; font-weight: 700; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.14em;
+    }
+    .continuation-header__right { display: flex; align-items: center; gap: 10px; }
+    .continuation-header__badge {
+      font-size: 6.5px; font-weight: 900;
+      background: rgba(187,162,25,0.15); color: #bba219;
+      border: 1px solid rgba(187,162,25,0.35);
+      padding: 4px 10px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .continuation-header__code {
+      font-size: 6px; font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      font-family: 'Courier New', monospace; letter-spacing: 0.12em;
+    }
+ 
+    .desc-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+      page-break-after: avoid; break-after: avoid;
+    }
+    .desc-header-title {
+      font-size: 9.5px; font-weight: 900; color: #bba219;
+      text-transform: uppercase; letter-spacing: 0.18em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .desc-page-counter {
+      font-size: 7px; font-weight: 700;
+      background: rgba(187,162,25,0.12); color: #bba219;
+      border: 1px solid rgba(187,162,25,0.3);
+      padding: 2px 7px; border-radius: 20px;
+      letter-spacing: 0.08em; font-style: normal;
+    }
+    .desc-header-note { font-size: 6.5px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; }
+ 
+    .desc-box {
+      background: rgba(44,83,99,0.03);
+      border: 1px solid #dce6ea;
+      border-top: 3px solid #bba219;
+      border-left: 3px solid #bba219;
+      border-radius: 16px;
+      padding: 22px 30px 18px;
+      position: relative;
+    }
+    .desc-box--continuation {
+      background: rgba(44,83,99,0.025);
+      border: 1px solid #dce6ea;
+      border-left: 3px solid rgba(187,162,25,0.5);
+      border-radius: 0 16px 16px 16px;
+      padding: 18px 30px;
+    }
+ 
+    .desc-open-quote,
+    .desc-close-quote {
+      font-size: 52px; font-weight: 900;
+      color: rgba(187,162,25,0.18);
+      font-family: Georgia, serif;
+      line-height: 1; display: block; user-select: none;
+    }
+    .desc-open-quote  { margin-bottom: -16px; margin-left: -4px; }
+    .desc-close-quote { text-align: right; margin-top: -10px; margin-right: -4px; }
+ 
+    .desc-text {
+      font-size: 13px; line-height: 1.78; color: #1e3a46;
+      text-align: justify; white-space: pre-wrap;
+      font-style: italic; letter-spacing: 0; word-spacing: 0.02em;
+    }
+  </style>
+</head>
+<body>
+ 
+  <img class="watermark-logo" src="${logoUrl}" alt="">
+ 
+  <div class="watermark-security">
+    <div class="watermark-security__inner">
+      <span class="wm-line">PRYLOM · CONFIDENTIAL</span><span class="wm-sep">·</span><span class="wm-line">RECIPIENT: ${userName}</span><span class="wm-sep">·</span><span class="wm-line">TAX ID: ${userCpfCnpj}</span><span class="wm-sep">·</span><span class="wm-line">IP: ${userIp}</span><span class="wm-sep">·</span><span class="wm-line">${dateTimeStr}</span><span class="wm-sep">·</span><span class="wm-line">HASH: ${dossieHash}</span><span class="wm-sep">·</span><span class="wm-line">FOR RECIPIENT USE ONLY</span>
+    </div>
+  </div>
+ 
+  <div class="sidebar">
+    Dossier issued to: ${userName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Prylom Asset Management Security Protocol © 2026
+  </div>
+ 
+  <div class="page-header">
+    <img class="page-header__qr" src="${qrCodeUrl}" alt="QR Code">
+    <span class="page-header__qr-label">View online</span>
+  </div>
+ 
+  <div class="page-footer">
+    <div class="page-footer__legal">
+      Subject to the Terms of Use and Limitation of Liability accepted on the platform. Declaratory data and unaudited simulations.
+      <span class="page-footer__sep">|</span>
+      <strong>Confidentiality (LGPD/GDPR):</strong> For asset security, documents (Title Deed / GEO / CAR) are NOT sent without prior identification and NDA signature.
+      <span class="page-footer__sep">|</span>
+      <strong>AML:</strong> All transactions comply with Brazilian Law No. 9,613/98 (Anti-Money Laundering).
+    </div>
+ 
+    <div class="page-footer__hash">
+      <strong>TRACKING:</strong> ${dossieHash}
+      &nbsp;·&nbsp; ${dateTimeStr}
+      &nbsp;·&nbsp; IP: ${userIp}
+      &nbsp;·&nbsp; ${userName} · ${userCpfCnpj}
+    </div>
+ 
+    <div class="page-footer__bottom">
+      <div class="page-footer__meta">
+        Issued exclusively to: <strong>${userName}</strong>
+        &nbsp;·&nbsp; Tax ID: <strong>${userCpfCnpj}</strong>
+        &nbsp;·&nbsp; ${dateTimeStr}
+        &nbsp;·&nbsp; © 2026 Prylom Asset Management
+      </div>
+      <div class="page-footer__auth">
+        <img class="page-footer__auth-qr" src="${validationQrUrl}" alt="Verify authenticity">
+        <div class="page-footer__auth-info">
+          <span class="page-footer__auth-label">✦ Verifiable Authenticity</span>
+          <span class="page-footer__auth-url">${validationUrl}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+ 
+  <div class="container">
+ 
+    <div class="asset-identity">
+      <div class="asset-identity__left">
+        <div class="badge-row">
+          <span class="badge badge-dark">
+            ${isFarm
+              ? "🌾 " + (isLease ? "Agricultural Lease" : "Farm for Sale")
+              : isPlane   ? "🛩️ Aircraft"
+              : isMachine ? "🚜 Machinery"
+              : isGrain   ? "🌾 Physical Grain"
+              : "Rural Asset"}
+          </span>
+          ${spec?.relevancia_anuncio ? `
+            <span class="badge ${
+              spec.relevancia_anuncio === "Prylom Selected" ? "badge-selected"
+              : spec.relevancia_anuncio === "Prylom Verified" ? "badge-verified"
+              : "badge-open"
+            }">
+              ${spec.relevancia_anuncio === "Prylom Selected" ? "✦ "
+                : spec.relevancia_anuncio === "Prylom Verified" ? "✓ "
+                : ""}${spec.relevancia_anuncio}
+            </span>` : ""}
+          ${spec?.corretor?.creci
+            ? `<span class="badge badge-creci">🛡 Oversight: CRECI ${spec.corretor.creci}</span>`
+            : ""}
+        </div>
+        <div class="location">📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}, Brazil</div>
+        <h1>${
+          isGrain
+            ? `${spec?.cultura ?? "Soybean"} – Physical Grain | Crop ${spec?.safra ?? "24/25"}`
+            : isPlane && spec?.fabricante
+            ? `${spec.fabricante} ${spec.modelo ?? ""}`
+            : titleEn
+        }</h1>
+        <div class="meta-row">
+          <span class="codigo-tag">Code: ${product.codigo ?? "--"}</span>
+          <div class="status-row">
+            <div class="dot ${product.status === "vendido" ? "dot-red" : "dot-green"}"></div>
+            <span class="status-label">${
+              product.status === "vendido" ? "Unavailable — Historical Record"
+              : isGrain ? `${fmtN(spec?.estoque_toneladas ?? 0, 0)} t available`
+              : isLease ? "Lease Available"
+              : "Available"
+            }</span>
+          </div>
+        </div>
+      </div>
+ 
+      <div class="asset-identity__right">
+        <div class="price-label">${
+          isGrain ? "Total Lot Value"
+          : isLease ? "Available Area"
+          : "Total Asset Value"
+        }</div>
+        <div class="price-val">${
+          isGrain
+            ? fmtV((spec?.estoque_toneladas ?? 0) * (product.valor ?? 0))
+            : isLease
+            ? `${fmtN(spec?.area_total_ha ?? 0)} ha`
+            : fmtV(product.valor)
+        }</div>
+        ${isLease
+          ? `<div class="price-lease-qty">Asking: ${valorScHa} bags soy/ha</div>`
+          : isGrain
+          ? `<div class="price-per-ha">${fmtV(product.valor ?? 0)} / t</div>`
+          : spec?.area_total_ha && product.valor
+          ? `<div class="price-per-ha">${fmtN((product.valor * brlToUsd) / spec.area_total_ha, 0)} USD/ha</div>`
+          : ""}
+      </div>
+    </div>
+ 
+    <img class="asset-img" src="${imageUrl}" alt="${titleEn}">
+ 
+    ${economicsHtml}
+    ${leaseTechHtml}
+ 
+    <div class="section-title">
+      ${isFarm  ? "🌱 Technical Land Characteristics"
+        : isPlane  ? "📋 Technical Dossier"
+        : isGrain  ? "🌾 Lot Specifications"
+        : "⚙️ Technical Data"}
+    </div>
+    <div class="specs-grid">
+      ${isFarm ? `
+        <div class="spec-box"><span class="s-lab">Total Area</span><span class="s-val">${fmtN(spec?.area_total_ha ?? 0, 2)} ha</span></div>
+        <div class="spec-box"><span class="s-lab">Productive Area</span><span class="s-val">${fmtN(spec?.area_produtiva ?? 0, 2)} ha</span></div>
+        <div class="spec-box"><span class="s-lab">Land Use</span><span class="s-val">${spec?.aptidao ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Clay Content</span><span class="s-val">${spec?.teor_argila ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Topography</span><span class="s-val">${spec?.topografia ?? "Flat"}</span></div>
+        <div class="spec-box"><span class="s-lab">Rainfall</span><span class="s-val">${spec?.precipitacao_mm ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Altitude</span><span class="s-val">${spec?.altitude_m ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Paved Road / City</span><span class="s-val">${spec?.km_asfalto ? spec.km_asfalto + " km" : "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Legal Reserve</span><span class="s-val">${spec?.reserva_legal ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Open to Exchange</span><span class="s-val">${spec?.permuta === "Sim" ? "Yes" : spec?.permuta === "Não" ? "No" : spec?.permuta ?? "No"}</span></div>`
+      : isPlane ? `
+        <div class="spec-box"><span class="s-lab">Manufacturer</span><span class="s-val">${spec?.fabricante ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Model</span><span class="s-val">${spec?.modelo ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Year</span><span class="s-val">${spec?.ano ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">TTAF</span><span class="s-val">${spec?.horas_voo ?? "--"} h</span></div>
+        <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
+      : isGrain ? `
+        <div class="spec-box"><span class="s-lab">Crop</span><span class="s-val">${spec?.cultura ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Season</span><span class="s-val">${spec?.safra ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Volume</span><span class="s-val">${fmtN(spec?.estoque_toneladas ?? 0, 0)} t</span></div>
+        <div class="spec-box"><span class="s-lab">Quality</span><span class="s-val">${spec?.qualidade ?? "Export Grade"}</span></div>
+        <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
+      : `<div class="spec-box"><span class="s-val" style="opacity:.4">Data available upon request.</span></div>`}
+    </div>
+ 
+    ${descricaoPaginadaHtml}
+ 
+  </div>
+</body>
+</html>`;
+ 
+    // ── STEP 15 · Send HTML → webhook → PDF ──────────────────────────────
+    const response = await fetch(
+      "https://webhook.saveautomatik.shop/webhook/gerarPDF",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html: htmlContent }),
+      }
+    );
+ 
+    if (!response.ok) throw new Error("Failed to generate dossier");
+ 
+    const pdfUrl = (await response.text()).trim();
+ 
+    if (!pdfUrl || !pdfUrl.startsWith("http")) {
+      throw new Error("Invalid PDF URL returned by server.");
+    }
+ 
+    const link = document.createElement("a");
+    link.href = pdfUrl;
+    link.setAttribute("download", `Dossier_Prylom_${product?.codigo}.pdf`);
+    link.setAttribute("target", "_blank");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+ 
+  } catch (error) {
+    console.error("Error generating dossier:", error);
+    alert("Failed to generate document. Please try again.");
+  } finally {
+    setIsGeneratingPdfEn(false);
+  }
+};
+
 
   const analyzePrylomScore = async (p: any, s: any) => {
     setAnalyzingScore(true);
@@ -1833,6 +3060,18 @@ const handleDownloadPdf = async () => {
       <><Download size={20} /> Download Dossiê PDF</>
     )}
   </button>
+    <button
+    onClick={user ? handleDownloadPdfEn : () => navigate("/login")}
+    disabled={isGeneratingPdfEn}
+    className="w-full bg-prylom-dark text-white font-black py-3 rounded-full text-[10px] uppercase tracking-widest hover:bg-prylom-gold transition-all flex items-center justify-center gap-3 shadow-lg"
+  >
+    {isGeneratingPdf ? (
+      <>Generating Dossiê Securitizado...</>
+    ) : (
+      <><Download size={20} /> Download Dossiê PDF in English</>
+    )}
+  </button>
+
 
   {!user && (
     <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">

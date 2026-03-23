@@ -75,7 +75,12 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  
+  const [activeFilterTab, setActiveFilterTab] = useState({
+  financeiros: false,
+  certificacao: false,
+  offmarketing: false,
+});
+
   const geoCache = useRef<Record<string, L.LatLng>>({});
 const navigate = useNavigate();
   // Filtros Universais
@@ -85,7 +90,7 @@ const navigate = useNavigate();
   const [maxPrice, setMaxPrice] = useState<string>('');
   const [priceMode, setPriceMode] = useState<'total' | 'hectare'>('total');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-
+  const isSpecialView = viewMode === 'off' || viewMode === 'equipe' || viewMode === 'global';
   // Filtros Inteligentes (Fazendas)
   const [minAreaTotal, setMinAreaTotal] = useState<string>('');
   const [maxAreaTotal, setMaxAreaTotal] = useState<string>('');
@@ -201,6 +206,10 @@ const navigate = useNavigate();
     if (activeCategory !== 'fazendas' && activeCategory !== 'all') {
       setTransactionType('all');
     }
+    // Adicione esta linha:
+  if (viewMode !== 'grid' && viewMode !== 'map') {
+    setViewMode('grid');
+  }
   }, [activeCategory]);
 
   const fetchProducts = async () => {
@@ -737,11 +746,126 @@ const equipeOriginaçao = corretores.filter(c => c.cargo === "Originador Estrat�
 // Mantém o cálculo de slots apenas para estética, se desejar
 const slotsFaltantes = Math.max(0, 4 - parceirosCredenciados.length);
 
+const headOperacao: HeadOperacaoItem[] = [
+  { 
+    subcategoria: "Jurídico",
+    icone: "⚖️",
+    nome: "Dr. Marcos Vieira",
+    cargo: "Head Jurídico",
+    creci: "OAB/SP 123456",
+    estado: "SP",
+    foto_url: null,
+    descricao: "Apoio jurídico integral à Mesa de Operações e Due Diligence.",
+  },
+  {
+    subcategoria: "Fazendas",
+    icone: "🌾",
+    nome: "Roberto Castilho",
+    cargo: "Head Fazendas",
+    creci: "CRECI/MT 78901",
+    estado: "MT",
+    foto_url: null,
+    descricao: "Gestão e intermediação de ativos rurais de grande porte.",
+  },
+  {
+    subcategoria: "Máquinas",
+    icone: "🚜",
+    nome: "Carlos Drummond",
+    cargo: "Head Máquinas",
+    creci: "CRECI/GO 45678",
+    estado: "GO",
+    foto_url: null,
+    descricao: "Avaliação e comercialização de maquinário agrícola e industrial.",
+  },
+  {
+    subcategoria: "Grãos",
+    icone: "🌽",
+    nome: "Fernanda Lopes",
+    cargo: "Head Grãos",
+    creci: "CRECI/MS 23456",
+    estado: "MS",
+    foto_url: null,
+    descricao: "Estruturação de operações de compra e venda de commodities.",
+  },
+  {
+    subcategoria: "Aeronave",
+    icone: "✈️",
+    nome: "Henrique Saraiva",
+    cargo: "Head Aeronave",
+    creci: "ANAC 987654",
+    estado: "SP",
+    foto_url: null,
+    descricao: "Intermediação e avaliação de aeronaves executivas e agrícolas.",
+  },
+];
+
+interface HeadOperacaoItem {
+  subcategoria: string;
+  icone: string;
+  nome: string;
+  cargo: string;
+  creci: string;
+  estado: string;
+  foto_url: string | null;
+  descricao: string;
+}
+
+const HeadOperacaoCard: React.FC<{ item: HeadOperacaoItem }> = ({ item }) => {
+  return (<div className="flex-1 min-w-0 flex flex-col bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl group">
+  {/* Topo colorido */}
+  <div className="bg-[#2c5363] px-3 py-2 flex flex-col items-center gap-0.5">
+    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/50">
+      Head Operação
+    </span>
+    <span
+      className="text-[11px] font-black uppercase tracking-tight text-center"
+      style={{
+        background: "linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+      }}
+    >
+      {item.subcategoria}
+    </span>
+  </div>
+
+  {/* Foto mockada */}
+  <div className="bg-[#2c5363] flex justify-center items-end pb-0 px-3 h-16 relative">
+    <div className="w-12 h-14 bg-gray-300/30 rounded-t-lg overflow-hidden border-2 border-white/20 flex items-center justify-center">
+      {item.foto_url ? (
+        <img src={item.foto_url} className="w-full h-full object-cover" alt={item.nome} />
+      ) : (
+        <span className="text-xl opacity-30">{item.icone}</span>
+      )}
+    </div>
+    <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+  </div>
+
+  {/* Dados */}
+  <div className="p-2 space-y-1 flex-1 bg-white">
+    <p className="text-[9px] leading-tight text-[#2c5363] font-extrabold uppercase truncate">
+      {item.nome}
+    </p>
+    <p className="text-[8px] leading-tight text-gray-500 truncate">
+      <span className="font-bold text-[#2c5363]">Cargo:</span> {item.cargo}
+    </p>
+    <p className="text-[8px] leading-tight text-gray-500 truncate">
+      <span className="font-bold text-[#2c5363]">Credencial:</span> {item.creci}
+    </p>
+    <p className="text-[8px] leading-tight text-gray-400 pt-1 border-t border-gray-100">
+      {item.descricao}
+    </p>
+  </div>
+</div>);
+}
+
 <style> </style>
 
 const BANDEIRA_URL = (uf) =>
   `https://cdn.jsdelivr.net/gh/akagabi/bandeira-dos-estados-do-brasil@master/${uf.toLowerCase()}.svg`;
 const [showAcademyModal, setShowAcademyModal] = useState(false);
+
+
 
   return (
 <>
@@ -973,8 +1097,19 @@ regulatório e segurança absoluta para os investidores.
 </div>
         </div>
 
-
+      <section className="space-y-5">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-[#2c5363] border-l-4 border-yellow-600 pl-3">
+            Mesa Operacional
+          </h2>
+          <div className="flex gap-4 w-full">
+            {headOperacao.map((item, i) => (
+              <HeadOperacaoCard key={i} item={item} />
+            ))}
+          </div>
+        </section>
         <div className="p-10 md:p-14 grid md:grid-cols-2 gap-12">
+
+
 
 <div className="space-y-8 overflow-hidden relative isolate z-10">
   <h3 className="text-prylom-dark font-[950] uppercase text-[10px] tracking-[0.2em] border-l-3 border-prylom-gold pl-3">
@@ -1128,107 +1263,9 @@ regulatório e segurança absoluta para os investidores.
 </div>
 </div>
 
-<div className="flex items-stretch gap-4 w-full max-w-[1400px] mx-auto p-4">
 
-  {/* --- HEAD JURÍDICO --- */}
-  <div className="flex flex-col items-center gap-4 p-4 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-[220px] flex-shrink-0">
-    <h2 className="text-[13px] font-black uppercase tracking-tighter text-center text-[#2c5363]">
-      HEAD JURÍDICO
-    </h2>
-    <div className="flex items-stretch gap-3 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[130px] w-full">
-      <div className="w-16 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
-        <span className="text-2xl opacity-20">⚖️</span>
-      </div>
-      <div className="flex flex-col justify-center py-1 overflow-hidden">
-        <p className="text-[11px] font-black uppercase text-[#2c5363] truncate mb-1">[Aguardando]</p>
-        <div className="space-y-1 pt-2 border-t border-gray-100">
-          <p className="text-[9px] text-gray-500 leading-tight line-clamp-3">Apoio jurídico integral à Mesa de Operações e Due Diligence.</p>
-          <p className="text-[9px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  {/* --- HEAD OPERAÇÃO M&A --- */}
-  <div className="flex flex-col items-center gap-4 p-4 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-[220px] flex-shrink-0">
-    <h2 className="text-[13px] font-black uppercase tracking-tighter text-center text-[#2c5363]">
-      HEAD OPERAÇÃO M&A
-    </h2>
-    <div className="flex items-stretch gap-3 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[130px] w-full">
-      <div className="w-16 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
-        <span className="text-2xl">🤝</span>
-      </div>
-      <div className="flex flex-col justify-center py-1 overflow-hidden">
-        <p className="text-[11px] font-black uppercase text-[#2c5363] truncate mb-1">Alice Brandão</p>
-        <div className="space-y-1 pt-2 border-t border-gray-100">
-          <p className="text-[9px] text-gray-500 leading-tight line-clamp-3">Deal Maker institucional e relação com Fundos e Boards.</p>
-          <p className="text-[9px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {/* --- HEAD OF PRYLOM ACADEMY --- */}
-  <div className="flex flex-col items-center gap-4 p-4 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner flex-1 min-w-0">
-    <h2 className="text-[13px] font-black uppercase tracking-tighter text-center"
-        style={{
-          background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))'
-        }}>
-      HEAD OF PRYLOM ACADEMY
-    </h2>
-
-    <div className="flex items-center gap-3 w-full">
-
-      {/* Card Lidia */}
-      <div className="flex-1 min-w-0 flex items-stretch gap-3 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[130px]">
-        <div className="w-16 h-full relative overflow-hidden bg-gray-200 rounded-xl flex-shrink-0">
-          <img src={lidia} className="w-full h-full object-cover" alt="Lidia" />
-          <div className="absolute top-1.5 right-1.5 z-20">
-
-          </div>
-        </div>
-        <div className="flex flex-col justify-center py-1 overflow-hidden">
-          <p className="text-[11px] font-black uppercase truncate" style={{ color: '#bba219' }}>Lidia</p>
-          <p className="text-[9px] leading-tight text-prylom-gold font-bold uppercase mb-2">Head of Academy</p>
-          <div className="space-y-1 pt-2 border-t border-gray-100">
-            <p className="text-[9px] text-gray-600 truncate"><span className="font-bold text-[#2c5363]">Área:</span> Talentos</p>
-            <p className="text-[9px] text-gray-600 truncate"><span className="font-bold text-[#2c5363]">Foco:</span> Performance</p>
-            <p className="text-[9px] text-gray-600 truncate"><span className="font-bold text-[#2c5363]">Status:</span> Nacional</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Card Explorar */}
-      <div
-        className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden transition-all hover:scale-105 active:scale-95 cursor-pointer h-[130px] w-[140px] flex flex-col flex-shrink-0 group"
-        onClick={() => setShowAcademyModal(true)}
-      >
-        <div className="bg-[#2c5363] py-2 px-2 flex items-center justify-center border-b border-gray-200">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-center"
-              style={{
-                background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}>
-            Prylom Academy
-          </h2>
-        </div>
-        <div className="flex-grow flex flex-col justify-center items-center text-center p-3">
-          <span className="text-3xl mb-1 group-hover:animate-bounce">🎓</span>
-          <p className="text-[9px] font-bold text-gray-800 uppercase tracking-tighter">Hub de Conhecimento</p>
-          <p className="text-[8px] text-gray-400 mt-1 uppercase">Clique para explorar</p>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-</div>
-
-<div className="flex flex-col items-center gap-8 w-full max-w-[1400px] mx-auto p-4">
+<div className="flex flex-col items-center gap-2 w-full max-w-[1400px] mx-auto p-0 mt-0">
   
   {/* --- BLOCO SUPERIOR: ACADEMY (Lidia + Explorar) --- */}
   <div className="flex flex-col items-center gap-4 p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-full max-w-[700px]">
@@ -1302,45 +1339,6 @@ regulatório e segurança absoluta para os investidores.
     </div>
   </div>
 </div>
-
-  {/* --- BLOCO INFERIOR: MESA OPERACIONAL (Jurídico + M&A) --- */}
-  <div className="flex flex-wrap justify-center items-center gap-6 p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-full">
-    
-    {/* Head Jurídico */}
-    <div className="flex flex-col items-center gap-3 flex-shrink-0">
-      <h2 className="text-[12px] font-black uppercase tracking-widest text-prylom-dark/40 text-center">Head Jurídico</h2>
-      <div className="w-[320px] flex items-stretch gap-4 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[160px]">
-        <div className="w-28 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
-          <span className="text-4xl opacity-20">⚖️</span>
-        </div>
-        <div className="flex flex-col justify-center py-1 overflow-hidden">
-          <p className="text-[13px] font-black uppercase text-[#2c5363] truncate mb-1">[Aguardando]</p>
-          <div className="space-y-1 pt-2 border-t border-gray-100">
-            <p className="text-[10px] text-gray-500 leading-tight line-clamp-3">Apoio jurídico integral à Mesa de Operações e Due Diligence.</p>
-            <p className="text-[10px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Head Operação M&A */}
-    <div className="flex flex-col items-center gap-3 flex-shrink-0">
-      <h2 className="text-[12px] font-black uppercase tracking-widest text-prylom-dark/40 text-center">Head Operação M&A</h2>
-      <div className="w-[320px] flex items-stretch gap-4 bg-white p-3 rounded-2xl border border-gray-200 shadow-sm h-[160px]">
-        <div className="w-28 h-full relative overflow-hidden bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center border border-gray-50">
-          <span className="text-3xl">🤝</span>
-        </div>
-        <div className="flex flex-col justify-center py-1 overflow-hidden">
-          <p className="text-[13px] font-black uppercase text-[#2c5363] truncate mb-1">Alice Brandão</p>
-          <div className="space-y-1 pt-2 border-t border-gray-100">
-            <p className="text-[10px] text-gray-500 leading-tight line-clamp-3">Deal Maker institucional e relação com Fundos e Boards.</p>
-            <p className="text-[10px] font-bold text-prylom-gold uppercase">Sede Nacional</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
 </div>
 
 
@@ -1780,6 +1778,12 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
   </div>
 );
 
+useEffect(() => {
+  if (viewMode === 'off' || viewMode === 'equipe' || viewMode === 'global') {
+    setShowFilters(false);
+  }
+}, [viewMode]);
+
   return (
     <div className="max-w-7xl mx-auto w-full px-4 py-8 md:py-16 animate-fadeIn pb-40 flex flex-col gap-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -1792,15 +1796,25 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
                 {categories.map(cat => (
                   <button 
                     key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
+                    onClick={() => { setActiveCategory(cat.id); setViewMode('grid'); }}
                     className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeCategory === cat.id ? 'bg-white shadow-md text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}
                   >
                     {cat.label}
                   </button>
                 ))}
-                            <button onClick={() => setShowFilters(!showFilters)} className={`bg-white border-2 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${showFilters ? 'border-prylom-gold text-prylom-gold' : 'border-gray-100 text-prylom-dark'}`}>
-              {showFilters ? t.hideFilters : t.advancedFilters}
-            </button>
+<button 
+  onClick={() => !isSpecialView && setShowFilters(!showFilters)} 
+  disabled={isSpecialView}
+  className={`bg-white border-2 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all 
+    ${isSpecialView 
+      ? 'border-gray-100 text-gray-300 cursor-not-allowed opacity-40' 
+      : showFilters 
+        ? 'border-prylom-gold text-prylom-gold' 
+        : 'border-gray-100 text-prylom-dark'
+    }`}
+>
+  {showFilters && !isSpecialView ? t.hideFilters : t.advancedFilters}
+</button>
             <button
   onClick={onBack}
   className="
@@ -1875,8 +1889,12 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
         </div>
       </div>
 
-      {showFilters && (
+
+      {showFilters && !isSpecialView && (
         <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-gray-100 shadow-sm animate-fadeIn space-y-10 max-h-[75vh] overflow-y-auto no-scrollbar scroll-smooth">
+
+
+    {activeCategory === 'all' && (
 <section className="space-y-10">
   {/* HEADER PRINCIPAL */}
   <header className="flex items-center gap-6 group">
@@ -2038,6 +2056,7 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
     </div>
 </div>
 </section>
+    )}
 
 {activeCategory === 'fazendas' && (
   <div style={{ fontFamily: "'Montserrat', sans-serif" }} className="animate-slideUp">
@@ -2050,369 +2069,426 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
           {t.techFiltersFarm}
         </span>
         <div className="flex items-center gap-5 ml-auto">
-          {['Filtro Financeiros', 'Filtro de Certificação', 'Off Marketing'].map((lbl, i) => (
-            <span key={lbl} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: i === 1 ? '#bba219' : 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: '0.12em', cursor: 'pointer' }}>
+          {[
+            { lbl: 'Filtro Financeiros', key: 'financeiros' },
+            { lbl: 'Filtro de Certificação', key: 'certificacao' },
+            { lbl: 'Off Marketing', key: 'offmarketing' },
+          ].map(({ lbl, key }) => (
+            <span
+              key={key}
+              onClick={() => setActiveFilterTab(prev => ({ ...prev, [key]: !prev[key] }))}
+              style={{
+                fontFamily: "'Montserrat', sans-serif",
+                fontSize: 9,
+                fontWeight: 700,
+                color: activeFilterTab[key] ? '#bba219' : 'rgba(255,255,255,.5)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                cursor: 'pointer',
+                transition: 'color .15s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              {activeFilterTab[key] && (
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#bba219', display: 'inline-block', flexShrink: 0 }} />
+              )}
               {lbl}
             </span>
           ))}
         </div>
       </div>
-      
-      
 
-{/* GRID 1 — 9 colunas, cada campo span 1 */}
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '12px 20px 16px', borderBottom: '1px solid #eef1f5' }}>
+      {/* ══════════════════════════════════════
+          BLOCO 1 — FILTROS TÉCNICOS (sempre visível)
+      ══════════════════════════════════════ */}
+      <div style={{ borderBottom: activeFilterTab.financeiros || activeFilterTab.certificacao || activeFilterTab.offmarketing ? '1px solid #eef1f5' : 'none' }}>
 
-  {/* Código */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Código</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input placeholder="Código" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
-    </div>
-  </div>
+        {/* Cabeçalho da seção */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
+          <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+          <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#2c5363', whiteSpace: 'nowrap' }}>
+            Filtros Técnicos
+          </span>
+          <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+        </div>
 
-  {/* Transação */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Transação</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
-        <option value="">Todas</option>
-        <option>Venda</option>
-        <option>Arrendamento</option>
-        <option>Parceria</option>
-      </select>
-    </div>
-  </div>
+        {/* GRID 1 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '8px 20px 12px', borderBottom: '1px solid #eef1f5' }}>
 
-  {/* Estado */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Estado</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
-        <option value="">Todos</option>
-        {['GO','MT','MS','MG','SP','BA','PR','RS','SC','TO','PA','MA','PI','RO'].map(uf => <option key={uf}>{uf}</option>)}
-      </select>
-    </div>
-  </div>
-
-  {/* Município */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Município</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input placeholder="Município" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
-    </div>
-  </div>
-
-  {/* Aptidão */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Aptidão</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
-        <option value="">Todas</option>
-        <option>Soja</option><option>Milho</option><option>Cana</option>
-        <option>Café</option><option>Pecuária</option><option>Algodão</option>
-      </select>
-    </div>
-  </div>
-
-  {/* Hectares */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <div style={{ height: 18, display: 'flex', gap: 4, alignItems: 'flex-end', justifyContent: 'center' }}>
-      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 5px', borderRadius: 3, background: '#2c5363', color: '#fff' }}>Total</span>
-      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 5px', borderRadius: 3, background: '#bba219', color: '#fff' }}>Prod.</span>
-    </div>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
-      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
-      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
-    </div>
-  </div>
-
-  {/* Preço por ha */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço por ha.</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-    </div>
-  </div>
-
-  {/* Preço área total */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço área total</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-    </div>
-  </div>
-
-  {/* Teor de Argila */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Teor de Argila</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-    </div>
-  </div>
-
-</div>
-
-{/* GRID 2 — 9 colunas, spans: 2+1+2+2+1+1=9 */}
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '12px 20px 16px', borderBottom: '1px solid #eef1f5' }}>
-
-  {/* Área Total — span 2 */}
-  <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Total</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
-      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-      <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
-      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
-    </div>
-  </div>
-
-  {/* Área Produtiva — span 1 */}
-  <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Prod.</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 6px', height: '100%' }} />
-    </div>
-  </div>
-
-  {/* Argila & Solo — span 2 */}
-  <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Argila &amp; Solo</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <select value={clayContent} onChange={e => setClayContent(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '50%', padding: '0 6px', height: '100%' }}>
-        <option value="">Argila%</option>
-        <option value="15-25">15-25%</option>
-        <option value="25-35">25-35%</option>
-        <option value="35+">35%+</option>
-      </select>
-      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-      <input placeholder="Tipo solo" value={soilType} onChange={e => setSoilType(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-    </div>
-  </div>
-
-  {/* Clima — span 2 */}
-  <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Clima</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <input placeholder="Pluvio." value={minPluviometria} onChange={e => setMinPluviometria(e.target.value)} inputMode="numeric" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-      <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-      <input placeholder="Altitude" value={minAltitude} onChange={e => setMinAltitude(e.target.value)} inputMode="numeric" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
-    </div>
-  </div>
-
-  {/* Topografia — span 1 */}
-  <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Topografia</span>
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-      <select value={topography} onChange={e => setTopography(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
-        <option value="">{t.topographyAll}</option>
-        <option value="plana">{t.topographyFlat}</option>
-        <option value="ondulada">{t.topographyWavy}</option>
-        <option value="montanhosa">Montanhosa</option>
-      </select>
-    </div>
-  </div>
-
-  {/* Documentação — span 1 */}
-  <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
-    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Documentação</span>
-    <label style={{ display: 'flex', alignItems: 'center', gap: 7, height: 34, background: '#f0f4f7', border: `1.5px solid ${docOnlyOk ? '#bba219' : '#dce5ec'}`, borderRadius: 9, padding: '0 10px', cursor: 'pointer', transition: 'border-color .15s', width: '100%', boxSizing: 'border-box' }}>
-      <div style={{ width: 13, height: 13, border: `2px solid ${docOnlyOk ? '#bba219' : '#cdd8e0'}`, borderRadius: 3, background: docOnlyOk ? '#bba219' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .12s' }}>
-        {docOnlyOk && <div style={{ width: 5, height: 3, borderLeft: '2px solid #fff', borderBottom: '2px solid #fff', transform: 'rotate(-45deg) translateY(-1px)' }} />}
-      </div>
-      <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} style={{ display: 'none' }} />
-      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 6.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#2c5363' }}>{t.docOk}</span>
-    </label>
-  </div>
-
-</div>
-
-{/* FILTROS FINANCEIROS — título */}
-<div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
-  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
-  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#2c5363', whiteSpace: 'nowrap' }}>
-    Filtros Financeiros
-  </span>
-  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
-</div>
-
-{/* GRID 3 — 9 colunas, spans: 2+2+2+2+1=9 */}
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '12px 20px 16px' }}>
-  {[
-    { lbl: 'Produtiv. saca/ha', span: 2 },
-    { lbl: 'ROI anual produção', span: 2 },
-    { lbl: 'Valorização da Terra', span: 2 },
-    { lbl: 'Payback real', span: 2 },
-    { lbl: 'Faturamento estimado', span: 1 },
-  ].map(({ lbl, span }) => (
-    <div key={lbl} style={{ gridColumn: `span ${span}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-        {lbl}
-      </span>
-      <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-        <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
-        <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-        <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
-      </div>
-    </div>
-  ))}
-</div>
-      {/* ── FILTRO DE CERTIFICAÇÃO ── */}
-<div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
-  <div style={{ flex: 3, height: 1, background: '#e2e8ef' }} />
-  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#bba219', whiteSpace: 'nowrap' }}>
-    Filtro de Certificação
-  </span>
-  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
-</div>
-<div className="px-5 py-3" style={{ borderBottom: '1px solid #eef1f5' }}>
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-    {[
-      {
-        id: 'Prylom Selected',
-        title: 'Prylom Selected',
-        desc: 'Ativos premium com Dossiê Preliminar executado. Documentação primária, viabilidade de solo e valuation previamente auditados pela nossa curadoria.',
-        barColor: '#c9a800',
-        borderSel: '#c9a800',
-        bgSel: '#fffbe6',
-        titleColor: '#8a6e00',
-      },
-      {
-        id: 'Prylom Verified',
-        title: 'Prylom Verified',
-        desc: 'Ativos com conformidade inicial. Documentação de posse e titularidade básicas apresentadas pelos originadores em nosso sistema.',
-        barColor: '#4a58d4',
-        borderSel: '#4a58d4',
-        bgSel: '#eef0fc',
-        titleColor: '#3040b0',
-      },
-      {
-        id: 'Open Market',
-        title: 'Open Market',
-        desc: 'Informações declaratórias. Baseado apenas em imagens e descrição fornecidas pelo proprietário, sem validação documental prévia.',
-        barColor: '#1e6b82',
-        borderSel: '#1e6b82',
-        bgSel: '#e6f4f8',
-        titleColor: '#1e6b82',
-      },
-    ].map((tipo) => {
-      const isSelected = selectedTipoAnuncio === tipo.id;
-      return (
-        <button
-          key={tipo.id}
-          onClick={() => setSelectedTipoAnuncio(prev => prev === tipo.id ? "" : tipo.id)}
-          style={{
-            display: 'flex',
-            alignItems: 'stretch',
-            borderRadius: 12,
-            border: `1.5px solid ${isSelected ? tipo.borderSel : '#c8d6e0'}`,
-            background: isSelected ? tipo.bgSel : '#fff',
-            cursor: 'pointer',
-            overflow: 'hidden',
-            minHeight: 80,
-            position: 'relative',
-            textAlign: 'left',
-            transition: 'border-color .2s, background .2s',
-            padding: 0,
-          }}
-        >
-          <div style={{ width: 5, background: tipo.barColor, flexShrink: 0 }} />
-          <div style={{ padding: '10px 12px', flex: 1 }}>
-            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: tipo.titleColor, marginBottom: 5 }}>
-              {tipo.title}
-            </p>
-            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 600, color: '#3d5a6b', lineHeight: 1.6, margin: 0 }}>
-              {tipo.desc}
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Código</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input placeholder="Código" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
+            </div>
           </div>
-          {isSelected && (
-            <div style={{ position: 'absolute', top: 9, right: 9, width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
-          )}
-        </button>
-      );
-    })}
-  </div>
-</div>
 
-      {/* ── OFF MARKETING ── */}
-<div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
-  <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
-  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-    Off Marketing
-  </span>
-</div>
-<div className="px-5 py-3" style={{ borderBottom: '1px solid #eef1f5' }}>
-  {(() => {
-    const isOffMarket = selectedTipoAnuncio === 'Off Market';
-    return (
-      <div
-        onClick={() => setSelectedTipoAnuncio(prev => prev === 'Off Market' ? "" : 'Off Market')}
-        style={{
-          border: isOffMarket ? '1.5px solid #2c5363' : '1.5px dashed #cdd8e0',
-          borderRadius: 13,
-          padding: '14px 16px',
-          background: isOffMarket ? '#edf4f7' : '#fff',
-          cursor: 'pointer',
-          transition: 'border-color .2s, background .2s',
-        }}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 900, color: '#2c5363', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-              <rect x="3" y="7" width="10" height="8" rx="2" fill="#2c5363" />
-              <path d="M5 7V5a3 3 0 016 0v2" stroke="#2c5363" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            Carteira Private &amp; Off Market
-            {isOffMarket && (
-              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', background: '#2c5363', color: '#fff', padding: '2px 8px', borderRadius: 20 }}>
-                Filtro Ativado
-              </span>
-            )}
-          </span>
-          <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${isOffMarket ? '#2c5363' : '#cdd8e0'}`, background: isOffMarket ? '#2c5363' : '#f0f4f7', color: isOffMarket ? '#fff' : '#94a3b8', transition: 'all .2s' }}>
-            {isOffMarket ? '✓ Ativado' : 'Ativar Acesso'}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Transação</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+                <option value="">Todas</option>
+                <option>Venda</option>
+                <option>Arrendamento</option>
+                <option>Parceria</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Estado</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+                <option value="">Todos</option>
+                {['GO','MT','MS','MG','SP','BA','PR','RS','SC','TO','PA','MA','PI','RO'].map(uf => <option key={uf}>{uf}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Município</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input placeholder="Município" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Aptidão</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+                <option value="">Todas</option>
+                <option>Soja</option><option>Milho</option><option>Cana</option>
+                <option>Café</option><option>Pecuária</option><option>Algodão</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ height: 18, display: 'flex', gap: 4, alignItems: 'flex-end', justifyContent: 'center' }}>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 5px', borderRadius: 3, background: '#2c5363', color: '#fff' }}>Total</span>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 5px', borderRadius: 3, background: '#bba219', color: '#fff' }}>Prod.</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço por ha.</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço área total</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Teor de Argila</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+            </div>
+          </div>
+
         </div>
 
-        {/* Texto corrido — sem grid de 2 colunas */}
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 500, color: '#4a6070', lineHeight: 1.7, marginBottom: 14 }}>
-          <strong style={{ color: '#2c5363', fontWeight: 800 }}>Acesse o acervo invisível ao mercado comum.</strong> Nesta categoria encontram-se ativos de alto valor estratégico cujos proprietários exigem sigilo absoluto (non-disclosure).<br />
-          <strong style={{ color: '#2c5363', fontWeight: 800 }}>Por que acessar?</strong> Você encontrará oportunidades exclusivas com menor concorrência de compra e negociações preservadas.<br />
-          <strong style={{ color: '#2c5363', fontWeight: 800 }}>Como desbloquear:</strong> Em conformidade com a LGPD e rigoroso Compliance, o acesso é liberado exclusivamente após identificação do investidor (KYC) e assinatura digital de NDA (Termo de Confidencialidade).
+        {/* GRID 2 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '8px 20px 10px' }}>
+
+          <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Total</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
+            </div>
+          </div>
+
+          <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Prod.</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 6px', height: '100%' }} />
+            </div>
+          </div>
+
+          <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Argila &amp; Solo</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <select value={clayContent} onChange={e => setClayContent(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '50%', padding: '0 6px', height: '100%' }}>
+                <option value="">Argila%</option>
+                <option value="15-25">15-25%</option>
+                <option value="25-35">25-35%</option>
+                <option value="35+">35%+</option>
+              </select>
+              <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+              <input placeholder="Tipo solo" value={soilType} onChange={e => setSoilType(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+            </div>
+          </div>
+
+          <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Clima</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <input placeholder="Pluvio." value={minPluviometria} onChange={e => setMinPluviometria(e.target.value)} inputMode="numeric" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+              <input placeholder="Altitude" value={minAltitude} onChange={e => setMinAltitude(e.target.value)} inputMode="numeric" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+            </div>
+          </div>
+
+          <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Topografia</span>
+            <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+              <select value={topography} onChange={e => setTopography(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+                <option value="">{t.topographyAll}</option>
+                <option value="plana">{t.topographyFlat}</option>
+                <option value="ondulada">{t.topographyWavy}</option>
+                <option value="montanhosa">Montanhosa</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Documentação</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, height: 34, background: '#f0f4f7', border: `1.5px solid ${docOnlyOk ? '#bba219' : '#dce5ec'}`, borderRadius: 9, padding: '0 10px', cursor: 'pointer', transition: 'border-color .15s', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ width: 13, height: 13, border: `2px solid ${docOnlyOk ? '#bba219' : '#cdd8e0'}`, borderRadius: 3, background: docOnlyOk ? '#bba219' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .12s' }}>
+                {docOnlyOk && <div style={{ width: 5, height: 3, borderLeft: '2px solid #fff', borderBottom: '2px solid #fff', transform: 'rotate(-45deg) translateY(-1px)' }} />}
+              </div>
+              <input type="checkbox" checked={docOnlyOk} onChange={e => setDocOnlyOk(e.target.checked)} style={{ display: 'none' }} />
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 6.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#2c5363' }}>{t.docOk}</span>
+            </label>
+          </div>
+
         </div>
 
-        {/* Botão alinhado à direita */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        {/* Limpar técnico */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 20px 10px' }}>
           <button
-            onClick={(e) => e.stopPropagation()}
-            style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.12em', padding: '8px 20px', borderRadius: 20, border: 'none', background: '#b0bec5', color: '#fff', cursor: 'pointer' }}
+            onClick={() => {
+              setDocOnlyOk(false);
+              setClayContent("");
+              setSoilType("");
+              setMinPluviometria("");
+              setMinAltitude("");
+              setTopography("");
+            }}
+            style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
+            onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
+            onMouseOut={e => (e.currentTarget.style.color = '#94a3b8')}
           >
-            Saiba Mais
+            Limpar filtros técnicos
           </button>
         </div>
+
       </div>
-    );
-  })()}
-</div>
 
-      {/* ── LINHA EXTRA — TÉCNICOS COMPLEMENTARES ── */}
-      {/* Área Total, Área Produtiva, Argila & Solo, Clima, Topografia, Doc OK */}
-      {/* Variáveis existentes reaproveitadas abaixo */}
+      {/* ══════════════════════════════════════
+          BLOCO 2 — FILTROS FINANCEIROS (accordion)
+      ══════════════════════════════════════ */}
+      {activeFilterTab.financeiros && (
+        <div style={{ borderBottom: '1px solid #eef1f5' }}>
 
+          <div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#2c5363', whiteSpace: 'nowrap' }}>
+              Filtros Financeiros
+            </span>
+            <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+          </div>
 
-      {/* ── FOOTER ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '8px 20px 10px' }}>
+            {[
+              { lbl: 'Produtiv. saca/ha', span: 2 },
+              { lbl: 'ROI anual produção', span: 2 },
+              { lbl: 'Valorização da Terra', span: 2 },
+              { lbl: 'Payback real', span: 2 },
+              { lbl: 'Faturamento estimado', span: 1 },
+            ].map(({ lbl, span }) => (
+              <div key={lbl} style={{ gridColumn: `span ${span}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                  {lbl}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+                  <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+                  <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+                  <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Limpar financeiro */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 20px 10px' }}>
+            <button
+              onClick={() => {/* limpar estados financeiros quando criados */}}
+              style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
+              onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
+              onMouseOut={e => (e.currentTarget.style.color = '#94a3b8')}
+            >
+              Limpar filtros financeiros
+            </button>
+          </div>
+
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════
+          BLOCO 3 — FILTRO DE CERTIFICAÇÃO (accordion)
+      ══════════════════════════════════════ */}
+      {activeFilterTab.certificacao && (
+        <div style={{ borderBottom: '1px solid #eef1f5' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
+            <div style={{ flex: 3, height: 1, background: '#e2e8ef' }} />
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#bba219', whiteSpace: 'nowrap' }}>
+              Filtro de Certificação
+            </span>
+            <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+          </div>
+
+          <div className="px-5 py-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                { id: 'Prylom Selected', title: 'Prylom Selected', desc: 'Ativos premium com Dossiê Preliminar executado. Documentação primária, viabilidade de solo e valuation previamente auditados pela nossa curadoria.', barColor: '#c9a800', borderSel: '#c9a800', bgSel: '#fffbe6', titleColor: '#8a6e00' },
+                { id: 'Prylom Verified', title: 'Prylom Verified', desc: 'Ativos com conformidade inicial. Documentação de posse e titularidade básicas apresentadas pelos originadores em nosso sistema.', barColor: '#4a58d4', borderSel: '#4a58d4', bgSel: '#eef0fc', titleColor: '#3040b0' },
+                { id: 'Open Market', title: 'Open Market', desc: 'Informações declaratórias. Baseado apenas em imagens e descrição fornecidas pelo proprietário, sem validação documental prévia.', barColor: '#1e6b82', borderSel: '#1e6b82', bgSel: '#e6f4f8', titleColor: '#1e6b82' },
+              ].map((tipo) => {
+                const isSelected = selectedTipoAnuncio === tipo.id;
+                return (
+                  <button
+                    key={tipo.id}
+                    onClick={() => setSelectedTipoAnuncio(prev => prev === tipo.id ? "" : tipo.id)}
+                    style={{ display: 'flex', alignItems: 'stretch', borderRadius: 12, border: `1.5px solid ${isSelected ? tipo.borderSel : '#c8d6e0'}`, background: isSelected ? tipo.bgSel : '#fff', cursor: 'pointer', overflow: 'hidden', minHeight: 80, position: 'relative', textAlign: 'left', transition: 'border-color .2s, background .2s', padding: 0 }}
+                  >
+                    <div style={{ width: 5, background: tipo.barColor, flexShrink: 0 }} />
+                    <div style={{ padding: '10px 12px', flex: 1 }}>
+                      <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: tipo.titleColor, marginBottom: 5 }}>{tipo.title}</p>
+                      <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 600, color: '#3d5a6b', lineHeight: 1.6, margin: 0 }}>{tipo.desc}</p>
+                    </div>
+                    {isSelected && <div style={{ position: 'absolute', top: 9, right: 9, width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Limpar certificação */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 20px 10px' }}>
+            <button
+              onClick={() => setSelectedTipoAnuncio("")}
+              style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
+              onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
+              onMouseOut={e => (e.currentTarget.style.color = '#94a3b8')}
+            >
+              Limpar filtro de certificação
+            </button>
+          </div>
+
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════
+          BLOCO 4 — OFF MARKETING (accordion)
+      ══════════════════════════════════════ */}
+      {activeFilterTab.offmarketing && (
+        <div style={{ borderBottom: '1px solid #eef1f5' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', padding: '7px 20px 5px', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: '#e2e8ef' }} />
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+              Off Marketing
+            </span>
+          </div>
+
+          <div className="px-5 py-3">
+            {(() => {
+              const isOffMarket = selectedTipoAnuncio === 'Off Market';
+              return (
+                <div
+                  onClick={() => setSelectedTipoAnuncio(prev => prev === 'Off Market' ? "" : 'Off Market')}
+                  style={{ border: isOffMarket ? '1.5px solid #2c5363' : '1.5px dashed #cdd8e0', borderRadius: 13, padding: '14px 16px', background: isOffMarket ? '#edf4f7' : '#fff', cursor: 'pointer', transition: 'border-color .2s, background .2s' }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 900, color: '#2c5363', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                        <rect x="3" y="7" width="10" height="8" rx="2" fill="#2c5363" />
+                        <path d="M5 7V5a3 3 0 016 0v2" stroke="#2c5363" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                      Carteira Private &amp; Off Market
+                      {isOffMarket && (
+                        <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', background: '#2c5363', color: '#fff', padding: '2px 8px', borderRadius: 20 }}>
+                          Filtro Ativado
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${isOffMarket ? '#2c5363' : '#cdd8e0'}`, background: isOffMarket ? '#2c5363' : '#f0f4f7', color: isOffMarket ? '#fff' : '#94a3b8', transition: 'all .2s' }}>
+                      {isOffMarket ? '✓ Ativado' : 'Ativar Acesso'}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 500, color: '#4a6070', lineHeight: 1.7, marginBottom: 14 }}>
+                    <strong style={{ color: '#2c5363', fontWeight: 800 }}>Acesse o acervo invisível ao mercado comum.</strong> Nesta categoria encontram-se ativos de alto valor estratégico cujos proprietários exigem sigilo absoluto (non-disclosure).<br />
+                    <strong style={{ color: '#2c5363', fontWeight: 800 }}>Por que acessar?</strong> Você encontrará oportunidades exclusivas com menor concorrência de compra e negociações preservadas.<br />
+                    <strong style={{ color: '#2c5363', fontWeight: 800 }}>Como desbloquear:</strong> Em conformidade com a LGPD e rigoroso Compliance, o acesso é liberado exclusivamente após identificação do investidor (KYC) e assinatura digital de NDA (Termo de Confidencialidade).
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+<button
+  onClick={(e) => { e.stopPropagation(); navigate('/dataroom'); }}
+  style={{
+    fontFamily: "'Montserrat', sans-serif",
+    fontSize: 8.5,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    padding: '8px 20px',
+    borderRadius: 20,
+    border: `1.5px solid ${isOffMarket ? '#2c5363' : 'transparent'}`,
+    background: isOffMarket ? '#2c5363' : '#b0bec5',
+    color: '#fff',
+    cursor: 'pointer',
+    transition: 'background .2s, border-color .2s',
+  }}
+>
+  Saiba Mais
+</button>
+
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Limpar off market */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 20px 10px' }}>
+            <button
+              onClick={() => setSelectedTipoAnuncio(prev => prev === 'Off Market' ? "" : prev)}
+              style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
+              onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
+              onMouseOut={e => (e.currentTarget.style.color = '#94a3b8')}
+            >
+              Limpar off marketing
+            </button>
+          </div>
+
+        </div>
+      )}
+
+      {/* ── FOOTER — limpar tudo ── */}
       <div className="flex justify-end px-5 py-2" style={{ background: '#fafbfc' }}>
         <button
           onClick={() => {
-            // limpar todas as variáveis existentes
             setSelectedTipoAnuncio("");
             setDocOnlyOk(false);
             setClayContent("");
@@ -2420,6 +2496,7 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
             setMinPluviometria("");
             setMinAltitude("");
             setTopography("");
+            setActiveFilterTab({ financeiros: false, certificacao: false, offmarketing: false });
           }}
           style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
           onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
