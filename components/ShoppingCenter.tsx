@@ -628,7 +628,8 @@ const EquipeView = ({ t }) => {
   const [corretores, setCorretores] = useState([]);
   const mapContainerRef = useRef(null);
   const mapInstance = useRef(null);
-
+  const [selectedHead, setSelectedHead] = useState<HeadOperacaoItem | null>(null);
+  const [showHeadModal, setShowHeadModal]   = useState(false);
   const [selectedCorretor, setSelectedCorretor] = useState(null);
 const [showModal, setShowModal] = useState(false);
 const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -651,19 +652,22 @@ useEffect(() => {
   if (!mapContainerRef.current || mapInstance.current) return;
 
   // 1. Inicializa o mapa
-  const map = L.map(mapContainerRef.current, {
-    zoomControl: false,
-    attributionControl: false,
-    center: [-15.78, -52.00],
-    zoom: 2.4, // Um pouco mais longe para ver as bordas do Brasil
-    scrollWheelZoom: false,
-    fadeAnimation: true
-  });
+const map = L.map(mapContainerRef.current, {
+  zoomControl: false,
+  attributionControl: false,
+  center: [-19.78, -58.50],  // ajustado: mais para o centro geográfico do Brasil
+  zoom: 3.4,
+  zoomSnap: 0.1,             // permite incrementos de 0.1
+  zoomDelta: 0.1,            // cada scroll move 0.1
+  scrollWheelZoom: false,
+  fadeAnimation: true
+});
 
   // 2. Camada de Satélite (O fundo)
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.jpg', {
-    maxZoom: 19,
-  }).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.jpg', {
+  maxZoom: 19,
+  opacity: 1, // 0 = invisível, 1 = totalmente opaco — ajuste aqui
+}).addTo(map);
 
   // 3. Camada de Fronteiras (GeoJSON) - Com tratamento de erro
   fetch("https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson")
@@ -810,55 +814,80 @@ interface HeadOperacaoItem {
   descricao: string;
 }
 
-const HeadOperacaoCard: React.FC<{ item: HeadOperacaoItem }> = ({ item }) => {
-  return (<div className="flex-1 min-w-0 flex flex-col bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl group">
-  {/* Topo colorido */}
-  <div className="bg-[#2c5363] px-3 py-2 flex flex-col items-center gap-0.5">
-    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/50">
-      Head Operação
-    </span>
-    <span
-      className="text-[11px] font-black uppercase tracking-tight text-center"
-      style={{
-        background: "linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-      }}
+const HeadOperacaoCard: React.FC<{
+  item: HeadOperacaoItem;
+  onClick: () => void;          // ← NOVO: recebe handler do pai
+}> = ({ item, onClick }) => {
+  return (
+    <div
+      onClick={onClick}          // ← NOVO: dispara o modal
+      className="flex-1 min-w-0 flex flex-col bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl group cursor-pointer"
     >
-      {item.subcategoria}
-    </span>
-  </div>
-
-  {/* Foto mockada */}
-  <div className="bg-[#2c5363] flex justify-center items-end pb-0 px-3 h-16 relative">
-    <div className="w-12 h-14 bg-gray-300/30 rounded-t-lg overflow-hidden border-2 border-white/20 flex items-center justify-center">
-      {item.foto_url ? (
-        <img src={item.foto_url} className="w-full h-full object-cover" alt={item.nome} />
-      ) : (
-        <span className="text-xl opacity-30">{item.icone}</span>
-      )}
+      {/* Topo colorido */}
+      <div className="bg-[#2c5363] px-3 py-2 flex flex-col items-center gap-0.5">
+        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/65">
+          {/* CORREÇÃO: era text-white/50 (muito claro) → agora text-white/65 */}
+          Head Operação
+        </span>
+        <span
+          className="text-[11px] font-black uppercase tracking-tight text-center"
+          style={{
+            background: "linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          {item.subcategoria}
+        </span>
+      </div>
+ 
+      {/* Foto / ícone */}
+      <div className="bg-[#2c5363] flex justify-center items-end pb-0 px-3 h-16 relative">
+        <div className="w-12 h-14 bg-gray-300/30 rounded-t-lg overflow-hidden border-2 border-white/20 flex items-center justify-center">
+          {item.foto_url ? (
+            <img
+              src={item.foto_url}
+              className="w-full h-full object-cover"
+              alt={item.nome}
+            />
+          ) : (
+            <span className="text-xl opacity-50">{item.icone}</span>
+            // CORREÇÃO: era opacity-30 → agora opacity-50 (ícone mais visível)
+          )}
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+      </div>
+ 
+      {/* Dados */}
+      <div className="p-2 space-y-1 flex-1 bg-white">
+        {/* CORREÇÃO: era text-[#2c5363] → agora text-[#1a3a48] (mais escuro, melhor contraste) */}
+        <p className="text-[9px] leading-tight text-[#1a3a48] font-extrabold uppercase truncate">
+          {item.nome}
+        </p>
+ 
+        {/* CORREÇÃO: era text-gray-500 → agora text-[#3d5a6b] (mais escuro) */}
+        <p className="text-[8px] leading-tight text-[#3d5a6b] truncate">
+          <span className="font-bold text-[#2c5363]">Cargo:</span> {item.cargo}
+        </p>
+ 
+        {/* CORREÇÃO: era text-gray-500 → agora text-[#3d5a6b] */}
+        <p className="text-[8px] leading-tight text-[#3d5a6b] truncate">
+          <span className="font-bold text-[#2c5363]">Credencial:</span> {item.creci}
+        </p>
+ 
+        {/* CORREÇÃO: era text-gray-400 → agora text-[#4a6070] (mais escuro, leitura confortável) */}
+        <p className="text-[8px] leading-tight text-[#4a6070] pt-1 border-t border-gray-100 line-clamp-2">
+          {item.descricao}
+        </p>
+ 
+        {/* NOVO: indicador visual de clicável */}
+        <p className="text-[7px] font-black text-[#2c5363]/60 uppercase tracking-widest pt-1">
+          Ver detalhes →
+        </p>
+      </div>
     </div>
-    <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
-  </div>
-
-  {/* Dados */}
-  <div className="p-2 space-y-1 flex-1 bg-white">
-    <p className="text-[9px] leading-tight text-[#2c5363] font-extrabold uppercase truncate">
-      {item.nome}
-    </p>
-    <p className="text-[8px] leading-tight text-gray-500 truncate">
-      <span className="font-bold text-[#2c5363]">Cargo:</span> {item.cargo}
-    </p>
-    <p className="text-[8px] leading-tight text-gray-500 truncate">
-      <span className="font-bold text-[#2c5363]">Credencial:</span> {item.creci}
-    </p>
-    <p className="text-[8px] leading-tight text-gray-400 pt-1 border-t border-gray-100">
-      {item.descricao}
-    </p>
-  </div>
-</div>);
-}
-
+  );
+};
 <style> </style>
 
 const BANDEIRA_URL = (uf) =>
@@ -866,6 +895,141 @@ const BANDEIRA_URL = (uf) =>
 const [showAcademyModal, setShowAcademyModal] = useState(false);
 
 
+const HeadModal: React.FC<{
+  item: HeadOperacaoItem;
+  onClose: () => void;
+}> = ({ item, onClose }) => {
+  return createPortal(<div
+    className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+    style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
+    onClick={onClose}
+  >
+    <div
+      className="bg-white w-[95vw] max-w-[1100px] rounded-[2.5rem] shadow-2xl relative flex flex-col overflow-hidden"
+      style={{ maxHeight: '92vh' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Botão Fechar */}
+      <button
+        onClick={onClose}
+        className="absolute top-8 right-10 z-[100] text-gray-400 hover:text-[#bba219] transition-colors text-2xl font-light"
+      >
+        ✕
+      </button>
+
+      {/* ── CABEÇALHO CENTRALIZADO E SIMÉTRICO ── */}
+      <div className="pt-12 pb-6 px-12 text-center shrink-0">
+        <h4
+          className="text-4xl lg:text-5xl font-black uppercase tracking-tighter leading-none mb-2"
+          style={{
+            background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Head de Operação
+        </h4>
+        <div className="flex items-center justify-center gap-3">
+          <span className="h-px w-10 bg-[#bba219]/40" />
+          <p className="text-[#bba219] font-bold text-[10px] uppercase tracking-[0.3em]">
+            Fazendas
+          </p>
+          <span className="h-px w-10 bg-[#bba219]/40" />
+        </div>
+      </div>
+
+      {/* ── CORPO COM ALINHAMENTO MILIMÉTRICO ── */}
+      <div className="overflow-y-auto flex-1 px-10 md:px-14 py-8">
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '240px 1fr 1fr', // Foto ligeiramente mais larga para simetria
+            gridTemplateRows: 'auto 1fr',
+            gap: '0 40px',
+            alignItems: 'start' // Títulos alinhados no topo
+          }}
+        >
+          {/* ─── LINHA 1: TÍTULOS (Alinhamento Horizontal Perfeito) ─── */}
+          <div style={{ gridColumn: 1, gridRow: 1 }} />
+          
+          <div style={{ gridColumn: 2, gridRow: 1, borderBottom: '1px solid #f0f0f0', paddingBottom: 15, marginBottom: 20 }}>
+            <h5 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a3a48', letterSpacing: '-0.01em' }}>
+              Trajetória: <span style={{ color: '#bba219' }}>Alice Brandão</span>
+            </h5>
+          </div>
+
+          <div style={{ gridColumn: 3, gridRow: 1, borderBottom: '1px solid #f0f0f0', paddingBottom: 15, marginBottom: 20 }}>
+            <h5 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a3a48', letterSpacing: '-0.01em' }}>
+              Mesa de Operações
+            </h5>
+          </div>
+
+          {/* ─── LINHA 2: CONTEÚDO ─── */}
+          
+          {/* Foto com moldura rigorosa */}
+          <div style={{ gridColumn: 1, gridRow: 2 }}>
+            <div style={{ 
+              border: '1px solid #f0f0f0', 
+              padding: '10px', 
+              background: '#fff', 
+              borderRadius: '4px',
+              boxShadow: '0 15px 35px -15px rgba(0,0,0,0.08)' 
+            }}>
+              <img
+                src={item.foto_url}
+                alt="Alice Brandão"
+                style={{ width: '100%', height: '380px', objectFit: 'cover', display: 'block' }}
+              />
+            </div>
+          </div>
+
+          {/* Coluna Central - Redistribuída para simetria */}
+          <div style={{ gridColumn: 2, gridRow: 2, display: 'flex', flexDirection: 'column', gap: '22px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
+            <p style={{ margin: 0 }}>
+              <strong>A Função :</strong> É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong>Filtro de Ativos :</strong> Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.
+            </p>
+          </div>
+
+          {/* Coluna Direita - Redistribuída para simetria */}
+          <div style={{ gridColumn: 3, gridRow: 2, display: 'flex', flexDirection: 'column', gap: '22px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
+            <p style={{ margin: 0 }}>
+              <strong>Filtro de Compradores :</strong> Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de KYC em conjunto com as normas de COAF e qualificação financeira. O cliente só é liberado para a visita de campo quando estiver 100% validado.
+            </p>
+
+            {/* Citação Isolada e Alinhada */}
+            <div style={{
+              fontStyle: 'italic',
+              borderLeft: '3px solid #bba219',
+              padding: '18px 22px',
+              background: '#fcfcfc',
+              color: '#1a3a48',
+              fontSize: '13.5px',
+              fontWeight: '600',
+              lineHeight: '1.6',
+              borderRadius: '0 8px 8px 0',
+              marginTop: '10px' // Respiro sutil para simetria de base
+            }}>
+              "O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido."
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* RODAPÉ TRICOLOR SIMÉTRICO */}
+      <div style={{ height: 6, width: '100%', display: 'flex', flexShrink: 0 }}>
+        <div style={{ flex: 2, background: '#bba219' }} />
+        <div style={{ flex: 1, background: '#1a3a48' }} />
+        <div style={{ flex: 1, background: '#e2e8f0' }} />
+      </div>
+
+    </div>
+  </div>,
+  document.body);
+};
 
   return (
 <>
@@ -957,156 +1121,310 @@ const [showAcademyModal, setShowAcademyModal] = useState(false);
   </div>,
   document.body
 )}
+
 {showAcademyModal && createPortal(
-  <div 
+  <div
     className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
     style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
     onClick={() => setShowAcademyModal(false)}
   >
-    <div 
-      className="bg-white w-[95vw] max-w-[1350px] rounded-[2.5rem] shadow-2xl relative flex flex-col overflow-hidden animate-scaleUp border border-white/20"
-      style={{ maxHeight: '90vh' }}
+    <div
+      className="bg-white w-[95vw] max-w-[1100px] rounded-[2.5rem] shadow-2xl relative flex flex-col overflow-hidden border border-white/20"
+      style={{ maxHeight: '92vh' }}
       onClick={e => e.stopPropagation()}
     >
       {/* Botão Fechar */}
-      <button 
+      <button
         onClick={() => setShowAcademyModal(false)}
-        className="absolute top-8 right-10 z-[100] text-gray-400 hover:text-prylom-gold transition-colors text-3xl font-light"
+        className="absolute top-6 right-8 z-[100] text-gray-400 hover:text-prylom-gold transition-colors text-2xl font-light"
       >
         ✕
       </button>
 
-      {/* Conteúdo Horizontal */}
-      <div className="p-10 md:p-14 lg:p-20 overflow-y-auto">
-        <div className="flex flex-col md:flex-row gap-12 lg:gap-16 items-start">
-          
-          {/* LADO ESQUERDO: ÍCONE OU IMAGEM REPRESENTATIVA */}
-          <div className="w-56 lg:w-72 shrink-0">
-            <div className="aspect-[3/4] shadow-2xl rounded-2xl overflow-hidden border border-gray-100 bg-[#2c5363] flex flex-col items-center justify-center p-6 text-center">
-              <span className="text-8xl mb-4">🎓</span>
-              <h5 className="text-white font-black uppercase tracking-widest text-xl">
-                Elite <br /> Performance
-              </h5>
-              <div className="mt-6 h-1 w-12 bg-prylom-gold"></div>
-            </div>
-          </div>
-
-          {/* LADO DIREITO: TEXTO DA ACADEMY */}
-          <div className="flex-1 min-w-0">
-            <div className="mb-8">
-              <h4 className="text-4xl lg:text-5xl font-black text-prylom-dark uppercase tracking-tighter leading-none mb-4"
-                  style={{
-                    background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
-                  }}>
-                Prylom Academy
-              </h4>
-              <div className="flex items-center gap-3">
-                <span className="h-px w-8 bg-prylom-gold"></span>
-                <p className="text-prylom-gold font-bold text-sm uppercase tracking-[0.2em]">
-                  Educação Corporativa — Hub de Performance
-                </p>
-              </div>
-            </div>
-
-            {/* BIO TEXTO (Enchendo linguiça premium) */}
-            <div className="text-gray-500 text-base lg:text-lg leading-relaxed lg:columns-2 gap-12 border-t border-gray-50 pt-10">
-              <p className="mb-4 text-justify font-medium">
-                A <strong>Prylom Academy</strong> nasceu da necessidade de padronizar a excelência. Em um mercado saturado, a diferenciação surge através do conhecimento técnico profundo e da execução impecável. Nosso hub não apenas ensina, mas forja especialistas em ativos reais.
-              </p>
-              
-              <p className="mb-4 text-justify font-medium">
-                O currículo abrange desde a <strong>Inteligência Territorial</strong> avançada até o domínio completo da plataforma <strong>FlyImob</strong>. Entendemos que a tecnologia só é poderosa quando operada por mentes brilhantes e bem treinadas.
-              </p>
-
-              <p className="mb-4 text-justify font-medium">
-                Nossos módulos de <strong>Hard Skills</strong> focam em geoprocessamento, análise de viabilidade financeira e legislação imobiliária complexa. Já as <strong>Soft Skills</strong> preparam o profissional para negociações de alto nível com clientes institucionais.
-              </p>
-
-              <p className="mb-4 text-justify font-medium italic border-l-4 border-prylom-gold pl-4 bg-gray-50 py-2">
-                "Não treinamos corretores, capacitamos arquitetos de negócios imobiliários. A Academy é onde a teoria do mercado encontra a prática Prylom."
-              </p>
-              
-              <p className="mb-4 text-justify font-medium">
-                Ao final de cada ciclo, os membros são certificados em Performance Nacional, garantindo que a cultura de resultados da Sede seja replicada em cada polo de atuação no Brasil.
-              </p>
-            </div>
-          </div>
+      {/* ── CABEÇALHO ── */}
+      <div className="pt-8 pb-5 px-12 text-center border-b border-gray-100 shrink-0">
+        <h4
+          className="text-4xl lg:text-5xl font-black uppercase tracking-tighter leading-none mb-2"
+          style={{
+            background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Prylom Academy
+        </h4>
+        <div className="flex items-center justify-center gap-3">
+          <span className="h-px w-8 bg-prylom-gold" />
+          <p className="text-prylom-gold font-bold text-[10px] uppercase tracking-[0.25em]">
+            Educação Corporativa — Hub de Performance
+          </p>
+          <span className="h-px w-8 bg-prylom-gold" />
         </div>
       </div>
 
-      {/* Detalhe estético inferior */}
-      <div className="h-2 w-full bg-gray-50 shrink-0">
-        <div className="h-full w-1/2 bg-prylom-gold rounded-r-full animate-pulse"></div>
+      {/* ── CORPO ── */}
+      <div className="overflow-y-auto flex-1 px-10 md:px-12 py-8">
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '200px 1fr 1fr',
+            gridTemplateRows: 'auto 1fr',
+            gap: '0 40px',
+          }}
+        >
+
+          {/* ─── LINHA 1: TÍTULOS ─── */}
+
+          {/* Col 1 linha 1: vazia */}
+          <div style={{ gridColumn: 1, gridRow: 1 }} />
+
+          {/* Col 2 linha 1: Título Trajetória — bold, cor dourada, sentence case como na imagem */}
+          <div style={{ gridColumn: 2, gridRow: 1, paddingBottom: 14, marginBottom: 14 }}>
+            <h5 style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 800,
+              color: '#bba219',
+              letterSpacing: '-0.01em',
+              lineHeight: 1.2,
+            }}>
+              Trajetória: <span style={{ color: '#1a3a48' }}>Lidia Costa</span>
+            </h5>
+          </div>
+
+          {/* Col 3 linha 1: Título Legado — mesmo estilo exato */}
+          <div style={{ gridColumn: 3, gridRow: 1, paddingBottom: 14, marginBottom: 14 }}>
+            <h5 style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 800,
+              color: '#1a3a48',
+              letterSpacing: '-0.01em',
+              lineHeight: 1.2,
+            }}>
+              Legado Prylom Academy
+            </h5>
+          </div>
+
+          {/* ─── LINHA 2: CONTEÚDO ─── */}
+
+          {/* Col 1 linha 2: Card + Foto */}
+          <div style={{ gridColumn: 1, gridRow: 2, display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              background: '#2c5363',
+              borderRadius: '12px 12px 0 0',
+              padding: '20px 16px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+            }}>
+              <span style={{ fontSize: 44, lineHeight: 1, marginBottom: 10 }}>🎓</span>
+              <h5 style={{ fontSize: 13, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#ffffff', lineHeight: 1.3, margin: 0 }}>
+                Elite <br /> Performance
+              </h5>
+              <div style={{ marginTop: 12, height: 2, width: 32, background: '#bba219', borderRadius: 1 }} />
+            </div>
+            <div style={{
+              border: '2px solid #2c5363',
+              borderTop: 'none',
+              borderRadius: '0 0 12px 12px',
+              overflow: 'hidden',
+            }}>
+              <img
+                src={lidia}
+                alt="Lidia Costa"
+                style={{ width: '100%', height: 260, objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+              />
+            </div>
+            <div style={{ marginTop: 8, textAlign: 'center' }}>
+              <p style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#2c5363', margin: 0 }}>
+                Lidia Costa
+              </p>
+              <p style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#bba219', margin: 0 }}>
+                Head of Academy
+              </p>
+            </div>
+          </div>
+
+          {/* Col 2 linha 2: Texto Trajetória */}
+          <div style={{
+            gridColumn: 2,
+            gridRow: 2,
+            fontSize: 13.5,
+            color: '#2d2d2d',
+            lineHeight: 1.8,
+            fontWeight: 400,
+            textAlign: 'justify',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}>
+            <p style={{ margin: 0 }}>
+              A <strong>Prylom Academy</strong> nasceu da necessidade de padronizar a excelência e blindar a nossa cultura. Em um mercado de altíssima complexidade, a verdadeira diferenciação não vem apenas da tecnologia, mas do caráter, da inteligência e da execução impecável de quem a opera. Entendemos que ferramentas só são poderosas quando comandadas por mentes brilhantes.
+            </p>
+            <p style={{ margin: 0 }}>
+              Por isso, o nosso hub não é uma escola de vendas; é um centro de formação contínua, estruturado sobre três pilares inegociáveis:
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong>1. Princípios e Valores Organizacionais (O Nosso DNA):</strong> A base de todo o nosso ecossistema. Forjamos profissionais guiados pela ética absoluta, transparência e governança institucional. Aqui, a cultura do Compliance, o respeito ao sigilo e a proteção do legado do cliente vêm antes de qualquer transação.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong>2. Desenvolvimento Pessoal (A Mente Executiva):</strong> Negociar na alta roda do mercado exige mais do que planilhas. Preparamos o indivíduo de dentro para fora, focando em inteligência emocional, oratória de alto nível, resiliência e postura corporativa. O profissional Prylom cresce como ser humano para dominar qualquer mesa de negociação.
+            </p>
+          </div>
+
+          {/* Col 3 linha 2: Texto Legado */}
+          <div style={{
+            gridColumn: 3,
+            gridRow: 2,
+            fontSize: 13.5,
+            color: '#2d2d2d',
+            lineHeight: 1.8,
+            fontWeight: 400,
+            textAlign: 'justify',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}>
+            <p style={{ margin: 0 }}>
+              <strong>3. Excelência Profissional (A Máquina e a Técnica):</strong> O domínio do ofício. Nossos módulos técnicos garantem o domínio completo da plataforma, aprofundando em Inteligência Territorial, geoprocessamento, viabilidade financeira corporativa e as nuances da legislação do agronegócio.
+            </p>
+
+            {/* Citação — borda esquerda dourada, fundo levemente acinzentado, itálico */}
+            <p style={{
+              margin: 0,
+              fontStyle: 'italic',
+              borderLeft: '3px solid #bba219',
+              paddingLeft: 14,
+              paddingTop: 10,
+              paddingBottom: 10,
+              background: '#f9fafb',
+              color: '#2d2d2d',
+              borderRadius: '0 4px 4px 0',
+              lineHeight: 1.7,
+            }}>
+              "Não treinamos corretores, capacitamos arquitetos de negócios imobiliários. A Academy é onde os nossos valores inegociáveis encontram a prática implacável da Prylom."
+            </p>
+
+            <p style={{ margin: 0 }}>
+              Ao final de cada ciclo, os membros são certificados em Performance Nacional, garantindo que a cultura de resultados, a ética e a excelência técnica da Sede sejam replicadas de forma idêntica em cada polo de atuação no Brasil.
+            </p>
+          </div>
+
+        </div>
       </div>
+
+      {/* ── RODAPÉ TRICOLOR ── */}
+      <div style={{ height: 6, width: '100%', display: 'flex', flexShrink: 0 }}>
+        <div style={{ flex: 2, background: '#bba219' }} />
+        <div style={{ flex: 1, background: '#2c5363' }} />
+        <div style={{ flex: 1, background: '#dce8ee' }} />
+      </div>
+
     </div>
   </div>,
   document.body
 )}
+
+
     <div className="w-full py-10 px-6 bg-[#F4F5F7] min-h-screen animate-fadeIn font-sans">
       <div className="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.06)] border border-white overflow-hidden">
         
-        {/* 1. Header & Mapa (Mantido seu layout original) */}
-        <div className="relative p-10 md:p-14 flex flex-col md:flex-row gap-8 items-center overflow-hidden bg-prylom-dark">
-          <div className="absolute inset-0 bg-cover bg-center opacity-30 z-0" style={{ backgroundImage: `url(/assets/agro_brasil.jpg)` }}></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-prylom-dark via-prylom-dark/80 to-transparent z-0"></div>
-          
-          <div className="flex-1 space-y-5 relative z-10">
-            <div className="inline-flex items-center gap-2 bg-prylom-gold/20 border border-prylom-gold/30 px-3 py-1 rounded-full backdrop-blur-sm">
-              <span className="text-[9px] font-black text-prylom-gold uppercase tracking-[0.2em]">Presença Nacional</span>
-            </div>
-            <h1 className="text-3xl md:text-4xl font-[950] text-white leading-[1.1] tracking-tighter uppercase">
-              Equipe de <br/>
-              <span className="text-prylom-gold italic">Originação Estratégica</span>
-            </h1>
-            <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed opacity-90">
-O mercado de ativos reais 'Deep Market' exige mais do que intermediação; exige presença territorial e
-relacionamento de alto nível. A PRYLOM opera apoiada por uma equipe de originação de elite, composta por
-Originadores Estratégicos, Consultores Agronômicos, Gestores Locais e Parceiros Credenciados (Co-Brokers)
-distribuídos nos principais polos do agronegócio brasileiro.
-            </p>
-                        <p className="text-white text-xs md:text-sm font-semibold max-w-lg leading-relaxed opacity-90">
-{">"} Nossa equipe de campo atua exclusivamente no
-mapeamento de oportunidades, prospecção direta com proprietários e logística executiva in loco. Toda a
-estruturação documental, due diligence, formatação de teses e o fechamento transacional (M&A/Closing) são
-centralizados e executados exclusivamente pela Mesa de Operações da Prylom, garantindo rigoroso compliance
-regulatório e segurança absoluta para os investidores.
-            </p>
-          </div>
+{/* 1. Header & Mapa */}
+{/* 1. Header & Mapa */}
+<div className="relative flex flex-col md:flex-row overflow-hidden bg-prylom-dark" style={{ minHeight: 320 }}>
 
-{/* Container da Miniatura */}
-<div className="hidden md:block w-72 h-48 relative z-10 mr-4">
-  <div className="absolute inset-0 bg-prylom-dark/50 rounded-2xl border-2 border-white/10 overflow-hidden shadow-2xl overflow-hidden">
+  {/* Fundos decorativos */}
+  <div className="absolute inset-0 bg-cover bg-center opacity-30 z-0" style={{ backgroundImage: `url(/assets/agro_brasil.jpg)` }} />
+  <div className="absolute inset-0 bg-gradient-to-r from-prylom-dark via-prylom-dark/80 to-transparent z-0" />
+
+  {/* COLUNA DE TEXTO
+      - padding aplicado somente aqui, não no container pai
+      - pr reduzido para não sobrepor o mapa (md:pr-8 + largura do mapa = 24rem) */}
+  <div
+    className="flex-1 space-y-5 relative z-10 p-10 md:p-14"
+    style={{ paddingRight: '27rem' }} // empurra o texto para não ficar atrás do mapa
+  >
+    <div className="inline-flex items-center gap-2 bg-prylom-gold/20 border border-prylom-gold/30 px-3 py-1 rounded-full backdrop-blur-sm">
+      <span className="text-[9px] font-black text-prylom-gold uppercase tracking-[0.2em]">Presença Nacional</span>
+    </div>
+
+    <h1 className="text-3xl md:text-4xl font-[950] text-white leading-[1.1] tracking-tighter uppercase">
+      Equipe de <br/>
+      <span className="text-prylom-gold italic">Originação Estratégica</span>
+    </h1>
+
+    <p className="text-white text-xs md:text-sm font-semibold leading-relaxed opacity-90 text-justify">
+      O mercado de ativos reais 'Deep Market' exige mais do que intermediação; exige presença territorial e
+      relacionamento de alto nível. A PRYLOM opera apoiada por uma equipe de originação de elite, composta por
+      Originadores Estratégicos, Consultores Agronômicos, Gestores Locais e Parceiros Credenciados (Co-Brokers)
+      distribuídos nos principais polos do agronegócio brasileiro.
+    </p>
+
+    <p className="text-white text-xs md:text-sm font-semibold leading-relaxed opacity-90 text-justify">
+      {">"} Nossa equipe de campo atua exclusivamente no
+      mapeamento de oportunidades, prospecção direta com proprietários e logística executiva in loco. Toda a
+      estruturação documental, due diligence, formatação de teses e o fechamento transacional (M&A/Closing) são
+      centralizados e executados exclusivamente pela Mesa de Operações da Prylom, garantindo rigoroso compliance
+      regulatório e segurança absoluta para os investidores.
+    </p>
+  </div>
+
+  {/* MAPA — posição absoluta, cola em top/right/bottom
+      Isso ignora completamente o padding do pai e ocupa a altura total */}
+  <div
+    className="hidden md:block absolute top-0 right-0 bottom-0 z-10"
+    style={{ width: '24rem' }}
+  >
+    {/* Gradiente de fusão na borda esquerda do mapa */}
+    <div
+      className="absolute inset-y-0 left-0 w-10 z-20 pointer-events-none"
+      style={{ background: 'linear-gradient(to right, #1a2e35, transparent)' }}
+    />
+
     {/* Label flutuante */}
-    <div className="absolute top-2 left-2 z-20 bg-prylom-dark/80 backdrop-blur-md border border-prylom-gold/30 px-2 py-0.5 rounded text-[7px] font-black text-prylom-gold uppercase tracking-widest">
+    <div className="absolute top-3 left-5 z-30 bg-prylom-dark/80 backdrop-blur-md border border-prylom-gold/30 px-2 py-0.5 rounded text-[7px] font-black text-prylom-gold uppercase tracking-widest">
       Operação Nacional
     </div>
-    
-    <div 
-      ref={mapContainerRef} 
+
+    {/* Coordenadas estéticas */}
+    <div className="absolute bottom-2 right-3 z-30 text-[6px] text-white/25 font-mono">
+      BR-ATV // 15.7801° S, 47.9292° W
+    </div>
+
+    {/* Div do Leaflet — preenche 100% do absoluto (= altura total do header) */}
+    <div
+      ref={mapContainerRef}
       className="w-full h-full opacity-80 hover:opacity-100 transition-opacity duration-500"
-      style={{ background: '#000510' }}
+      style={{ background: '#2c5363' }}
     />
   </div>
-  
-  {/* Detalhe estético de "coordenadas" */}
-  <div className="absolute -bottom-4 right-0 text-[6px] text-white/20 font-mono">
-    BR-ATV // 15.7801° S, 47.9292° W
-  </div>
-</div>
-        </div>
 
-      <section className="space-y-5">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-[#2c5363] border-l-4 border-yellow-600 pl-3">
-            Mesa Operacional
-          </h2>
-          <div className="flex gap-4 w-full">
-            {headOperacao.map((item, i) => (
-              <HeadOperacaoCard key={i} item={item} />
-            ))}
-          </div>
-        </section>
+</div>
+
+   <section className="space-y-5">
+      <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-[#2c5363] border-l-4 border-yellow-600 pl-3">
+        Mesa Operacional
+      </h2>
+      <div className="flex gap-4 w-full">
+        {headOperacao.map((item, i) => (
+          <HeadOperacaoCard
+            key={i}
+            item={item}
+           onClick={() => { setSelectedHead(item); setShowHeadModal(true); }}
+          />
+       ))}
+     </div>
+   </section>
+
+   {showHeadModal && selectedHead && (
+  <HeadModal
+    item={selectedHead}
+    onClose={() => setShowHeadModal(false)}
+  />
+)}
         <div className="p-10 md:p-14 grid md:grid-cols-2 gap-12">
 
 
