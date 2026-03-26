@@ -899,136 +899,168 @@ const HeadModal: React.FC<{
   item: HeadOperacaoItem;
   onClose: () => void;
 }> = ({ item, onClose }) => {
-  return createPortal(<div
-    className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
-    style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
-    onClick={onClose}
-  >
+  return createPortal(
     <div
-      className="bg-white w-[95vw] max-w-[1100px] rounded-[2.5rem] shadow-2xl relative flex flex-col overflow-hidden"
-      style={{ maxHeight: '92vh' }}
-      onClick={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+      style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
+      onClick={onClose}
     >
-      {/* Botão Fechar */}
-      <button
-        onClick={onClose}
-        className="absolute top-8 right-10 z-[100] text-gray-400 hover:text-[#bba219] transition-colors text-2xl font-light"
+      <div
+        className="bg-white w-[95vw] max-w-[1100px] rounded-[2.5rem] shadow-2xl relative flex flex-col overflow-hidden"
+        style={{ maxHeight: '92vh' }}
+        onClick={(e) => e.stopPropagation()}
       >
-        ✕
-      </button>
-
-      {/* ── CABEÇALHO CENTRALIZADO E SIMÉTRICO ── */}
-      <div className="pt-12 pb-6 px-12 text-center shrink-0">
-        <h4
-          className="text-4xl lg:text-5xl font-black uppercase tracking-tighter leading-none mb-2"
-          style={{
-            background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
+        {/* Botão Fechar */}
+        <button
+          onClick={onClose}
+          className="absolute top-8 right-10 z-[100] text-gray-400 hover:text-[#bba219] transition-colors text-2xl font-light"
         >
-          Head de Operação
-        </h4>
-        <div className="flex items-center justify-center gap-3">
-          <span className="h-px w-10 bg-[#bba219]/40" />
-          <p className="text-[#bba219] font-bold text-[10px] uppercase tracking-[0.3em]">
-            Fazendas
-          </p>
-          <span className="h-px w-10 bg-[#bba219]/40" />
+          ✕
+        </button>
+
+        {/* ── CABEÇALHO ── */}
+        <div className="pt-12 pb-6 px-12 text-center shrink-0">
+          <h4
+            className="text-4xl lg:text-5xl font-black uppercase tracking-tighter leading-none mb-2"
+            style={{
+              background: 'linear-gradient(to bottom, #FFD700 0%, #B8860B 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            Head de Operação
+          </h4>
+          <div className="flex items-center justify-center gap-3">
+            <span className="h-px w-10 bg-[#bba219]/40" />
+            <p className="text-[#bba219] font-bold text-[10px] uppercase tracking-[0.3em]">
+              {item.subcategoria}
+            </p>
+            <span className="h-px w-10 bg-[#bba219]/40" />
+          </div>
         </div>
-      </div>
 
-      {/* ── CORPO COM ALINHAMENTO MILIMÉTRICO ── */}
-      <div className="overflow-y-auto flex-1 px-10 md:px-14 py-8">
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '240px 1fr 1fr', // Foto ligeiramente mais larga para simetria
-            gridTemplateRows: 'auto 1fr',
-            gap: '0 40px',
-            alignItems: 'start' // Títulos alinhados no topo
-          }}
-        >
-          {/* ─── LINHA 1: TÍTULOS (Alinhamento Horizontal Perfeito) ─── */}
-          <div style={{ gridColumn: 1, gridRow: 1 }} />
-          
-          <div style={{ gridColumn: 2, gridRow: 1, borderBottom: '1px solid #f0f0f0', paddingBottom: 15, marginBottom: 20 }}>
-            <h5 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a3a48', letterSpacing: '-0.01em' }}>
-              Trajetória: <span style={{ color: '#bba219' }}>Alice Brandão</span>
-            </h5>
-          </div>
+        {/* ── CORPO ── */}
+        <div className="overflow-y-auto flex-1 px-10 md:px-14 py-8">
+          {/* Grid sem alignItems para o stretch funcionar no row de conteúdo */}
+          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr', gap: '0 40px' }}>
 
-          <div style={{ gridColumn: 3, gridRow: 1, borderBottom: '1px solid #f0f0f0', paddingBottom: 15, marginBottom: 20 }}>
-            <h5 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a3a48', letterSpacing: '-0.01em' }}>
-              Mesa de Operações
-            </h5>
-          </div>
-
-          {/* ─── LINHA 2: CONTEÚDO ─── */}
-          
-          {/* Foto com moldura rigorosa */}
-          <div style={{ gridColumn: 1, gridRow: 2 }}>
-            <div style={{ 
-              border: '1px solid #f0f0f0', 
-              padding: '10px', 
-              background: '#fff', 
-              borderRadius: '4px',
-              boxShadow: '0 15px 35px -15px rgba(0,0,0,0.08)' 
-            }}>
-              <img
-                src={item.foto_url}
-                alt="Alice Brandão"
-                style={{ width: '100%', height: '380px', objectFit: 'cover', display: 'block' }}
-              />
+            {/* ─── ROW 1: TÍTULOS — align-self: start para não esticar ─── */}
+            <div style={{ alignSelf: 'start', paddingBottom: 12, marginBottom: 16, borderBottom: '1px solid #f0f0f0' }}>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1a3a48', lineHeight: 1.3 }}>
+                {item.nome}
+              </p>
+              <p style={{ margin: '3px 0 0', fontSize: 11, fontWeight: 700, color: '#bba219', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                {item.cargo}
+              </p>
             </div>
-          </div>
-
-          {/* Coluna Central - Redistribuída para simetria */}
-          <div style={{ gridColumn: 2, gridRow: 2, display: 'flex', flexDirection: 'column', gap: '22px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
-            <p style={{ margin: 0 }}>
-              <strong>A Função :</strong> É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.
-            </p>
-            <p style={{ margin: 0 }}>
-              <strong>Filtro de Ativos :</strong> Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.
-            </p>
-          </div>
-
-          {/* Coluna Direita - Redistribuída para simetria */}
-          <div style={{ gridColumn: 3, gridRow: 2, display: 'flex', flexDirection: 'column', gap: '22px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
-            <p style={{ margin: 0 }}>
-              <strong>Filtro de Compradores :</strong> Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de KYC em conjunto com as normas de COAF e qualificação financeira. O cliente só é liberado para a visita de campo quando estiver 100% validado.
-            </p>
-
-            {/* Citação Isolada e Alinhada */}
-            <div style={{
-              fontStyle: 'italic',
-              borderLeft: '3px solid #bba219',
-              padding: '18px 22px',
-              background: '#fcfcfc',
-              color: '#1a3a48',
-              fontSize: '13.5px',
-              fontWeight: '600',
-              lineHeight: '1.6',
-              borderRadius: '0 8px 8px 0',
-              marginTop: '10px' // Respiro sutil para simetria de base
-            }}>
-              "O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido."
+            <div style={{ alignSelf: 'start', borderBottom: '1px solid #f0f0f0', paddingBottom: 12, marginBottom: 16 }}>
+              <h5 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#1a3a48', letterSpacing: '-0.01em' }}>
+                Trajetória: <span style={{ color: '#bba219' }}>{item.nome}</span>
+              </h5>
             </div>
-          </div>
+            <div style={{ alignSelf: 'start', borderBottom: '1px solid #f0f0f0', paddingBottom: 12, marginBottom: 16 }}>
+              <h5 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#1a3a48', letterSpacing: '-0.01em' }}>
+                Mesa de Operações
+              </h5>
+            </div>
 
+            {/* ─── ROW 2: CREDENCIAIS ─── */}
+            <div style={{ alignSelf: 'start', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <p style={{ margin: 0, fontSize: 10.5, color: '#4a5568', fontWeight: 600 }}>
+                <span style={{ color: '#2c5363', fontWeight: 700 }}>Credencial:</span> {item.creci}
+              </p>
+              <p style={{ margin: 0, fontSize: 10.5, color: '#4a5568', fontWeight: 600 }}>
+                <span style={{ color: '#2c5363', fontWeight: 700 }}>Estado:</span> {item.estado}
+              </p>
+            </div>
+            <div style={{ alignSelf: 'start' }} />
+            <div style={{ alignSelf: 'start' }} />
+
+            {/* ─── ROW 3: CONTEÚDO — stretch padrão, foto preenche a altura do texto ─── */}
+
+            {/* Foto: display flex + height 100% para esticar */}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{
+                flex: 1,
+                border: '1px solid #f0f0f0',
+                padding: '10px',
+                background: '#fff',
+                borderRadius: '4px',
+                boxShadow: '0 15px 35px -15px rgba(0,0,0,0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+              }}>
+                {item.foto_url ? (
+                  <img
+                    src={item.foto_url}
+                    alt={item.nome}
+                    style={{ flex: 1, width: '100%', objectFit: 'cover', display: 'block', minHeight: 240 }}
+                  />
+                ) : (
+                  <div style={{
+                    flex: 1,
+                    minHeight: 240,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, #1a3a48 0%, #2c5363 100%)',
+                    gap: 14,
+                    borderRadius: 2,
+                  }}>
+                    <span style={{ fontSize: 56 }}>{item.icone}</span>
+                    <span style={{ color: '#bba219', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                      {item.subcategoria}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Coluna Central */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
+              <p style={{ margin: 0 }}>
+                <strong>A Função :</strong> É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.
+              </p>
+              <p style={{ margin: 0 }}>
+                <strong>Filtro de Ativos :</strong> Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.
+              </p>
+            </div>
+
+            {/* Coluna Direita */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
+              <p style={{ margin: 0 }}>
+                <strong>Filtro de Compradores :</strong> Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de Know Your Customer (KYC - Conheça Seu Cliente) em conjunto com as normas de Prevenção à Lavagem de Dinheiro (COAF) e qualificação financeira de perfil. O cliente só é liberado para a visita de campo com o corretor local quando estiver 100% validado e pronto para a aquisição.
+              </p>
+              <div style={{
+                fontStyle: 'italic',
+                borderLeft: '3px solid #bba219',
+                padding: '16px 20px',
+                background: '#fcfcfc',
+                color: '#1a3a48',
+                fontSize: '13px',
+                fontWeight: '600',
+                lineHeight: '1.6',
+                borderRadius: '0 8px 8px 0',
+              }}>
+                "O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por nossos princípios de ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido."
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
 
-      {/* RODAPÉ TRICOLOR SIMÉTRICO */}
-      <div style={{ height: 6, width: '100%', display: 'flex', flexShrink: 0 }}>
-        <div style={{ flex: 2, background: '#bba219' }} />
-        <div style={{ flex: 1, background: '#1a3a48' }} />
-        <div style={{ flex: 1, background: '#e2e8f0' }} />
-      </div>
+        {/* RODAPÉ TRICOLOR */}
+        <div style={{ height: 6, width: '100%', display: 'flex', flexShrink: 0 }}>
+          <div style={{ flex: 2, background: '#bba219' }} />
+          <div style={{ flex: 1, background: '#1a3a48' }} />
+          <div style={{ flex: 1, background: '#e2e8f0' }} />
+        </div>
 
-    </div>
-  </div>,
-  document.body);
+      </div>
+    </div>,
+    document.body
+  );
 };
 
   return (
