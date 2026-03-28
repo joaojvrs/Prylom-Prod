@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../supabaseClient';
-import { AppLanguage } from '../types';
+import { AppLanguage, AppCurrency } from '../types';
 import landingPrylom from "../assets/landingPrylom.jpeg";
 import professorHernandez from "../assets/professor-hernandez.jpg";
 import { useParams, useNavigate } from 'react-router-dom';
@@ -25,6 +25,7 @@ interface Props {
   onSelectLegal: () => void;
   t: any;
   lang: AppLanguage;
+  currency?: AppCurrency;
 }
 
 const LandingPage: React.FC<Props> = ({ 

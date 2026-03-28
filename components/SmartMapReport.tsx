@@ -12,6 +12,7 @@ interface Props {
   onConfirm?: (data: any) => void;
   t: any;
   lang: string;
+  currency?: any;
 }
 
 const SmartMapReport: React.FC<Props> = ({ onBack, onConfirm, t, lang }) => {

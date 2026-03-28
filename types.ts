@@ -37,6 +37,7 @@ export interface MarketNews {
   category: 'CHICAGO' | 'USDA' | 'CHINA' | 'INPUTS' | 'CLIMATE';
   sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
   timestamp: string;
+  url?: string;
 }
 
 export interface BarterData {

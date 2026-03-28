@@ -20,6 +20,7 @@ import AdminDashboard from './components/AdminDashboard';
 import LegalAgro from './components/LegalAgro';
 import { translations } from './translations';
 import DataRoomModal from './components/DataRoomModal';
+import SharePage from './components/SharePage';
 
 
 const App: React.FC = () => {
@@ -456,6 +457,7 @@ const channel = supabase
     <Route path="/success" element={<SuccessScreen onRestart={() => navigateTo('/')} t={t} lang={lang} currency={currency} />} />
  <Route path="*" element={<NotFound t={t} navigateTo={navigateTo} />} />
  <Route path="/login" element={<Auth />} />
+ <Route path="/share/:token" element={<SharePage />} />
   </Routes>
 </main>
 

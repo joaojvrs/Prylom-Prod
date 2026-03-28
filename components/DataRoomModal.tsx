@@ -1743,16 +1743,50 @@ const handleSendCode = async () => {
   
 
  const [fields, setFields] = useState({
+  // Campos base (ambos os fluxos)
   nome: '',
   email: '',
-  phone: '', // Unificado para 'phone'
+  phone: '',
+  telefone: '',
   pofFile: null as File | null,
-  pofDuringScreening: false, // Adicionado
+  pofDuringScreening: false,
   meetingTime: '',
   meetingDate: '',
   company: '',
-  scope: 'STANDARD', // Valor inicial para não travar o botão
-  countryCode: 'us'
+  scope: 'STANDARD',
+  countryCode: 'us',
+  // Fluxo Internacional (INT)
+  investorType: '',
+  country: '',
+  companyName: '',
+  taxId: '',
+  hasBrazilRep: 'No',
+  isMajorityForeign: false,
+  repName: '',
+  hasMandate: false,
+  repCapacity: '',
+  directCompany: '',
+  advisoryFirm: '',
+  endBuyer: '',
+  passportFile: null as File | null,
+  ticketSize: '',
+  sourceFunds: '',
+  thesis: '',
+  pep: 'No',
+  // Fluxo Nacional (BR)
+  doc: '',
+  perfil: '',
+  capacidadeAporte: '',
+  descricaoPermuta: '',
+  hectares: '',
+  estadosAtuacao: '',
+  creciOab: '',
+  clienteRepresentadoNome: '',
+  clienteRepresentadoDoc: '',
+  declaracaoOrigem: false,
+  tipoPatrimonial: '',
+  modalidadeCaptacao: '',
+  statusCredito: '',
 });
 
 useEffect(() => {
@@ -2453,7 +2487,7 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
   )}
 
   {/* Estilização Global para o PhoneInput */}
-  <style jsx global>{`
+  <style dangerouslySetInnerHTML={{__html: `
     .prylom-phone-container { width: 100% !important; border: none !important; }
     .prylom-phone-input {
       width: 100% !important; border: none !important; background: transparent !important;
@@ -2465,7 +2499,7 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
       font-size: 11px !important; text-transform: uppercase !important;
       font-weight: 700 !important; color: #2c5363 !important;
     }
-  `}</style>
+  `}} />
 </div>
     </section>
 

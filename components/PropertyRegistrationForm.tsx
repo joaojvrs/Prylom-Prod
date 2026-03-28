@@ -26,7 +26,9 @@ const [selectedTerms, setSelectedTerms] = useState({
   semCusto: false,
   laudosGratis: false,
   regularizacao: false,
-  concordoGeral: false
+  concordoGeral: false,
+  investimento: false,
+  responsabilidade: false,
 });
 
 const isSelected = type === 'selected';
@@ -116,7 +118,8 @@ useEffect(() => {
   condicao_venda: '',
     tipo_anuncio: type,
     nome_entidade_vinculo: '',
-documento_entidade_vinculo: ''
+    documento_entidade_vinculo: '',
+    doc: '',
   });
 
   const [docStatus, setDocStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
@@ -382,7 +385,7 @@ const fileRefs = {
 };
 
 // Estado para armazenar os arquivos selecionados localmente antes do upload final
-const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({
+const [selectedFiles, setSelectedFiles] = useState<Record<string, File | File[] | null>>({
   matricula: null,
   solo: null,
   car: null,
@@ -390,7 +393,7 @@ const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>(
   geo: null,
   memorial: null,
   ccir: null,
-  fotos: [],
+  fotos: null,
 });
 
 const [suporteJuridico, setSuporteJuridico] = useState(false);
@@ -1602,7 +1605,7 @@ src={logoPrylom} // Sem aspas, usando a variável importada
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
                   <span className={`text-[10px] font-bold uppercase truncate max-w-[200px] ${isSelected && !selectedFiles[doc.key] ? 'text-gray-600' : isSelected ? 'text-white' : 'text-gray-500'}`}>
-                    {selectedFiles[doc.key] ? selectedFiles[doc.key]?.name : 'Clique para anexar'}
+                    {selectedFiles[doc.key] ? (Array.isArray(selectedFiles[doc.key]) ? `${(selectedFiles[doc.key] as File[]).length} arquivo(s)` : (selectedFiles[doc.key] as File).name) : 'Clique para anexar'}
                   </span>
                 </div>
 

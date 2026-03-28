@@ -1,10 +1,12 @@
 
 import React from 'react';
-import { AppLanguage } from '../types';
+import { AppLanguage, AppCurrency } from '../types';
 
 interface Props {
   onRestart: () => void;
   t: any;
+  lang?: AppLanguage;
+  currency?: AppCurrency;
 }
 
 const SuccessScreen: React.FC<Props> = ({ onRestart, t }) => {

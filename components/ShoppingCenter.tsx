@@ -306,7 +306,9 @@ const toggleFavorite = async (e: React.MouseEvent, assetId: string) => {
 };
 
   const filteredProducts = useMemo(() => {
-    let filtered = products;
+    let filtered = products.filter((p: Product) =>
+      !(p.categoria === 'fazendas' && (p as any).fazenda_data?.tipo_anuncio === 'Off Marketing')
+    );
 
     if (activeCategory !== 'all') {
       filtered = filtered.filter(p => p.categoria === activeCategory);
@@ -633,10 +635,124 @@ const EquipeView = ({ t }) => {
   const [selectedCorretor, setSelectedCorretor] = useState(null);
 const [showModal, setShowModal] = useState(false);
 const [showRegisterModal, setShowRegisterModal] = useState(false);
+const [selectedGlobalMember, setSelectedGlobalMember] = useState<any>(null);
+const [showGlobalModal, setShowGlobalModal] = useState(false);
 const handleOpenDetails = (corretor) => {
   setSelectedCorretor(corretor);
   setShowModal(true);
 };
+const handleOpenGlobalDetails = (member: any) => {
+  setSelectedGlobalMember(member);
+  setShowGlobalModal(true);
+};
+
+const globalFarmsTeam = [
+  {
+    id: 'gf-1',
+    nome: 'António Ferreira',
+    cargo: 'Senior Partner',
+    funcao: 'M&A Cross-Border',
+    pais: 'Portugal',
+    cidade: 'Lisboa',
+    bandeira: 'https://flagcdn.com/w80/pt.png',
+    codigoPais: 'PT',
+    status: 'Ativo',
+    especialidade: 'Fusões & Aquisições · Ativos Agrícolas',
+    idiomas: ['Português', 'Inglês', 'Espanhol'],
+    descricao: 'António lidera a operação de M&A cross-border da Prylom para o mercado europeu, com foco em Portugal e mercados lusófonos. Com mais de 15 anos de experiência em ativos reais e agronegócio internacional, estrutura teses de investimento para fundos europeus interessados em ativos brasileiros de alta performance.\n\nSua atuação abrange desde o mapeamento de oportunidades em fazendas premium até o fechamento de transações estruturadas com parceiros institucionais em Lisboa, Porto e Madrid.',
+    foto_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=300&q=80',
+  },
+  {
+    id: 'gf-2',
+    nome: 'Rodrigo Villalba',
+    cargo: 'Co-Broker Internacional',
+    funcao: 'Originação & Campo',
+    pais: 'Paraguai',
+    cidade: 'Assunção',
+    bandeira: 'https://flagcdn.com/w80/py.png',
+    codigoPais: 'PY',
+    status: 'Ativo',
+    especialidade: 'Ativos Rurais · M&A Fronteiriço',
+    idiomas: ['Espanhol', 'Português', 'Guarani'],
+    descricao: 'Rodrigo opera na região de fronteira entre Brasil e Paraguai, uma das mais dinâmicas do agronegócio sul-americano. Como co-broker internacional credenciado pela Prylom, especializa-se na mediação de transações envolvendo propriedades rurais em zonas limítrofes e na captação de investidores paraguaios para ativos brasileiros.\n\nSua rede de relacionamentos inclui grandes produtores e latifundiários das regiões de Alto Paraná e Canindeyú, além de contatos estratégicos com câmaras de comércio bilaterais.',
+    foto_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&q=80',
+  },
+  {
+    id: 'gf-3',
+    nome: 'Valentina Ríos',
+    cargo: 'Deal Structurer',
+    funcao: 'Estruturação Transacional',
+    pais: 'Argentina',
+    cidade: 'Buenos Aires',
+    bandeira: 'https://flagcdn.com/w80/ar.png',
+    codigoPais: 'AR',
+    status: 'Ativo',
+    especialidade: 'Estruturação · Compliance Internacional',
+    idiomas: ['Espanhol', 'Inglês', 'Português'],
+    descricao: 'Valentina atua na estruturação de transações internacionais e due diligence cross-border para a Prylom a partir de Buenos Aires. Com formação jurídica especializada em direito internacional e experiência em firmas de assessoria M&A, garante a conformidade regulatória de operações envolvendo investidores argentinos em ativos brasileiros.\n\nSua expertise em compliance e estruturas holding internacionais é fundamental para viabilizar operações de alta complexidade, especialmente em um contexto de crescente interesse do capital argentino pelo agronegócio brasileiro como reserva de valor.',
+    foto_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300&q=80',
+  },
+  {
+    id: 'gf-4',
+    nome: 'Marco Salinas',
+    cargo: 'Deal Originator',
+    funcao: 'Originação Estratégica',
+    pais: 'Bolívia',
+    cidade: 'Santa Cruz',
+    bandeira: 'https://flagcdn.com/w80/bo.png',
+    codigoPais: 'BO',
+    status: 'Ativo',
+    especialidade: 'Agronegócio · Expansão de Fronteiras',
+    idiomas: ['Espanhol', 'Português'],
+    descricao: 'Marco atua como originador estratégico da Prylom para o mercado boliviano, com base em Santa Cruz de la Sierra — o maior polo agrícola da Bolívia. Especializa-se na captação de investidores bolivianos interessados em diversificar portfólio com ativos rurais certificados no Brasil.\n\nSua rede inclui grandes grupos agroindustriais do Oriente boliviano e contatos com câmaras de comércio bilateral que facilitam o fluxo de capital entre os dois países.',
+    foto_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&q=80',
+  },
+  {
+    id: 'gf-5',
+    nome: 'Alejandro Quispe',
+    cargo: 'Investor Relations',
+    funcao: 'Captação & Estruturação',
+    pais: 'Peru',
+    cidade: 'Lima',
+    bandeira: 'https://flagcdn.com/w80/pe.png',
+    codigoPais: 'PE',
+    status: 'Ativo',
+    especialidade: 'Capital Andino · Alternative Assets',
+    idiomas: ['Espanhol', 'Inglês', 'Português'],
+    descricao: 'Alejandro é o representante da Prylom no Peru, conectando family offices e fundos de investimento peruanos ao deal flow de ativos reais brasileiros. Com passagem por gestoras de Lima e experiência no mercado de capitais andino, possui domínio da estruturação de veículos de investimento para o contexto regulatório peruano.\n\nLidera roadshows periódicos em Lima e Arequipa, posicionando fazendas certificadas do Brasil como destino estratégico de alocação para investidores que buscam proteção patrimonial em ativos tangíveis.',
+    foto_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&q=80',
+  },
+  {
+    id: 'gf-6',
+    nome: 'Isabella Moreno',
+    cargo: 'Strategic Advisor',
+    funcao: 'Advisory & Relacionamento',
+    pais: 'Colômbia',
+    cidade: 'Bogotá',
+    bandeira: 'https://flagcdn.com/w80/co.png',
+    codigoPais: 'CO',
+    status: 'Ativo',
+    especialidade: 'Agri-Finance · M&A Colombia-Brasil',
+    idiomas: ['Espanhol', 'Inglês', 'Português'],
+    descricao: 'Isabella representa a Prylom na Colômbia, um dos mercados com maior crescimento de interesse por ativos reais no Brasil. Com background em finanças corporativas e passagem por bancos de investimento em Bogotá e Medellín, estrutura pontes entre capital colombiano e oportunidades premium do agronegócio brasileiro.\n\nSua atuação foca especialmente na conversão de grandes produtores rurais colombianos e family offices de Bogotá em investidores estratégicos de fazendas no Cerrado e Pantanal.',
+    foto_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=300&q=80',
+  },
+  {
+    id: 'gf-7',
+    nome: 'Rafael Ortega',
+    cargo: 'Co-Broker Internacional',
+    funcao: 'Originação & Campo',
+    pais: 'Venezuela',
+    cidade: 'Caracas',
+    bandeira: 'https://flagcdn.com/w80/ve.png',
+    codigoPais: 'VE',
+    status: 'Ativo',
+    especialidade: 'Preservação Patrimonial · Ativos Reais',
+    idiomas: ['Espanhol', 'Inglês', 'Português'],
+    descricao: 'Rafael atua como co-broker internacional da Prylom para a comunidade venezuelana, tanto no país quanto na diáspora. Em um contexto de forte demanda por proteção patrimonial, especializa-se em posicionar ativos rurais brasileiros como reserva de valor sólida e juridicamente blindada para investidores venezuelanos.\n\nSua rede abrange empresários e famílias de alto patrimônio líquido radicados em Caracas, Miami, Bogotá e Lisboa, conectando capital disperso da diáspora a oportunidades estruturadas de longo prazo no Brasil.',
+    foto_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&q=80',
+  },
+];
 
   useEffect(() => {
     const fetchCorretores = async () => {
@@ -1154,6 +1270,127 @@ const HeadModal: React.FC<{
   document.body
 )}
 
+{showGlobalModal && selectedGlobalMember && createPortal(
+  <div
+    className="fixed inset-0 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm"
+    style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(5,15,25,0.95)' }}
+    onClick={() => setShowGlobalModal(false)}
+  >
+    <div
+      className="w-[95vw] max-w-[900px] rounded-[2rem] relative flex flex-col overflow-hidden animate-scaleUp"
+      style={{
+        maxHeight: '90vh',
+        background: 'linear-gradient(135deg, #0a1f2e 0%, #0d2d3e 60%, #071820 100%)',
+        border: '1px solid rgba(184,134,11,0.3)',
+        boxShadow: '0 0 80px rgba(184,134,11,0.15), 0 25px 60px rgba(0,0,0,0.6)',
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Linha dourada topo */}
+      <div className="h-[2px] w-full shrink-0" style={{ background: 'linear-gradient(90deg, transparent, #B8860B, #FFD700, #B8860B, transparent)' }} />
+
+      {/* Botão fechar */}
+      <button
+        onClick={() => setShowGlobalModal(false)}
+        className="absolute top-5 right-6 z-50 text-white/30 hover:text-prylom-gold transition-colors text-2xl font-light"
+      >✕</button>
+
+      <div className="p-8 md:p-12 overflow-y-auto">
+        <div className="flex flex-col md:flex-row gap-10 items-start">
+
+          {/* COLUNA ESQUERDA — foto + meta */}
+          <div className="flex flex-col items-center gap-4 shrink-0 w-full md:w-52">
+            {/* Avatar */}
+            <div className="w-40 h-48 rounded-2xl overflow-hidden border-2 bg-white/5 flex items-center justify-center shadow-2xl" style={{ borderColor: 'rgba(184,134,11,0.4)' }}>
+              {selectedGlobalMember.foto_url ? (
+                <img src={selectedGlobalMember.foto_url} className="w-full h-full object-cover" alt={selectedGlobalMember.nome} />
+              ) : (
+                <span className="text-6xl opacity-20">👤</span>
+              )}
+            </div>
+
+            {/* Bandeira + País */}
+            <div className="flex flex-col items-center gap-1.5">
+              <img
+                src={selectedGlobalMember.bandeira}
+                alt={selectedGlobalMember.pais}
+                className="w-14 h-auto rounded-lg shadow-lg border border-white/20"
+                onError={(e: any) => { e.target.style.display = 'none'; }}
+              />
+              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">{selectedGlobalMember.pais}</p>
+              <p className="text-white/30 text-[9px]">📍 {selectedGlobalMember.cidade}</p>
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-400 text-[9px] font-bold uppercase tracking-wider">{selectedGlobalMember.status}</span>
+            </div>
+
+            {/* Idiomas */}
+            <div className="w-full">
+              <p className="text-white/30 text-[9px] uppercase tracking-wider mb-2 text-center font-bold">Idiomas</p>
+              <div className="flex flex-wrap gap-1 justify-center">
+                {selectedGlobalMember.idiomas?.map((lang: string) => (
+                  <span key={lang} className="text-[8px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                    style={{ background: 'rgba(184,134,11,0.15)', color: '#B8860B', border: '1px solid rgba(184,134,11,0.2)' }}>
+                    {lang}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* COLUNA DIREITA — nome, cargo, bio */}
+          <div className="flex-1 min-w-0">
+            {/* Badge Global Farms */}
+            <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full"
+              style={{ background: 'rgba(184,134,11,0.1)', border: '1px solid rgba(184,134,11,0.2)' }}>
+              <span className="text-[8px] font-black uppercase tracking-[0.3em]" style={{ color: '#B8860B' }}>
+                Prylom Global Farms
+              </span>
+            </div>
+
+            <h3 className="text-3xl md:text-4xl font-black uppercase tracking-tighter leading-none text-white mb-1">
+              {selectedGlobalMember.nome}
+            </h3>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="h-px w-6" style={{ background: '#B8860B' }} />
+              <p className="text-[12px] font-bold uppercase tracking-[0.15em]" style={{ color: '#B8860B' }}>
+                {selectedGlobalMember.cargo}
+              </p>
+            </div>
+            <p className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-6">
+              {selectedGlobalMember.funcao}
+            </p>
+
+            {/* Especialidade */}
+            <div className="mb-6 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest mb-1">Especialidade</p>
+              <p className="text-white/70 text-[11px] font-semibold">{selectedGlobalMember.especialidade}</p>
+            </div>
+
+            {/* Bio */}
+            <div className="border-t pt-6" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+              {selectedGlobalMember.descricao?.split('\n').map((para: string, i: number) => (
+                para.trim() && (
+                  <p key={i} className="text-white/50 text-sm leading-relaxed mb-4 font-medium text-justify">
+                    {para}
+                  </p>
+                )
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Rodapé dourado */}
+      <div className="h-[2px] w-full shrink-0" style={{ background: 'linear-gradient(90deg, transparent, #B8860B 40%, transparent)' }} />
+    </div>
+  </div>,
+  document.body
+)}
+
 {showAcademyModal && createPortal(
   <div
     className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
@@ -1490,7 +1727,7 @@ const HeadModal: React.FC<{
     src={BANDEIRA_URL(item.estado)}
     alt={`Bandeira ${item.estado}`}
     className="w-9 h-auto rounded-md shadow-2xl border-2 border-white/50 backdrop-blur-sm transition-transform group-hover:scale-110 drop-shadow-lg"
-    onError={(e) => { e.target.style.display = 'none' }}
+    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
   />
   <span className="text-[10px] text-white font-black mt-1 uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
     {item.estado}
@@ -1561,7 +1798,7 @@ const HeadModal: React.FC<{
       src={BANDEIRA_URL(membro.estado)}
       alt={`Bandeira ${membro.estado}`}
       className="w-9 h-auto rounded-md shadow-2xl border-2 border-white/50 backdrop-blur-sm transition-transform group-hover:scale-110 drop-shadow-lg"
-      onError={(e) => { e.target.style.display = 'none' }}
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
     />
     <span className="text-[10px] text-white font-black mt-1 uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
       {membro.estado}
@@ -1615,8 +1852,99 @@ const HeadModal: React.FC<{
 
 
 
+{/* ═══════════════════════════════════════════════════════════════
+    PRYLOM GLOBAL FARMS — Cross-Border M&A & Agro Assets
+═══════════════════════════════════════════════════════════════ */}
+<div className="relative w-full overflow-hidden rounded-xl mt-1 mb-4 mx-auto" style={{ maxWidth: 1100 }}>
+  {/* Fundo escuro compacto */}
+  <div className="absolute inset-0 z-0" style={{ background: 'linear-gradient(135deg, #0a1f2e 0%, #0d2d3e 60%, #071820 100%)' }} />
+  {/* Brilho dourado topo */}
+  <div className="absolute top-0 left-0 right-0 h-[1.5px] z-10" style={{ background: 'linear-gradient(90deg, transparent, #B8860B, #FFD700, #B8860B, transparent)' }} />
+
+  <div className="relative z-10 px-5 py-4">
+    {/* Header compacto */}
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-3">
+        <div>
+          <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-60" style={{ color: '#B8860B' }}>Presença Internacional</span>
+          <h3
+            className="text-base font-[950] uppercase tracking-tighter leading-none"
+            style={{
+              background: 'linear-gradient(to right, #FFD700, #B8860B)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            Prylom Global Farms
+          </h3>
+          <p className="text-white/30 text-[8px] font-semibold uppercase tracking-wider mt-0.5">
+            Cross-Border M&A · Agro Assets
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <span className="text-white/50 text-[9px] font-bold uppercase tracking-widest">
+          {globalFarmsTeam.filter(m => m.status === 'Ativo').length} ativos
+        </span>
+      </div>
+    </div>
+
+    {/* Grid compacto — 7 cards numa linha */}
+    <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+      {globalFarmsTeam.map((member) => (
+        <div
+          key={member.id}
+          className="group cursor-pointer"
+          onClick={() => handleOpenGlobalDetails(member)}
+        >
+          <div
+            className="flex flex-col overflow-hidden rounded-xl border transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
+          >
+            {/* Foto + bandeira */}
+            <div className="relative flex flex-col items-center justify-center py-3 px-2 gap-2 h-28">
+              <div className="absolute top-2 right-2 flex flex-col items-center gap-0.5">
+                <img
+                  src={member.bandeira}
+                  alt={member.pais}
+                  className="w-6 h-auto rounded shadow border border-white/20 transition-transform group-hover:scale-110"
+                  onError={(e: any) => { e.target.style.display = 'none'; }}
+                />
+                <span className="text-[7px] text-white/70 font-bold" style={{ fontSize: '6.5px', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>{member.pais}</span>
+              </div>
+              <div className="w-11 h-14 rounded-lg overflow-hidden border border-white/15 bg-white/8 flex items-center justify-center transition-transform group-hover:scale-105">
+                {member.foto_url ? (
+                  <img src={member.foto_url} className="w-full h-full object-cover" alt={member.nome} />
+                ) : (
+                  <span className="text-xl opacity-25">👤</span>
+                )}
+              </div>
+              <div className="absolute bottom-1.5 left-2 flex items-center gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+              </div>
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-t-xl"
+                style={{ background: 'linear-gradient(135deg, rgba(184,134,11,0.07) 0%, transparent 60%)' }} />
+            </div>
+
+            {/* Info */}
+            <div className="px-2 py-2 border-t border-white/5 space-y-0.5">
+              <p className="text-white text-[9px] font-black uppercase tracking-tight truncate leading-snug">{member.nome}</p>
+              <p className="text-[8px] font-bold uppercase truncate" style={{ color: '#B8860B' }}>{member.cargo}</p>
+              <p className="text-white/30 text-[7px] truncate">{member.cidade}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+
 <div className="flex flex-col items-center gap-2 w-full max-w-[1400px] mx-auto p-0 mt-0">
-  
+
   {/* --- BLOCO SUPERIOR: ACADEMY (Lidia + Explorar) --- */}
   <div className="flex flex-col items-center gap-4 p-8 bg-gray-50/50 rounded-[2.5rem] border border-gray-100 shadow-inner w-full max-w-[700px]">
     <h2 className="text-2xl lg:text-3xl font-black uppercase tracking-tighter text-center"

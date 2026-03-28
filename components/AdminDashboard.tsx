@@ -1,8 +1,10 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
 import AssetCRM from './AssetCRM';
+import ProductDetails from './ProductDetails';
 
 interface Product {
   id: string;
@@ -24,6 +26,7 @@ interface Product {
   main_image?: string;
   tipo_transacao: 'venda' | 'arrendamento';
   arrendamentos?: any[];
+  vendido_prylom?: boolean;
 }
 
 interface ProductImage {
@@ -47,7 +50,18 @@ interface Props {
 
 
 const AdminDashboard: React.FC<Props> = ({ onLogout, t, lang, currency }) => {
-  const [activeTab, setActiveTab] = useState<'listings' | 'crm' | 'corretores' | 'cadastrados'>('crm');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'listings' | 'crm' | 'corretores' | 'cadastrados' | 'offmarket'>('crm');
+  const [offMarketProductId, setOffMarketProductId] = useState<string | null>(null);
+
+  // Share tokens
+  const [shareLinks, setShareLinks] = useState<Record<string, any[]>>({});
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareTargetProduct, setShareTargetProduct] = useState<Product | null>(null);
+  const [shareExpiry, setShareExpiry] = useState<string>('24h');
+  const [shareLoadingId, setShareLoadingId] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -333,6 +347,61 @@ const fetchAssets = async () => {
   }
 };
 
+
+// ── SHARE TOKEN HELPERS ──────────────────────────────────────────
+const expiryOptions = [
+  { label: '1 hora',   value: '1h',  minutes: 60 },
+  { label: '6 horas',  value: '6h',  minutes: 360 },
+  { label: '24 horas', value: '24h', minutes: 1440 },
+  { label: '3 dias',   value: '3d',  minutes: 4320 },
+  { label: '7 dias',   value: '7d',  minutes: 10080 },
+  { label: '30 dias',  value: '30d', minutes: 43200 },
+];
+
+const fetchShareLinks = async (produtoId: string) => {
+  const { data } = await supabase
+    .from('share_tokens')
+    .select('*')
+    .eq('produto_id', produtoId)
+    .order('created_at', { ascending: false });
+  if (data) {
+    setShareLinks(prev => ({ ...prev, [produtoId]: data }));
+  }
+};
+
+const generateShareLink = async () => {
+  if (!shareTargetProduct) return;
+  setShareLoadingId(shareTargetProduct.id);
+  const option = expiryOptions.find(o => o.value === shareExpiry)!;
+  const expiresAt = new Date(Date.now() + option.minutes * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from('share_tokens')
+    .insert({ produto_id: shareTargetProduct.id, expires_at: expiresAt });
+  if (!error) {
+    await fetchShareLinks(shareTargetProduct.id);
+  }
+  setShareLoadingId(null);
+};
+
+const revokeShareLink = async (tokenId: string, produtoId: string) => {
+  await supabase.from('share_tokens').update({ revogado: true }).eq('id', tokenId);
+  await fetchShareLinks(produtoId);
+};
+
+const copyLink = (token: string) => {
+  const url = `${window.location.origin}/share/${token}`;
+  navigator.clipboard.writeText(url);
+  setCopiedToken(token);
+  setTimeout(() => setCopiedToken(null), 2000);
+};
+
+const openShareModal = (product: Product) => {
+  setShareTargetProduct(product);
+  setShareExpiry('24h');
+  setShowShareModal(true);
+  fetchShareLinks(product.id);
+};
+// ─────────────────────────────────────────────────────────────────
 
 const handleEdit = async (asset: Product) => {
   setLoading(true);
@@ -1260,14 +1329,23 @@ const handleImproveDescription = async () => {
           >
             Gestão de Anúncios
           </button>
-          <button 
+          <button
   onClick={() => setActiveTab('cadastrados')}
   className={`flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'cadastrados' ? 'bg-prylom-gold text-white' : 'text-white/60 hover:bg-white/5'}`}
 >
   Produtos Cadastrados
 </button>
+          <button
+  onClick={() => { setActiveTab('offmarket'); setOffMarketProductId(null); }}
+  className={`flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'offmarket' ? 'bg-prylom-gold text-white shadow-2xl' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+>
+  Off Market
+</button>
   
           <div className="h-px bg-white/10 my-8"></div>
+          <button onClick={() => navigate('/')} className="flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-all">
+            ← Voltar ao Site
+          </button>
           <button onClick={onLogout} className="flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-red-400 hover:bg-red-400/10 transition-all">
             Encerrar Sessão
           </button>
@@ -1293,7 +1371,7 @@ const handleImproveDescription = async () => {
     e.preventDefault(); // GARANTIA ADICIONAL
     setIsEditingCorretor(false);
     setCurrentCorretorId(null);
-    setNewCorretor({ nome: '', estado: '', telefone: '', email: '', creci: '', foto_url: '' });
+    setNewCorretor({ nome: '', estado: '', telefone: '', email: '', creci: '', foto_url: '', cargo: '', descricao: '' });
     setShowCorretorModal(true);
   }}
           className="bg-[#000080] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all"
@@ -1442,6 +1520,150 @@ const handleImproveDescription = async () => {
       </div>
     </div>
   </div>
+
+  ) : activeTab === 'offmarket' ? (
+    <div className="animate-fadeIn">
+      {offMarketProductId ? (
+        <ProductDetails
+          productId={offMarketProductId}
+          onSelectProduct={(id: string) => setOffMarketProductId(id)}
+          onBack={() => setOffMarketProductId(null)}
+          t={t}
+          lang={lang}
+          currency={currency}
+        />
+      ) : (
+        <>
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
+            <div>
+              <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">Portfólio Restrito</span>
+              <h2 className="text-5xl font-black text-[#000080] tracking-tighter uppercase mb-2">Off Market</h2>
+              <p className="text-gray-400 text-sm font-medium tracking-wide">
+                Fazendas com tipo de anúncio Off Marketing — acesso interno exclusivo
+              </p>
+            </div>
+            <div className="bg-white rounded-3xl px-8 py-5 shadow-lg border border-gray-100 text-center">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Off Market</p>
+              <p className="text-3xl font-black text-prylom-dark">
+                {assets.filter((a: Product) => a.categoria === 'fazendas' && (a as any).fazendas?.tipo_anuncio === 'Off Marketing').length}
+              </p>
+            </div>
+          </header>
+
+          {(() => {
+            const offMarketAssets = assets.filter(
+              (a: Product) => a.categoria === 'fazendas' && (a as any).fazendas?.tipo_anuncio === 'Off Marketing'
+            );
+            if (offMarketAssets.length === 0) {
+              return (
+                <div className="py-20 text-center bg-white rounded-[3rem] border border-gray-100 shadow-sm">
+                  <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">Nenhuma fazenda Off Market cadastrada</p>
+                </div>
+              );
+            }
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {offMarketAssets.map((p: Product) => {
+                  const faz = (p as any).fazendas;
+                  const converted = p.valor ? p.valor * rates[currency] : null;
+                  const priceFormatted = converted
+                    ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(converted)
+                    : '---';
+                  const priceHa = p.valor && faz?.area_total_ha
+                    ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((p.valor * rates[currency]) / faz.area_total_ha)
+                    : null;
+                  const activeLinks = (shareLinks[p.id] || []).filter(
+                    l => !l.revogado && new Date(l.expires_at) > new Date()
+                  );
+                  return (
+                    <div key={p.id} className="bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl transition-all flex flex-col group">
+                      {/* Imagem clicável para abrir detalhes */}
+                      <div
+                        className="h-64 relative overflow-hidden bg-gray-50 cursor-pointer"
+                        onClick={() => setOffMarketProductId(p.id)}
+                      >
+                        <img
+                          src={p.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800'}
+                          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                          alt={p.titulo}
+                        />
+                        <div className="absolute top-4 left-4 bg-prylom-dark/90 text-prylom-gold text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-sm">
+                          Off Market
+                        </div>
+                        {activeLinks.length > 0 && (
+                          <div className="absolute top-4 right-4 bg-green-500 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full">
+                            {activeLinks.length} link{activeLinks.length > 1 ? 's' : ''} ativo{activeLinks.length > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        className="p-8 flex flex-col flex-1 cursor-pointer"
+                        onClick={() => setOffMarketProductId(p.id)}
+                      >
+                        <h2 className="flex flex-wrap items-baseline gap-3 text-2xl font-black tracking-tight line-clamp-2 uppercase">
+                          <span className="text-prylom-dark group-hover:text-prylom-gold transition-colors">{p.titulo}</span>
+                        </h2>
+                        <span className={`text-[11px] font-black uppercase tracking-widest mb-4 ${p.status === 'ativo' ? 'text-green-600' : p.status === 'vendido' ? 'text-red-600' : 'text-yellow-600'}`}>
+                          {p.status === 'ativo' ? 'Disponível' : p.status === 'vendido' ? 'Indisponível' : 'Em Negociação'}
+                        </span>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-gray-400 font-bold uppercase mb-6">
+                          <span>Argila: <strong className="font-black">{faz?.teor_argila || '-'}%</strong></span>
+                          <span>Aptidão: <strong className="font-black">{faz?.aptidao || '-'}</strong></span>
+                          <span>Pluviom.: <strong className="font-black">{faz?.precipitacao_mm || '-'} mm</strong></span>
+                          <span>Altitude: <strong className="font-black">{faz?.altitude_m || '-'} m</strong></span>
+                          <span>Área Total: <strong className="font-black">{faz?.area_total_ha || '-'} ha</strong></span>
+                          <span>Área Prod.: <strong className="font-black">{faz?.area_lavoura_ha || '-'} ha</strong></span>
+                          <span className="col-span-2">Código: <strong className="font-black">{p.codigo}</strong></span>
+                        </div>
+                        <div className="mt-auto p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                          <p className="text-[9px] font-black text-prylom-gold uppercase tracking-widest mb-1">
+                            {p.tipo_transacao === 'arrendamento' ? 'Arrendamento Disponível' : 'Ativo para Venda'}
+                          </p>
+                          {p.tipo_transacao === 'arrendamento' ? (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-3xl font-black text-prylom-dark tabular-nums">{p.valor}</span>
+                              <span className="text-sm font-black text-prylom-dark uppercase tracking-tighter">sc / ha</span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-xl font-black text-prylom-dark">{getSymbol()}</span>
+                                <span className="text-2xl font-black text-prylom-dark tabular-nums">{priceFormatted}</span>
+                              </div>
+                              {priceHa && (
+                                <div className="flex items-baseline gap-1 opacity-60">
+                                  <span className="text-sm font-black text-gray-500">{getSymbol()}</span>
+                                  <span className="text-lg font-black text-gray-500 tabular-nums">{priceHa}</span>
+                                  <span className="text-[10px] font-black text-gray-400">/ha</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Botão Gerar Link — fora do onClick de navegação */}
+                      <div className="px-8 pb-8">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openShareModal(p); }}
+                          className="w-full py-4 rounded-2xl bg-prylom-dark text-prylom-gold text-[10px] font-black uppercase tracking-widest hover:bg-prylom-gold hover:text-white transition-all flex items-center justify-center gap-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                          Gerar Link de Acesso
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </>
+      )}
+    </div>
 
   ) : (
           <div className="animate-fadeIn">
@@ -2803,7 +3025,140 @@ const handleImproveDescription = async () => {
     </div>
   </div>
 )}
-    </div>    
+
+    {/* ── MODAL DE COMPARTILHAMENTO OFF MARKET ───────────────────── */}
+    {showShareModal && shareTargetProduct && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+        onClick={() => setShowShareModal(false)}
+      >
+        <div
+          className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="bg-[#1a2332] px-10 py-8">
+            <p className="text-[9px] font-black text-[#bba219] uppercase tracking-[0.3em] mb-1">Off Market</p>
+            <h3 className="text-xl font-black text-white uppercase tracking-tight line-clamp-1">{shareTargetProduct.titulo}</h3>
+            <p className="text-[10px] text-white/50 font-bold uppercase mt-1">Gerar link de acesso temporário</p>
+          </div>
+
+          <div className="p-10 space-y-8">
+            {/* Seletor de expiração */}
+            <div>
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Tempo de expiração</p>
+              <div className="grid grid-cols-3 gap-3">
+                {expiryOptions.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setShareExpiry(opt.value)}
+                    className={`py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
+                      shareExpiry === opt.value
+                        ? 'bg-[#1a2332] text-[#bba219] border-[#1a2332]'
+                        : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Botão gerar */}
+            <button
+              onClick={generateShareLink}
+              disabled={shareLoadingId === shareTargetProduct.id}
+              className="w-full py-5 rounded-2xl bg-[#bba219] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2332] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {shareLoadingId === shareTargetProduct.id ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              )}
+              Gerar Novo Link
+            </button>
+
+            {/* Links existentes */}
+            {(shareLinks[shareTargetProduct.id] || []).length > 0 && (
+              <div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Links gerados</p>
+                <div className="space-y-3 max-h-60 overflow-y-auto no-scrollbar pr-1">
+                  {(shareLinks[shareTargetProduct.id] || []).map((link: any) => {
+                    const expired = new Date(link.expires_at) <= new Date();
+                    const revoked = link.revogado;
+                    const isActive = !expired && !revoked;
+                    const expiresDate = new Date(link.expires_at);
+                    const expiresStr = expiresDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <div
+                        key={link.id}
+                        className={`flex items-center gap-3 p-4 rounded-2xl border-2 ${
+                          isActive ? 'border-green-100 bg-green-50' : 'border-gray-100 bg-gray-50 opacity-60'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                              isActive ? 'bg-green-200 text-green-700' : revoked ? 'bg-red-100 text-red-500' : 'bg-gray-200 text-gray-500'
+                            }`}>
+                              {isActive ? 'Ativo' : revoked ? 'Revogado' : 'Expirado'}
+                            </span>
+                            <span className="text-[9px] text-gray-400 font-bold">
+                              {expired && !revoked ? 'Expirou' : 'Expira'} {expiresStr}
+                            </span>
+                          </div>
+                          <p className="text-[9px] font-mono text-gray-400 truncate">{link.token}</p>
+                        </div>
+                        {isActive && (
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              onClick={() => copyLink(link.token)}
+                              title="Copiar link"
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                                copiedToken === link.token
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-white border border-gray-200 text-gray-500 hover:border-[#bba219] hover:text-[#bba219]'
+                              }`}
+                            >
+                              {copiedToken === link.token ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => revokeShareLink(link.id, shareTargetProduct.id)}
+                              title="Revogar link"
+                              className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:border-red-400 hover:text-red-500 transition-all"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-10 pb-10">
+            <button
+              onClick={() => setShowShareModal(false)}
+              className="w-full py-4 rounded-2xl border-2 border-gray-100 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:border-gray-200 hover:text-gray-600 transition-all"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {/* ─────────────────────────────────────────────────────────────── */}
+  </div>
   );
 };
 

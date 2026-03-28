@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { OwnerFormData } from '../types';
+import { OwnerFormData, AppCurrency } from '../types';
 import SmartMapReport from './SmartMapReport';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   onOpenMap: () => void;
   t: any;
   lang: string;
+  currency?: AppCurrency;
 }
 
 const OwnerWizard: React.FC<Props> = ({ onComplete, onBack, t, lang }) => {

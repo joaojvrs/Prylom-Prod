@@ -1,11 +1,13 @@
 
 import React, { useState } from 'react';
-import { BrokerFormData } from '../types';
+import { BrokerFormData, AppLanguage, AppCurrency } from '../types';
 
 interface Props {
   onComplete: () => void;
   onBack: () => void;
   t: any;
+  lang?: AppLanguage;
+  currency?: AppCurrency;
 }
 
 const BrokerFlow: React.FC<Props> = ({ onComplete, onBack, t }) => {

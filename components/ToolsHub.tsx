@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { AppCurrency, AppLanguage, MarketNews } from '../types';
 
@@ -44,8 +43,28 @@ const [agroIndicators, setAgroIndicators] = useState<{
 
   const [loadingAgro, setLoadingAgro] = useState(false);
   const [weatherForecast, setWeatherForecast] = useState<{ data: any; locationLabel: string; stateLabel: string } | null>(null);
-  const [forecastDays, setForecastDays] = useState(7);
+  const [weatherTab, setWeatherTab] = useState<'previsao' | 'avancado'>('previsao');
   const weatherScrollRef = useRef<HTMLDivElement>(null);
+  const tvTickerRef      = useRef<HTMLDivElement>(null);
+  // Termômetro Imobiliário — Motores
+  const [vtAreaTotal,    setVtAreaTotal]    = useState(1000);
+  const [vtAreaLavoura,  setVtAreaLavoura]  = useState(700);
+  const [vtAreaPastagem, setVtAreaPastagem] = useState(200);
+  const [vtAreaReserva,  setVtAreaReserva]  = useState(100);
+  const [vtProdSacas,    setVtProdSacas]    = useState(65);
+  const [vtArrendSacas,  setVtArrendSacas]  = useState(10);
+  const [vtCapRate,      setVtCapRate]      = useState(0.04);
+  const [vtDistAsfalto,  setVtDistAsfalto]  = useState(20);
+  const [vtTemSilo,      setVtTemSilo]      = useState(false);
+  const [vtMatricula,    setVtMatricula]    = useState(true);
+  const [vtGeoAverbado,  setVtGeoAverbado]  = useState(true);
+  const [vtPassivo,      setVtPassivo]      = useState(false);
+  const [vtEstado,       setVtEstado]       = useState('MT');
+  // Conversor de unidades
+  const [ucValue, setUcValue] = useState<number>(1);
+  const [ucFrom,  setUcFrom]  = useState('Hectare');
+  const [ucTo,    setUcTo]    = useState('Alqueire Paulista');
+
 
   interface EscoamentoData {
     locationLabel: string; stateCode: string;
@@ -59,10 +78,7 @@ const [agroIndicators, setAgroIndicators] = useState<{
 
   // Estados para o Feed de Notícias
   const [news, setNews] = useState<MarketNews[]>([]);
-  const [sources, setSources] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(true);
-  const [newsInsight, setNewsInsight] = useState<{ newsId: string; text: string } | null>(null);
-  const [loadingNewsInsight, setLoadingNewsInsight] = useState(false);
 
   const rates = useMemo(() => ({
     [AppCurrency.BRL]: 1,
@@ -152,6 +168,55 @@ const regionalCosts: Record<string, any> = {
     prodBrasil: "62",
     labelEstado: "Mato Grosso do Sul"
   }
+};
+
+// --- ESTIMATIVA DE PRODUTIVIDADE: dados por estado ---
+const produtividadeMap: Record<string, {
+  soja:  { mun: string; estado: string; brasil: string; precoSaca: number; custoProd: number };
+  milho: { mun: string; estado: string; brasil: string; precoSaca: number; custoProd: number };
+  delta: { soja: number; milho: number };
+  nomeEstado: string;
+}> = {
+  MT: { nomeEstado: 'Mato Grosso',    soja:  { mun: '82 a 95', estado: '60 a 72', brasil: '60', precoSaca: 133, custoProd: 5500 }, milho: { mun: '82 a 95', estado: '60 a 75', brasil: '62', precoSaca: 68, custoProd: 1800 }, delta: { soja: -2.1, milho: 4.8 } },
+  GO: { nomeEstado: 'Goiás',          soja:  { mun: '58 a 68', estado: '55 a 65', brasil: '60', precoSaca: 130, custoProd: 5200 }, milho: { mun: '100 a 120', estado: '90 a 110', brasil: '62', precoSaca: 65, custoProd: 1600 }, delta: { soja: 2.4, milho: -1.5 } },
+  PR: { nomeEstado: 'Paraná',         soja:  { mun: '62 a 72', estado: '58 a 68', brasil: '60', precoSaca: 128, custoProd: 5800 }, milho: { mun: '90 a 110', estado: '85 a 100', brasil: '62', precoSaca: 63, custoProd: 1700 }, delta: { soja: 5.3, milho: 3.9 } },
+  MS: { nomeEstado: 'Mato Grosso do Sul', soja: { mun: '55 a 68', estado: '52 a 62', brasil: '60', precoSaca: 130, custoProd: 5000 }, milho: { mun: '90 a 105', estado: '85 a 100', brasil: '62', precoSaca: 65, custoProd: 1650 }, delta: { soja: 1.7, milho: 6.1 } },
+  SP: { nomeEstado: 'São Paulo',      soja:  { mun: '50 a 62', estado: '48 a 60', brasil: '60', precoSaca: 132, custoProd: 6000 }, milho: { mun: '85 a 100', estado: '80 a 95', brasil: '62', precoSaca: 64, custoProd: 1900 }, delta: { soja: -1.3, milho: 2.5 } },
+  MG: { nomeEstado: 'Minas Gerais',   soja:  { mun: '52 a 62', estado: '50 a 60', brasil: '60', precoSaca: 129, custoProd: 5500 }, milho: { mun: '80 a 95', estado: '75 a 90', brasil: '62', precoSaca: 62, custoProd: 1750 }, delta: { soja: 3.2, milho: -0.9 } },
+  BA: { nomeEstado: 'Bahia',          soja:  { mun: '55 a 68', estado: '52 a 65', brasil: '60', precoSaca: 131, custoProd: 5300 }, milho: { mun: '75 a 90', estado: '70 a 85', brasil: '62', precoSaca: 61, custoProd: 1600 }, delta: { soja: 4.6, milho: 2.2 } },
+  RS: { nomeEstado: 'Rio Grande do Sul', soja: { mun: '55 a 70', estado: '55 a 68', brasil: '60', precoSaca: 130, custoProd: 5600 }, milho: { mun: '100 a 120', estado: '95 a 115', brasil: '62', precoSaca: 66, custoProd: 1800 }, delta: { soja: 7.3, milho: 5.5 } },
+  SC: { nomeEstado: 'Santa Catarina', soja:  { mun: '52 a 65', estado: '50 a 62', brasil: '60', precoSaca: 129, custoProd: 5500 }, milho: { mun: '88 a 105', estado: '85 a 100', brasil: '62', precoSaca: 63, custoProd: 1750 }, delta: { soja: 3.8, milho: 4.1 } },
+  TO: { nomeEstado: 'Tocantins',      soja:  { mun: '52 a 65', estado: '50 a 60', brasil: '60', precoSaca: 128, custoProd: 5100 }, milho: { mun: '70 a 85', estado: '65 a 80', brasil: '62', precoSaca: 62, custoProd: 1550 }, delta: { soja: 5.1, milho: 3.3 } },
+  MA: { nomeEstado: 'Maranhão',       soja:  { mun: '50 a 62', estado: '48 a 58', brasil: '60', precoSaca: 127, custoProd: 5000 }, milho: { mun: '65 a 80', estado: '60 a 75', brasil: '62', precoSaca: 60, custoProd: 1500 }, delta: { soja: 4.2, milho: 2.8 } },
+  PI: { nomeEstado: 'Piauí',          soja:  { mun: '48 a 62', estado: '46 a 58', brasil: '60', precoSaca: 126, custoProd: 4900 }, milho: { mun: '60 a 75', estado: '58 a 72', brasil: '62', precoSaca: 59, custoProd: 1450 }, delta: { soja: 5.5, milho: 3.7 } },
+  RO: { nomeEstado: 'Rondônia',       soja:  { mun: '48 a 60', estado: '46 a 58', brasil: '60', precoSaca: 125, custoProd: 4800 }, milho: { mun: '62 a 78', estado: '60 a 75', brasil: '62', precoSaca: 60, custoProd: 1480 }, delta: { soja: 6.2, milho: 4.1 } },
+};
+
+// --- TERMÔMETRO IMOBILIÁRIO: dados de mercado por estado ---
+const termometroMap: Record<string, {
+  nomeEstado: string;
+  precoHaMin: number; precoHaMax: number;
+  prylomPremium: number;
+  arrendMin: number; arrendMax: number;
+  arrendPrylomPremium: number;
+  valorizacao12m: number;
+  valorizacao5a: number;
+  precoSoja: number;
+}> = {
+  MT: { nomeEstado: 'Mato Grosso',        precoHaMin: 18000, precoHaMax: 35000, prylomPremium: 22, arrendMin: 9,  arrendMax: 13, arrendPrylomPremium: 18, valorizacao12m: 14.2, valorizacao5a: 68.4, precoSoja: 133 },
+  GO: { nomeEstado: 'Goiás',              precoHaMin: 15000, precoHaMax: 28000, prylomPremium: 20, arrendMin: 8,  arrendMax: 12, arrendPrylomPremium: 15, valorizacao12m: 11.5, valorizacao5a: 54.2, precoSoja: 130 },
+  PR: { nomeEstado: 'Paraná',             precoHaMin: 28000, precoHaMax: 58000, prylomPremium: 18, arrendMin: 10, arrendMax: 15, arrendPrylomPremium: 14, valorizacao12m: 13.8, valorizacao5a: 62.1, precoSoja: 128 },
+  MS: { nomeEstado: 'Mato Grosso do Sul', precoHaMin: 12000, precoHaMax: 25000, prylomPremium: 21, arrendMin: 8,  arrendMax: 11, arrendPrylomPremium: 16, valorizacao12m: 10.2, valorizacao5a: 48.5, precoSoja: 130 },
+  SP: { nomeEstado: 'São Paulo',          precoHaMin: 25000, precoHaMax: 75000, prylomPremium: 15, arrendMin: 12, arrendMax: 18, arrendPrylomPremium: 12, valorizacao12m:  9.8, valorizacao5a: 44.3, precoSoja: 132 },
+  MG: { nomeEstado: 'Minas Gerais',       precoHaMin: 14000, precoHaMax: 32000, prylomPremium: 19, arrendMin: 8,  arrendMax: 12, arrendPrylomPremium: 15, valorizacao12m: 12.1, valorizacao5a: 52.8, precoSoja: 129 },
+  BA: { nomeEstado: 'Bahia',              precoHaMin: 12000, precoHaMax: 28000, prylomPremium: 24, arrendMin: 7,  arrendMax: 11, arrendPrylomPremium: 20, valorizacao12m: 15.3, valorizacao5a: 74.2, precoSoja: 131 },
+  RS: { nomeEstado: 'Rio Grande do Sul',  precoHaMin: 22000, precoHaMax: 45000, prylomPremium: 17, arrendMin: 11, arrendMax: 16, arrendPrylomPremium: 13, valorizacao12m: 10.5, valorizacao5a: 49.1, precoSoja: 130 },
+  SC: { nomeEstado: 'Santa Catarina',     precoHaMin: 20000, precoHaMax: 42000, prylomPremium: 17, arrendMin: 10, arrendMax: 14, arrendPrylomPremium: 13, valorizacao12m:  9.2, valorizacao5a: 42.6, precoSoja: 129 },
+  TO: { nomeEstado: 'Tocantins',          precoHaMin:  8000, precoHaMax: 20000, prylomPremium: 28, arrendMin: 6,  arrendMax: 10, arrendPrylomPremium: 22, valorizacao12m: 18.5, valorizacao5a: 89.3, precoSoja: 128 },
+  MA: { nomeEstado: 'Maranhão',           precoHaMin:  6000, precoHaMax: 18000, prylomPremium: 30, arrendMin: 5,  arrendMax:  9, arrendPrylomPremium: 25, valorizacao12m: 21.4, valorizacao5a: 102.5, precoSoja: 127 },
+  PI: { nomeEstado: 'Piauí',              precoHaMin:  5000, precoHaMax: 15000, prylomPremium: 32, arrendMin: 4,  arrendMax:  8, arrendPrylomPremium: 28, valorizacao12m: 22.8, valorizacao5a: 115.0, precoSoja: 126 },
+  RO: { nomeEstado: 'Rondônia',           precoHaMin:  7000, precoHaMax: 18000, prylomPremium: 26, arrendMin: 5,  arrendMax:  8, arrendPrylomPremium: 22, valorizacao12m: 16.2, valorizacao5a: 78.4, precoSoja: 125 },
+  PA: { nomeEstado: 'Pará',               precoHaMin:  5000, precoHaMax: 15000, prylomPremium: 28, arrendMin: 4,  arrendMax:  8, arrendPrylomPremium: 24, valorizacao12m: 19.5, valorizacao5a: 95.2, precoSoja: 125 },
 };
 
 // --- INTELIGÊNCIA DE ESCOAMENTO: base de dados logísticos por estado ---
@@ -387,6 +452,40 @@ const prodMapEstado: Record<string, { prodLocal: string; prodEstado: string; lab
     fetchLocalInsight();
   }, [lang]);
 
+  // ── TradingView Ticker Tape (script injection) ──
+  // Guard prevents double-run in React Strict Mode (which would crash TV's script)
+  const tvTickerInitRef = useRef(false);
+  useEffect(() => {
+    if (tvTickerInitRef.current) return;
+    const el = tvTickerRef.current;
+    if (!el) return;
+    tvTickerInitRef.current = true;
+    const inner = document.createElement('div');
+    inner.className = 'tradingview-widget-container__widget';
+    el.appendChild(inner);
+    const s = document.createElement('script');
+    s.type  = 'text/javascript';
+    s.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js';
+    s.async = true;
+    s.innerHTML = JSON.stringify({
+      symbols: [
+        { proName: 'FX_IDC:USDBRL',   title: 'Dólar/Real'   },
+        { proName: 'CBOT:ZS1!',        title: 'Soja CBOT'    },
+        { proName: 'CBOT:ZC1!',        title: 'Milho CBOT'   },
+        { proName: 'BMFBOVESPA:BGI1!', title: 'Boi Gordo B3' },
+        { proName: 'BMFBOVESPA:ICF1!', title: 'Café B3'      },
+        { proName: 'COMEX:GC1!',       title: 'Ouro'         },
+        { proName: 'TVC:DXY',          title: 'Índice Dólar'  },
+      ],
+      colorTheme:    'dark',
+      isTransparent: true,
+      displayMode:   'compact',
+      locale:        'pt_BR',
+    });
+    el.appendChild(s);
+  }, []);
+
+
 const fetchLocalInsight = async (specificLocation?: string) => {
   setLoadingInsight(true);
   const WEBHOOK_URL = "https://webhook.saveautomatik.shop/webhook/terminalAgro";
@@ -501,7 +600,7 @@ const fetchAgroIndicators = async (location: string) => {
     // 2. APIs paralelas principais
     const [nasaRes, weatherRes, elevRes] = await Promise.all([
       fetch(`https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=PRECTOTCORR,T2M,T2M_MAX,T2M_MIN,RH2M,WS10M,ALLSKY_SFC_SW_DWN,EVPTRNS&community=AG&longitude=${lon}&latitude=${lat}&format=JSON`),
-      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America/Sao_Paulo&forecast_days=16`),
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover,visibility,uv_index,dew_point_2m,apparent_temperature&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,sunshine_duration,uv_index_max,et0_fao_evapotranspiration,precipitation_hours&timezone=America/Sao_Paulo&forecast_days=16`),
       fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`),
     ]);
     const [nasa, weather, elev] = await Promise.all([nasaRes.json(), weatherRes.json(), elevRes.json()]);
@@ -784,85 +883,88 @@ const fetchAgroIndicators = async (location: string) => {
     finally { setCalcDistLoading(false); }
   };
 
-  const fetchLiveAgroNews = async () => {
+  const fetchAgroNews = async () => {
     setLoadingNews(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: `Search for the 5 most recent and relevant agribusiness news and events today.
-        Focus on: Soybean/Corn Prices, USDA Reports, Port Logistics and Climate.
-        Return the response strictly in the language: ${lang}.
-        Format as a JSON ARRAY of objects: [{ "id": "string", "source": "string", "title": "string", "summary": "string", "sentiment": "BULLISH|BEARISH", "timestamp": "string" }]`,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                source: { type: Type.STRING },
-                title: { type: Type.STRING },
-                summary: { type: Type.STRING },
-                sentiment: { type: Type.STRING },
-                timestamp: { type: Type.STRING }
-              },
-              required: ["id", "source", "title", "summary", "sentiment", "timestamp"]
-            }
-          }
-        },
+
+    // Maps raw <item> objects from XML → MarketNews[]
+    const mapItems = (rawItems: { title: string; description: string; link: string; pubDate: string }[], feedTitle: string): MarketNews[] =>
+      rawItems.map((item, idx) => {
+        const text = (item.title + ' ' + item.description).toLowerCase();
+        const bullish = ['alta', 'subiu', 'cresceu', 'valorização', 'avanço', 'recorde', 'exportação', 'colheita', 'abriu', 'dispara'];
+        const bearish = ['queda', 'caiu', 'baixa', 'crise', 'seca', 'perdas', 'recuo', 'preocupa', 'deficit', 'recua'];
+        const sentiment: MarketNews['sentiment'] = bullish.some(w => text.includes(w))
+          ? 'BULLISH' : bearish.some(w => text.includes(w)) ? 'BEARISH' : 'NEUTRAL';
+
+        let category: MarketNews['category'] = 'INPUTS';
+        if (/soja|milho|cbot|grão|trigo/.test(text)) category = 'CHICAGO';
+        else if (/usda|exporta|embarque|porto/.test(text)) category = 'USDA';
+        else if (/china|ásia|asia/.test(text)) category = 'CHINA';
+        else if (/clima|chuva|seca|geada|tempo|fenômeno/.test(text)) category = 'CLIMATE';
+
+        const timestamp = item.pubDate
+          ? new Date(item.pubDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+          : '';
+
+        return {
+          id: String(idx + 1),
+          source: feedTitle,
+          title: item.title.replace(/<[^>]+>/g, '').trim(),
+          summary: item.description.replace(/<[^>]+>/g, '').trim().slice(0, 250),
+          category,
+          sentiment,
+          timestamp,
+          url: item.link,
+        };
       });
-      const newsData = JSON.parse(response.text || "[]");
-      setNews(newsData);
-      if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-        setSources(response.candidates[0].groundingMetadata.groundingChunks);
+
+    // Fetch an RSS feed via allorigins.win CORS proxy and parse the XML
+    const tryFeed = async (feedUrl: string, label: string): Promise<MarketNews[] | null> => {
+      try {
+        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
+        const res = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) return null;
+        const xmlText = await res.text();
+        const xml = new DOMParser().parseFromString(xmlText, 'text/xml');
+        const itemEls = Array.from(xml.querySelectorAll('item')).slice(0, 8);
+        if (!itemEls.length) return null;
+        const raw = itemEls.map(el => ({
+          title:       el.querySelector('title')?.textContent        ?? '',
+          description: el.querySelector('description')?.textContent  ?? '',
+          link:        el.querySelector('link')?.textContent          ?? '',
+          pubDate:     el.querySelector('pubDate')?.textContent       ?? '',
+        }));
+        return mapItems(raw, label);
+      } catch {
+        return null;
       }
+    };
+
+    try {
+      const result =
+        await tryFeed('https://www.noticiasagricolas.com.br/noticias/rss.xml', 'Notícias Agrícolas') ??
+        await tryFeed('https://www.agrolink.com.br/rss/noticias.rss',          'AgroLink') ??
+        await tryFeed('https://g1.globo.com/dynamo/economia/agronegocio/rss2.xml', 'G1 Agronegócio') ??
+        await tryFeed('https://www.canalrural.com.br/rss/',                    'Canal Rural');
+
+      setNews(result ?? []);
     } catch (e) {
-      console.error("Erro ao buscar notícias:", e);
+      console.error('Erro ao buscar notícias agro:', e);
+      setNews([]);
     } finally {
       setLoadingNews(false);
     }
   };
 
- // const getAiImpact = async (item: MarketNews) => {
- //   setLoadingNewsInsight(true);
- //   try {
- //     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
- //     const response = await ai.models.generateContent({
- //       model: "gemini-1.5-flash",
- //       contents: `Analyze the strategic impact of this news for a rural producer: "${item.title} - ${item.summary}". Respond strictly in ${lang} in a premium Prylom consultative tone.`,
- //       config: { tools: [{ googleSearch: {} }] }
-  //    });
-  //    setNewsInsight({ newsId: item.id, text: response.text || "N/A" });
- //   } catch (e) {
- //     console.error(e);
- //   } finally {
-//      setLoadingNewsInsight(false);
- //   }
-//  };
-
-  // Ref para evitar double-fetch do React Strict Mode em desenvolvimento
-  const newsFetchedLang = useRef<string | null>(null);
+  const newsFetchedRef = useRef(false);
   useEffect(() => {
-    if (newsFetchedLang.current === lang) return;
-    newsFetchedLang.current = lang;
-    fetchLiveAgroNews();
+    if (newsFetchedRef.current) return;
+    newsFetchedRef.current = true;
+    fetchAgroNews();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
+  }, []);
 
   
 
-    const tickerSymbols = useMemo(() => JSON.stringify([
-      { proName: "FX_IDC:USDBRL", title: "Dólar / Real" },
-      { proName: "CBOT:ZS1!", title: "Soja (CBOT)" },
-      { proName: "CBOT:ZC1!", title: "Milho (CBOT)" },
-      { proName: "CME:LE1!", title: "Boi Gordo" },
-      { proName: "ICEUS:KC1!", title: "Café Arábica" },
-      { proName: "ICEUS:SB1!", title: "Açúcar" },
-      { proName: "INDEX:DXY", title: "DXY Index" }
-    ]), []);
   
 
   return (
@@ -901,14 +1003,9 @@ const fetchAgroIndicators = async (location: string) => {
          </button>
       </div>
                 
-                <div className="w-full bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 min-h-[72px]">
-                  {React.createElement('tv-ticker-tape', { 
-                    symbols: tickerSymbols,
-                    colorTheme: "light",
-                    isTransparent: false,
-                    displayMode: "adaptive",
-                    locale: lang.toLowerCase()
-                  } as any)}
+                {/* ── Ticker TradingView ── */}
+                <div className="w-full rounded-3xl overflow-hidden" style={{ backgroundColor: '#2c5363', minHeight: '46px' }}>
+                  <div ref={tvTickerRef} className="tradingview-widget-container w-full" />
                 </div>
 
 
@@ -1062,20 +1159,31 @@ const fetchAgroIndicators = async (location: string) => {
               ))}
             </div>
 
-            {/* Previsão estendida */}
-            <div className="border-t border-gray-100 pt-4">
+            {/* Navegação de abas */}
+            <div className="flex gap-0 border-b border-gray-100 mt-6 mb-0">
+              {([
+                { key: 'previsao', label: 'Previsão 15 Dias' },
+                { key: 'avancado', label: 'Dados Avançados' },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setWeatherTab(key)}
+                  className={`px-5 py-2.5 text-[8px] font-black uppercase tracking-widest border-b-2 transition-all ${
+                    weatherTab === key
+                      ? 'border-prylom-gold text-prylom-gold'
+                      : 'border-transparent text-gray-400 hover:text-prylom-dark'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Aba: Previsão 15 Dias */}
+            {weatherTab === 'previsao' && (
+            <div className="border-gray-100 pt-4">
               <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center gap-3">
-                  <p className="text-[9px] font-black text-prylom-dark uppercase tracking-widest">Tendência {forecastDays} Dias</p>
-                  <div className="flex bg-gray-100 p-0.5 rounded-lg">
-                    {[7, 15].map(d => (
-                      <button key={d} onClick={() => setForecastDays(d)}
-                        className={`text-[7px] px-2.5 py-1 font-black uppercase transition-all rounded-md ${forecastDays === d ? 'bg-white shadow-sm text-prylom-dark' : 'text-gray-400 hover:text-prylom-dark'}`}>
-                        {d} dias
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-[9px] font-black text-prylom-dark uppercase tracking-widest">Tendência 15 Dias</p>
                 <div className="flex gap-1.5">
                   <button onClick={() => scrollWeather('left')} className="p-1.5 rounded-full border border-gray-200 hover:bg-gray-50 text-prylom-dark transition-all">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
@@ -1087,10 +1195,40 @@ const fetchAgroIndicators = async (location: string) => {
               </div>
 
               <div ref={weatherScrollRef} className="flex overflow-x-auto gap-3 pb-2 scroll-smooth snap-x" style={{ scrollbarWidth: 'none' }}>
-                {w.daily?.time?.slice(1, forecastDays + 1).map((date: string, i: number) => {
+                {w.daily?.time?.slice(1, 16).map((date: string, i: number) => {
                   const d = new Date(date + 'T00:00:00');
+                  const code   = w.daily.weather_code?.[i + 1] ?? 0;
+                  const tMax   = w.daily.temperature_2m_max?.[i + 1] ?? 0;
+                  const tMin   = w.daily.temperature_2m_min?.[i + 1] ?? 0;
+                  const rain   = w.daily.precipitation_probability_max?.[i + 1] ?? 0;
+
+                  // Lógica de risco
+                  const isStorm   = code > 77;
+                  const isHeavyRain = rain >= 70 || (code >= 51 && code <= 67);
+                  const isHeat    = tMax >= 38;
+                  const isFrost   = tMin <= 4;
+                  const isMidRisk = rain >= 40 || tMax >= 35 || tMin <= 8;
+
+                  const isRed = isStorm || isHeavyRain || isHeat || isFrost;
+                  const isYellow = !isRed && isMidRisk;
+
+                  const riskLabel = isRed
+                    ? isStorm       ? 'Tempestade — evite trabalho externo'
+                    : isHeavyRain   ? `Chuva intensa (${rain}%) — risco operacional`
+                    : isHeat        ? `Calor extremo (${Math.round(tMax)}°C) — risco à saúde`
+                    :                 `Geada (${Math.round(tMin)}°C) — risco às culturas`
+                    : isYellow
+                    ? rain >= 40    ? `Chuva moderada (${rain}%) — atenção`
+                    : tMax >= 35    ? `Calor elevado (${Math.round(tMax)}°C) — monitorar`
+                    :                 `Frio (${Math.round(tMin)}°C) — atenção culturas sensíveis`
+                    : 'Condições favoráveis à operação';
+
+                  const flagColor = isRed ? 'bg-red-500' : isYellow ? 'bg-yellow-400' : 'bg-green-500';
+                  const cardBorder = isRed ? 'border-red-200' : isYellow ? 'border-yellow-200' : 'border-gray-100';
+
                   return (
-                    <div key={date} className="min-w-[120px] snap-start bg-gray-50 p-3 rounded-2xl border border-gray-100 flex flex-col items-start hover:border-prylom-gold transition-all">
+                    <div key={date} className={`min-w-[130px] snap-start bg-gray-50 p-3 rounded-2xl border ${cardBorder} flex flex-col items-start hover:border-prylom-gold transition-all group relative`}>
+                      {/* Cabeçalho */}
                       <div className="w-full flex justify-between items-center mb-1.5">
                         <p className="text-[8px] font-black text-prylom-gold uppercase">
                           {d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
@@ -1099,18 +1237,335 @@ const fetchAgroIndicators = async (location: string) => {
                           {d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                         </p>
                       </div>
-                      <span className="text-xl mb-1.5">{getWeatherIcon(w.daily.weather_code?.[i + 1] ?? 0)}</span>
+
+                      {/* Ícone + bandeira */}
+                      <div className="w-full flex items-center justify-between mb-1.5">
+                        <span className="text-xl">{getWeatherIcon(code)}</span>
+                        <div className="flex items-center gap-1">
+                          <span className={`w-2.5 h-3.5 rounded-sm ${flagColor}`} title={riskLabel} />
+                        </div>
+                      </div>
+
+                      {/* Temperaturas */}
                       <span className="text-[12px] font-black text-prylom-dark">
-                        {Math.round(w.daily.temperature_2m_max?.[i + 1])}° / {Math.round(w.daily.temperature_2m_min?.[i + 1])}°
+                        {Math.round(tMax)}° / {Math.round(tMin)}°
                       </span>
                       <span className="text-[8px] font-bold text-blue-500 uppercase flex items-center gap-1 mt-0.5">
-                        ☔ {w.daily.precipitation_probability_max?.[i + 1]}%
+                        ☔ {rain}%
                       </span>
+
+                      {/* Tooltip de risco */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-prylom-dark text-white text-[8px] font-bold rounded-xl px-3 py-2 leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-lg">
+                        <span className={`inline-block w-2 h-2.5 rounded-sm mr-1.5 align-middle ${flagColor}`} />
+                        {riskLabel}
+                      </div>
                     </div>
                   );
                 })}
               </div>
+
+              {/* Legenda */}
+              <div className="flex gap-4 mt-3 pt-3 border-t border-gray-100">
+                {[
+                  { color: 'bg-green-500', label: 'Favorável' },
+                  { color: 'bg-yellow-400', label: 'Atenção' },
+                  { color: 'bg-red-500',   label: 'Risco Alto' },
+                ].map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <span className={`w-2.5 h-3.5 rounded-sm ${color}`} />
+                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
+            )}
+
+            {/* Aba: Dados Avançados */}
+            {weatherTab === 'avancado' && (() => {
+              const precipMax = Math.max(...(w.daily?.precipitation_sum?.slice(1, 16) ?? [0]).map((v: any) => v ?? 0), 1);
+              const windGustMax = Math.max(...(w.daily?.wind_gusts_10m_max?.slice(1, 16) ?? [0]).map((v: any) => v ?? 0), 1);
+
+              const uvLabel = (n: number) =>
+                n >= 11 ? { text: 'Perigo — fique à sombra', color: 'bg-purple-100 text-purple-700' }
+                : n >= 8  ? { text: 'Muito alto — protetor obrigatório', color: 'bg-red-100 text-red-600' }
+                : n >= 6  ? { text: 'Alto — use protetor solar', color: 'bg-orange-100 text-orange-600' }
+                : n >= 3  ? { text: 'Moderado — atenção no horário de pico', color: 'bg-yellow-100 text-yellow-700' }
+                :           { text: 'Baixo — sem preocupações', color: 'bg-green-100 text-green-700' };
+
+              const windLabel = (kmh: number) =>
+                kmh >= 60 ? { text: 'Perigoso — evite trabalho externo', color: 'text-red-600' }
+                : kmh >= 35 ? { text: 'Forte — atenção em campo aberto', color: 'text-yellow-600' }
+                :              { text: 'Tranquilo', color: 'text-green-600' };
+
+              const pressureNote = (hpa: number) =>
+                hpa < 1000 ? 'Pressão baixa — pode chover' : hpa > 1020 ? 'Pressão alta — tempo estável' : 'Pressão normal';
+
+              const cloudNote = (pct: number) =>
+                pct >= 80 ? 'Céu muito nublado' : pct >= 40 ? 'Céu parcialmente nublado' : 'Céu aberto';
+
+              const visNote = (km: number) =>
+                km < 1 ? 'Visibilidade muito baixa — neblina' : km < 5 ? 'Visibilidade reduzida' : 'Boa visibilidade';
+
+              return (
+              <div className="pt-6 space-y-10">
+
+                {/* ── AGORA: Condições do ar ── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-5">
+                    <span className="text-xl">🌍</span>
+                    <div>
+                      <p className="text-sm font-black text-prylom-dark">Condições do Ar Agora</p>
+                      <p className="text-[10px] text-gray-400 font-medium">O que está acontecendo neste momento</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                    {/* Sensação Térmica */}
+                    {cur.apparent_temperature != null && (
+                      <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex items-center gap-4">
+                        <span className="text-3xl">🌡️</span>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-bold text-gray-500 mb-0.5">Como o corpo sente o calor</p>
+                          <p className="text-2xl font-black text-prylom-dark leading-none">{Math.round(cur.apparent_temperature)}<span className="text-sm font-bold ml-1 opacity-60">°C</span></p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Temperatura real: {Math.round(cur.temperature_2m)}°C</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Umidade / Orvalho */}
+                    {cur.dew_point_2m != null && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center gap-4">
+                        <span className="text-3xl">💧</span>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-bold text-gray-500 mb-0.5">Umidade do ar (ponto de orvalho)</p>
+                          <p className="text-2xl font-black text-prylom-dark leading-none">{Math.round(cur.dew_point_2m)}<span className="text-sm font-bold ml-1 opacity-60">°C</span></p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Umidade relativa: {cur.relative_humidity_2m}%</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rajadas */}
+                    {cur.wind_gusts_10m != null && (
+                      <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex items-center gap-4">
+                        <span className="text-3xl">💨</span>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-bold text-gray-500 mb-0.5">Rajadas de vento (mais forte)</p>
+                          <p className="text-2xl font-black text-prylom-dark leading-none">{Math.round(cur.wind_gusts_10m)}<span className="text-sm font-bold ml-1 opacity-60">km/h</span></p>
+                          <p className={`text-[10px] font-bold mt-0.5 ${windLabel(cur.wind_gusts_10m).color}`}>{windLabel(cur.wind_gusts_10m).text}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pressão */}
+                    {cur.surface_pressure != null && (
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-center gap-4">
+                        <span className="text-3xl">🔵</span>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-bold text-gray-500 mb-0.5">Pressão atmosférica</p>
+                          <p className="text-2xl font-black text-prylom-dark leading-none">{Math.round(cur.surface_pressure)}<span className="text-sm font-bold ml-1 opacity-60">hPa</span></p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{pressureNote(cur.surface_pressure)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Nuvens */}
+                    {cur.cloud_cover != null && (
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center gap-4">
+                        <span className="text-3xl">☁️</span>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-bold text-gray-500 mb-0.5">Nuvens no céu agora</p>
+                          <p className="text-2xl font-black text-prylom-dark leading-none">{cur.cloud_cover}<span className="text-sm font-bold ml-1 opacity-60">%</span></p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{cloudNote(cur.cloud_cover)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Visibilidade */}
+                    {cur.visibility != null && (
+                      <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4 flex items-center gap-4">
+                        <span className="text-3xl">👁️</span>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-bold text-gray-500 mb-0.5">Até onde se enxerga</p>
+                          <p className="text-2xl font-black text-prylom-dark leading-none">{(cur.visibility / 1000).toFixed(1)}<span className="text-sm font-bold ml-1 opacity-60">km</span></p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{visNote(cur.visibility / 1000)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* UV agora */}
+                    {cur.uv_index != null && (() => {
+                      const uv = uvLabel(cur.uv_index);
+                      return (
+                        <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4 flex items-center gap-4 md:col-span-2">
+                          <span className="text-3xl">☀️</span>
+                          <div className="flex-1">
+                            <p className="text-[10px] font-bold text-gray-500 mb-1">Força da radiação solar agora (Índice UV)</p>
+                            <div className="flex items-center gap-3">
+                              <p className="text-2xl font-black text-prylom-dark">{cur.uv_index}</p>
+                              <span className={`text-[10px] font-black px-3 py-1 rounded-full ${uv.color}`}>{uv.text}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  </div>
+                </div>
+
+                {/* ── CHUVA PREVISTA — 15 dias ── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">🌧️</span>
+                    <div>
+                      <p className="text-sm font-black text-prylom-dark">Chuva Prevista — Próximos 15 Dias</p>
+                      <p className="text-[10px] text-gray-400 font-medium">Quantidade de chuva esperada por dia</p>
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-1 h-36 mt-4">
+                    {w.daily?.time?.slice(1, 16).map((date: string, i: number) => {
+                      const d       = new Date(date + 'T00:00:00');
+                      const precip  = w.daily.precipitation_sum?.[i + 1] ?? 0;
+                      const hours   = w.daily.precipitation_hours?.[i + 1] ?? 0;
+                      const pct     = Math.min((precip / precipMax) * 100, 100);
+                      const isHeavy = precip >= 20;
+                      const isMid   = precip >= 5;
+                      const barColor = isHeavy ? 'bg-blue-600' : isMid ? 'bg-blue-400' : 'bg-blue-200';
+                      const dia = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').slice(0, 3);
+                      return (
+                        <div key={date} className="flex-1 flex flex-col items-center gap-1">
+                          {precip > 0 && (
+                            <p className="text-[7px] font-black text-blue-600 leading-none mb-0.5">{precip.toFixed(0)}mm</p>
+                          )}
+                          <div className={`w-full rounded-t-lg ${barColor}`} style={{ height: `${Math.max(pct, 4)}%` }} />
+                          <p className="text-[7px] font-bold text-gray-500 leading-none">{dia}</p>
+                          <p className="text-[6px] text-gray-400 leading-none">{d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</p>
+                          {hours > 0 && <p className="text-[6px] text-blue-400 leading-none">{hours}h</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-gray-100">
+                    {[
+                      { color: 'bg-blue-200', label: 'Sem chuva ou pouca (menos de 5 mm)' },
+                      { color: 'bg-blue-400', label: 'Chuva moderada (5 a 20 mm)' },
+                      { color: 'bg-blue-600', label: 'Chuva forte (acima de 20 mm)' },
+                    ].map(({ color, label }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className={`w-4 h-3 rounded-sm flex-shrink-0 ${color}`} />
+                        <span className="text-[10px] font-bold text-gray-500">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── VENTO — 15 dias ── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">🌬️</span>
+                    <div>
+                      <p className="text-sm font-black text-prylom-dark">Rajadas de Vento — Próximos 15 Dias</p>
+                      <p className="text-[10px] text-gray-400 font-medium">Velocidade máxima do vento em rajada por dia</p>
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-1 h-28 mt-4">
+                    {w.daily?.time?.slice(1, 16).map((date: string, i: number) => {
+                      const d    = new Date(date + 'T00:00:00');
+                      const gust = w.daily.wind_gusts_10m_max?.[i + 1] ?? 0;
+                      const wmax = w.daily.wind_speed_10m_max?.[i + 1] ?? 0;
+                      const pct  = Math.min((gust / windGustMax) * 100, 100);
+                      const isDangerous = gust >= 60;
+                      const isMod       = gust >= 35;
+                      const barColor    = isDangerous ? 'bg-red-500' : isMod ? 'bg-yellow-400' : 'bg-green-400';
+                      const dia = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').slice(0, 3);
+                      return (
+                        <div key={date} className="flex-1 flex flex-col items-center gap-1">
+                          <p className="text-[7px] font-black text-gray-600 leading-none mb-0.5">{Math.round(gust)}</p>
+                          <div className={`w-full rounded-t-lg ${barColor}`} style={{ height: `${Math.max(pct, 4)}%` }} />
+                          <p className="text-[7px] font-bold text-gray-500 leading-none">{dia}</p>
+                          <p className="text-[6px] text-gray-400 leading-none">{d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</p>
+                          <p className="text-[6px] text-gray-300 leading-none">{Math.round(wmax)}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-1">Números acima da barra = rajada (km/h) · Números abaixo = vento médio (km/h)</p>
+                  <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-gray-100">
+                    {[
+                      { color: 'bg-green-400',  label: 'Vento tranquilo (menos de 35 km/h)' },
+                      { color: 'bg-yellow-400', label: 'Vento forte — atenção em campo (35 a 60 km/h)' },
+                      { color: 'bg-red-500',    label: 'Vento perigoso — evite trabalho externo (acima de 60 km/h)' },
+                    ].map(({ color, label }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className={`w-4 h-3 rounded-sm flex-shrink-0 ${color}`} />
+                        <span className="text-[10px] font-bold text-gray-500">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── SOL & PROTEÇÃO — 15 dias ── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-5">
+                    <span className="text-xl">🌞</span>
+                    <div>
+                      <p className="text-sm font-black text-prylom-dark">Sol, Proteção & Evaporação — Próximos 15 Dias</p>
+                      <p className="text-[10px] text-gray-400 font-medium">Horas de sol, força da radiação e ressecamento do solo</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {w.daily?.time?.slice(1, 16).map((date: string, i: number) => {
+                      const d     = new Date(date + 'T00:00:00');
+                      const sunH  = w.daily.sunshine_duration?.[i + 1] != null ? (w.daily.sunshine_duration[i + 1] / 3600).toFixed(1) : null;
+                      const uvNum = w.daily.uv_index_max?.[i + 1] ?? 0;
+                      const et0   = w.daily.et0_fao_evapotranspiration?.[i + 1] ?? null;
+                      const uv    = uvLabel(uvNum);
+                      const diaLabel = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+                      return (
+                        <div key={date} className="flex flex-col md:flex-row md:items-center gap-2 bg-gray-50 rounded-2xl px-4 py-3">
+                          {/* Data */}
+                          <div className="md:w-36 flex-shrink-0">
+                            <p className="text-[11px] font-black text-prylom-dark capitalize">{diaLabel.split(',')[0]}</p>
+                            <p className="text-[10px] text-gray-400">{d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</p>
+                          </div>
+                          {/* Horas de sol */}
+                          <div className="flex items-center gap-2 md:w-28 flex-shrink-0">
+                            <span className="text-lg">🌤️</span>
+                            <div>
+                              <p className="text-[9px] text-gray-400 font-bold">Horas de sol</p>
+                              <p className="text-[13px] font-black text-prylom-dark">{sunH ?? '—'}<span className="text-[9px] font-bold opacity-50 ml-0.5">h</span></p>
+                            </div>
+                          </div>
+                          {/* UV badge */}
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="text-lg">🕶️</span>
+                            <div>
+                              <p className="text-[9px] text-gray-400 font-bold">Radiação solar (UV {uvNum})</p>
+                              <span className={`inline-block text-[9px] font-black px-2.5 py-0.5 rounded-full mt-0.5 ${uv.color}`}>{uv.text}</span>
+                            </div>
+                          </div>
+                          {/* ET0 */}
+                          {et0 != null && (
+                            <div className="flex items-center gap-2 md:w-36 flex-shrink-0">
+                              <span className="text-lg">🌱</span>
+                              <div>
+                                <p className="text-[9px] text-gray-400 font-bold">Evaporação do solo</p>
+                                <p className="text-[13px] font-black text-blue-600">{et0.toFixed(1)}<span className="text-[9px] font-bold opacity-60 ml-0.5">mm</span></p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] font-bold text-gray-400 mt-3 leading-relaxed">
+                    Evaporação do solo: quanto de água o campo perde por dia para o ar — útil para saber quando irrigar.
+                  </p>
+                </div>
+
+              </div>
+              );
+            })()}
+
           </div>
         );
       })()}
@@ -1319,6 +1774,862 @@ const fetchAgroIndicators = async (location: string) => {
         })()}
       </div>
 
+
+      {/* ── ESTIMATIVA DE PRODUTIVIDADE + BARTER + DIAGNÓSTICO ── */}
+      {(() => {
+        const sc = agroIndicators?.stateCode ?? '';
+        const pd = sc ? produtividadeMap[sc] : null;
+        const loc = agroIndicators?.locationLabel ?? '—';
+        const stLbl = agroIndicators?.stateLabel ?? '—';
+
+        // Cálculo financeiro: usa médio do intervalo (ex: "82 a 95" → 88)
+        const midOf = (range: string) => {
+          const parts = range.split('a').map(s => parseFloat(s.trim()));
+          return parts.length === 2 ? (parts[0] + parts[1]) / 2 : parts[0];
+        };
+
+        const calcMetrica = (sacasRange: string, preco: number, custo: number) => {
+          const sacasMed = midOf(sacasRange);
+          const bruto = sacasMed * preco;
+          const liquido = bruto - custo;
+          const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/ha`;
+          return { brutoStr: fmt(bruto), liquidoStr: fmt(liquido), isPos: liquido >= 0 };
+        };
+
+        const fmtDelta = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}% vs safra ant.`;
+
+        const cards = pd ? [
+          {
+            titulo: 'SACA/HA 2025/26', subtitulo: 'Soja',
+            rows: [
+              { label: `(mun) ${loc}`,        valor: `${pd.soja.mun} SACAS/Ha`, bold: true },
+              { label: `Média ${stLbl}`,       valor: `${pd.soja.estado} SACAS/Ha`, bold: true },
+              { label: 'Média Brasil',         valor: `${pd.soja.brasil} SACAS/Ha`, bold: true },
+            ],
+          },
+          {
+            titulo: 'SACA/HA 2025/26', subtitulo: 'Milho Safrinha',
+            rows: [
+              { label: `(mun) ${loc}`,        valor: `${pd.milho.mun} SACAS/Ha`, bold: true },
+              { label: `Média ${stLbl}`,       valor: `${pd.milho.estado} SACAS/Ha`, bold: true },
+              { label: 'Média Brasil',         valor: `${pd.milho.brasil} SACAS/Ha`, bold: true },
+            ],
+          },
+          {
+            titulo: 'O Delta de Evolução', subtitulo: 'Soja / Milho',
+            rows: [
+              { label: `(mun) ${loc}`,        valor: fmtDelta(pd.delta.soja), bold: true, isPos: pd.delta.soja >= 0 },
+              { label: `Média ${stLbl}`,       valor: fmtDelta(pd.delta.soja * 0.85), bold: false, isPos: pd.delta.soja >= 0 },
+              { label: 'Milho Safrinha',       valor: fmtDelta(pd.delta.milho), bold: true, isPos: pd.delta.milho >= 0 },
+            ],
+          },
+          (() => {
+            const m = calcMetrica(pd.soja.mun, pd.soja.precoSaca, pd.soja.custoProd);
+            return {
+              titulo: 'Métrica Financeira', subtitulo: 'Soja estimativa',
+              rows: [
+                { label: 'Faturamento Bruto',   valor: m.brutoStr,   bold: true },
+                { label: 'Faturamento Líquido', valor: m.liquidoStr, bold: true, isPos: m.isPos },
+              ],
+            };
+          })(),
+          (() => {
+            const m = calcMetrica(pd.milho.mun, pd.milho.precoSaca, pd.milho.custoProd);
+            return {
+              titulo: 'Métrica Financeira', subtitulo: 'Milho Safrinha',
+              rows: [
+                { label: 'Faturamento Bruto',   valor: m.brutoStr,   bold: true },
+                { label: 'Faturamento Líquido', valor: m.liquidoStr, bold: true, isPos: m.isPos },
+              ],
+            };
+          })(),
+        ] : null;
+
+        return (
+          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100 space-y-8">
+
+            {/* ── Cards: Estimativa de Produtividade ── */}
+            <div>
+              <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight mb-6">
+                Estimativa de Produtividade
+              </h3>
+              {!agroIndicators || !pd ? (
+                <p className="text-sm text-gray-400 font-medium">Analise uma região para ver a estimativa de produtividade.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 animate-fadeIn">
+                  {cards!.map((card, ci) => (
+                    <div key={ci} className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden flex flex-col">
+                      <div className="px-3 pt-3 pb-0.5">
+                        <p className="text-prylom-gold font-black text-[10px] uppercase leading-tight">{card.titulo}</p>
+                        <p className="text-[9px] font-bold text-gray-400 mt-0.5">{card.subtitulo}</p>
+                      </div>
+                      <div className="px-3 pb-3 flex-1 flex flex-col gap-2 mt-2">
+                        {card.rows.map((row, ri) => (
+                          <div key={ri}>
+                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">{row.label}</p>
+                            <p className={`text-[12px] leading-snug mt-0.5 ${'isPos' in row ? (row.isPos ? 'font-black text-green-600' : 'font-black text-red-500') : (row.bold ? 'font-black text-prylom-dark' : 'font-bold text-gray-500')}`}>
+                              {row.valor}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Barter + Diagnóstico ── */}
+            <div className="pt-6 border-t border-gray-100 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* Barter – col-span-2 */}
+              <div className="lg:col-span-2 flex flex-col gap-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight mb-1">{t.greenCurrency}</h3>
+                    <p className="text-gray-700 text-xs font-bold">Indicadores de Troca e Margem Operacional</p>
+                  </div>
+                  <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${ratioHealth === 'success' ? 'bg-green-100 text-green-700' : ratioHealth === 'danger' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {ratioHealth === 'success' ? t.ratioSuccess : ratioHealth === 'danger' ? t.ratioAlert : t.ratioStable}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">Cultura / Ativo</label>
+                    <select value={commodity} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCommodity(e.target.value)} className="w-full p-3 bg-gray-50 rounded-2xl font-bold text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold appearance-none cursor-pointer text-sm">
+                      <option value="soja">{t.soy} (Saca 60kg)</option>
+                      <option value="milho">{t.corn} (Saca 60kg)</option>
+                      <option value="boi">Boi Gordo (@)</option>
+                      <option value="cafe">Café Arábica (Saca 60kg)</option>
+                      <option value="algodao">Algodão (Pluma)</option>
+                      <option value="trigo">Trigo (Ton)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">{t.bagPriceLabel}</label>
+                    <input type="number" value={commodityPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommodityPrice(parseFloat(e.target.value))} className="w-full p-3 bg-gray-50 rounded-2xl font-black text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold text-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">Custo Insumo ({getSymbol()})</label>
+                    <input type="number" value={inputCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputCost(parseFloat(e.target.value))} className="w-full p-3 bg-gray-50 rounded-2xl font-black text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold text-sm" />
+                  </div>
+                </div>
+
+                <div className="bg-prylom-dark text-white rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 shadow-xl relative overflow-hidden">
+                  <div className="flex-1 text-center md:text-left z-10">
+                    <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{t.exchangeRatio}</span>
+                    <p className="text-3xl font-black">{barterRatio.toFixed(2)} <span className="text-sm text-gray-300 font-bold uppercase ml-1">unidades / insumo</span></p>
+                    <p className="text-[10px] text-gray-400 mt-1.5 font-medium">Referência de Mercado: {historicalAvg} unidades</p>
+                  </div>
+                  <div className="w-px h-12 bg-white/10 hidden md:block" />
+                  <div className="flex-1 text-center md:text-left z-10">
+                    <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{t.breakEven}</span>
+                    <p className="text-3xl font-black">{regionalCosts[region]?.yieldBe} <span className="text-xs text-gray-300 font-bold uppercase">{t.bagsPerHa}</span></p>
+                    <p className="text-[10px] text-gray-400 mt-1.5 font-medium">Base de Sustentabilidade</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Diagnóstico Prylom */}
+              <div className="bg-prylom-gold/5 rounded-3xl border border-prylom-gold/20 p-6 flex flex-col justify-center italic">
+                <p className="text-[10px] font-black text-[#000080] uppercase tracking-widest mb-3 not-italic">Diagnóstico Prylom:</p>
+                <p className="text-sm font-medium text-prylom-dark leading-relaxed">
+                  {barterRatio >= (historicalAvg * 0.95)
+                    ? 'Relação de troca favorável. O custo operacional está dentro da média histórica, indicando alta eficiência produtiva e margem sustentável para a safra.'
+                    : barterRatio >= (historicalAvg * 0.80)
+                    ? 'Relação de troca em zona de atenção. O custo do insumo está acima do padrão histórico. Recomenda-se revisão de fixação de preços e controle de custos.'
+                    : 'Relação de troca desfavorável. O custo operacional compromete a margem. Recomenda-se travar preços futuros e avaliar alternativas de custeio.'}
+                </p>
+                {pd && (
+                  <div className="mt-4 pt-4 border-t border-prylom-gold/20 not-italic">
+                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Produtividade estimada</p>
+                    <p className="text-sm font-black text-prylom-dark mt-1">{pd.soja.mun} sc/ha · Soja {new Date().getFullYear()}/{String(new Date().getFullYear() + 1).slice(2)}</p>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── TERMÔMETRO IMOBILIÁRIO ── */}
+      <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100 space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight">
+            Termômetro Imobiliário
+          </h3>
+          <div className="flex items-center gap-3">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estado:</label>
+            <select
+              value={vtEstado}
+              onChange={e => setVtEstado(e.target.value)}
+              className="p-2 px-4 bg-gray-50 rounded-xl font-bold text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold text-sm appearance-none cursor-pointer"
+            >
+              {Object.keys(termometroMap).map(k => (
+                <option key={k} value={k}>{k} – {termometroMap[k].nomeEstado}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* 5 cards */}
+        {(() => {
+          const td = termometroMap[vtEstado] ?? termometroMap['MT'];
+          const loc = agroIndicators?.locationLabel ?? td.nomeEstado;
+          const stLbl = td.nomeEstado;
+          const fmtBRL = (v: number) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
+          const precoMedioHa = (td.precoHaMin + td.precoHaMax) / 2;
+          const prylomPrecoHa = Math.round(precoMedioHa * (1 + td.prylomPremium / 100));
+          const arrendMed = (td.arrendMin + td.arrendMax) / 2;
+          const prylomArrdSc = parseFloat((arrendMed * (1 + td.arrendPrylomPremium / 100)).toFixed(1));
+
+          const BRASIL_PRECO_HA = 19000;
+          const BRASIL_ARREND_SC = 9;
+          const BRASIL_VAL_5A = 58.2;
+
+          const cards = [
+            {
+              titulo: 'PREÇO DO HECTARE',
+              rows: [
+                { label: `(mun) ${loc}`,   valor: `${fmtBRL(td.precoHaMin)} – ${fmtBRL(td.precoHaMax)}` },
+                { label: `Média ${stLbl}`, valor: fmtBRL(precoMedioHa) },
+                { label: 'Média Brasil',   valor: fmtBRL(BRASIL_PRECO_HA) },
+              ],
+            },
+            {
+              titulo: 'PREÇO DO HECTARE DE ATIVOS PRYLOM',
+              rows: [
+                { label: `(mun) ${loc}`,   valor: fmtBRL(prylomPrecoHa) },
+                { label: `Média ${stLbl}`, valor: fmtBRL(precoMedioHa) },
+                { label: 'Média Brasil',   valor: fmtBRL(BRASIL_PRECO_HA) },
+              ],
+            },
+            {
+              titulo: 'PREÇO DO HECTARE ARRENDAMENTO',
+              rows: [
+                { label: `(mun) ${loc}`,   valor: `${td.arrendMin} – ${td.arrendMax} sc/ha` },
+                { label: `Média ${stLbl}`, valor: `${arrendMed.toFixed(1)} sc/ha` },
+                { label: 'Média Brasil',   valor: `${BRASIL_ARREND_SC} sc/ha` },
+              ],
+            },
+            {
+              titulo: 'ARRENDAMENTO DE ATIVOS PRYLOM',
+              rows: [
+                { label: `(mun) ${loc}`,   valor: `${prylomArrdSc} sc/ha` },
+                { label: `Média ${stLbl}`, valor: `${arrendMed.toFixed(1)} sc/ha` },
+                { label: 'Média Brasil',   valor: `${BRASIL_ARREND_SC} sc/ha` },
+              ],
+            },
+            {
+              titulo: 'VALORIZAÇÃO IMOBILIÁRIA',
+              rows: [
+                { label: `(mun) ${loc}`,   valor: `${td.valorizacao12m.toFixed(1)}% / 12m` },
+                { label: `Média ${stLbl}`, valor: `${td.valorizacao5a.toFixed(1)}% / 5 anos` },
+                { label: 'Média Brasil',   valor: `${BRASIL_VAL_5A}% / 5 anos` },
+              ],
+            },
+          ];
+
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {cards.map((card, ci) => (
+                <div key={ci} className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden flex flex-col">
+                  <div className="px-3 pt-3 pb-0.5">
+                    <p className="text-prylom-gold font-black text-[10px] uppercase leading-tight">{card.titulo}</p>
+                  </div>
+                  <div className="px-3 pb-3 flex-1 flex flex-col gap-2 mt-2">
+                    {card.rows.map((row, ri) => (
+                      <div key={ri}>
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">{row.label}</p>
+                        <p className="text-[11px] font-black text-prylom-dark leading-snug mt-0.5">{row.valor}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        {/* ── Prylom Valuation Engine: 4 Motores ── */}
+        <div className="pt-4 border-t border-gray-100 space-y-4">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Prylom Valuation Engine</p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+            {/* Motor 1 – O Peso da Terra */}
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.3em]">Motor 1</span>
+                <h4 className="text-xs font-black text-prylom-dark">O Peso da Terra</h4>
+                <span className="text-[9px] font-medium text-gray-400 hidden sm:inline">· Análise Comparativa</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { label: 'Área Total (ha)',           val: vtAreaTotal,    set: setVtAreaTotal    },
+                  { label: 'Área Útil de Lavoura (ha)', val: vtAreaLavoura,  set: setVtAreaLavoura  },
+                  { label: 'Área de Pastagem (ha)',     val: vtAreaPastagem, set: setVtAreaPastagem },
+                  { label: 'Reserva Legal / APP (ha)',  val: vtAreaReserva,  set: setVtAreaReserva  },
+                ] as { label: string; val: number; set: (v: number) => void }[]).map(f => (
+                  <div key={f.label} className="space-y-0.5">
+                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">{f.label}</p>
+                    <input
+                      type="number"
+                      value={f.val}
+                      onChange={e => f.set(parseFloat(e.target.value) || 0)}
+                      className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#000080] text-sm outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[8px] text-gray-400 pt-1 border-t border-gray-200">
+                <span className="font-black text-gray-500">Pesos:</span> Lavoura 100% · Pastagem 60% · Reserva 15%
+              </p>
+            </div>
+
+            {/* Motor 2 – A Máquina de Dinheiro */}
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.3em]">Motor 2</span>
+                <h4 className="text-xs font-black text-prylom-dark">A Máquina de Dinheiro</h4>
+                <span className="text-[9px] font-medium text-gray-400 hidden sm:inline">· Cap Rate</span>
+              </div>
+              <div className="space-y-2">
+                {([
+                  { label: 'Produtividade estimada (sc/ha)',       val: vtProdSacas,                            set: setVtProdSacas,  step: 1  },
+                  { label: 'Arrendamento praticado (sc/ha/ano)',   val: vtArrendSacas,                          set: setVtArrendSacas, step: 1  },
+                  { label: 'Taxa de Atratividade – Cap Rate (%)',  val: parseFloat((vtCapRate*100).toFixed(1)), set: (v: number) => setVtCapRate(v/100), step: 0.5 },
+                ] as { label: string; val: number; set: (v: number) => void; step: number }[]).map(f => (
+                  <div key={f.label} className="space-y-0.5">
+                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">{f.label}</p>
+                    <input
+                      type="number"
+                      step={f.step}
+                      value={f.val}
+                      onChange={e => f.set(parseFloat(e.target.value) || 0)}
+                      className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#000080] text-sm outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[8px] text-gray-400 pt-1 border-t border-gray-200">
+                <span className="font-black text-gray-500">Fórmula:</span> Renda Anual ÷ Cap Rate = Valor Capitalizado
+              </p>
+            </div>
+
+            {/* Motor 3 – O Multiplicador Logístico */}
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.3em]">Motor 3</span>
+                <h4 className="text-xs font-black text-prylom-dark">O Multiplicador Logístico</h4>
+                <span className="text-[9px] font-medium text-gray-400 hidden sm:inline">· Infraestrutura</span>
+              </div>
+              <div className="space-y-2">
+                <div className="space-y-0.5">
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Distância do Asfalto (km)</p>
+                  <input
+                    type="number"
+                    value={vtDistAsfalto}
+                    onChange={e => setVtDistAsfalto(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#000080] text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Possui Silos Próprios?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setVtTemSilo(true)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest border-2 transition-colors ${vtTemSilo ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                    >SIM</button>
+                    <button
+                      onClick={() => setVtTemSilo(false)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest border-2 transition-colors ${!vtTemSilo ? 'bg-red-400 border-red-400 text-white' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                    >NÃO</button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[8px] text-gray-400 pt-1 border-t border-gray-200">
+                <span className="font-black text-green-600">Prêmio:</span> ≤5km +15% · Silo +10% &nbsp;
+                <span className="font-black text-red-500">Deságio:</span> 51–100km −10% · &gt;100km −20%
+              </p>
+            </div>
+
+            {/* Motor 4 – A Tesoura do Compliance */}
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.3em]">Motor 4</span>
+                <h4 className="text-xs font-black text-prylom-dark">A Tesoura do Compliance</h4>
+                <span className="text-[9px] font-medium text-gray-400 hidden sm:inline">· Filtro Jurídico</span>
+              </div>
+              <div className="space-y-2">
+                {([
+                  { label: 'Matrícula Vintenária Limpa?',         sub: 'Situação dominial regular',            val: vtMatricula,   set: setVtMatricula,   simBom: true,  desc: 'Sem matrícula: −35%' },
+                  { label: 'GEO e CAR Averbados e Regulares?',    sub: 'Sem sobreposição de áreas',            val: vtGeoAverbado, set: setVtGeoAverbado, simBom: true,  desc: 'Sem GEO/CAR: −25%'  },
+                  { label: 'Tem Passivo Ambiental / IBAMA?',       sub: 'Embargo, autuação ou desmatamento',   val: vtPassivo,     set: setVtPassivo,     simBom: false, desc: 'Com passivo: −30%'   },
+                ] as { label: string; sub: string; val: boolean; set: (v: boolean) => void; simBom: boolean; desc: string }[]).map(f => (
+                  <div key={f.label} className="bg-white border border-gray-200 rounded-xl p-2.5 space-y-1.5">
+                    <div>
+                      <p className="text-[9px] font-black text-prylom-dark leading-tight">{f.label}</p>
+                      <p className="text-[8px] text-gray-400">{f.sub} · <span className="font-black text-red-400">{f.desc}</span></p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => f.set(true)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border-2 transition-colors ${f.val ? (f.simBom ? 'bg-green-500 border-green-500 text-white' : 'bg-red-500 border-red-500 text-white') : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                      >SIM</button>
+                      <button
+                        onClick={() => f.set(false)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border-2 transition-colors ${!f.val ? (f.simBom ? 'bg-red-400 border-red-400 text-white' : 'bg-green-500 border-green-500 text-white') : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                      >NÃO</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[8px] text-gray-400 pt-1 border-t border-gray-200">
+                <span className="font-black text-red-500">Risco máximo acumulado:</span> −50% no valor final
+              </p>
+            </div>
+
+          </div>
+
+          {/* ── Valuation Forense: 3 Cenários ── */}
+          {(() => {
+            const td = termometroMap[vtEstado] ?? termometroMap['MT'];
+            const precoMedioHa = (td.precoHaMin + td.precoHaMax) / 2;
+            const m1 = vtAreaLavoura * precoMedioHa * 1.00
+                      + vtAreaPastagem * precoMedioHa * 0.60
+                      + vtAreaReserva  * precoMedioHa * 0.15;
+            const rendaAnual = vtArrendSacas * td.precoSoja * vtAreaLavoura;
+            const m2 = vtCapRate > 0 ? rendaAnual / vtCapRate : 0;
+            const base = m1 * 0.60 + m2 * 0.40;
+            let logAdj = 0;
+            if      (vtDistAsfalto <= 5)   logAdj += 0.15;
+            else if (vtDistAsfalto <= 20)  logAdj += 0.05;
+            else if (vtDistAsfalto <= 50)  logAdj += 0;
+            else if (vtDistAsfalto <= 100) logAdj -= 0.10;
+            else                           logAdj -= 0.20;
+            if (vtTemSilo) logAdj += 0.10;
+            const logMult = 1 + logAdj;
+            let compDisc = 0;
+            if (!vtMatricula)   compDisc += 0.35;
+            if (!vtGeoAverbado) compDisc += 0.25;
+            if (vtPassivo)      compDisc += 0.30;
+            compDisc = Math.min(compDisc, 0.50);
+            const compMult  = 1 - compDisc;
+            const fairValue  = base * logMult * compMult;
+            const estressado = fairValue * 0.75;
+            const potencial  = vtAreaTotal * precoMedioHa * logMult;
+            const fmt   = (v: number) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
+            const fmtHa = (v: number) => vtAreaTotal > 0 ? `R$ ${Math.round(v / vtAreaTotal).toLocaleString('pt-BR')}/ha` : '—';
+            const paybackAnos = rendaAnual > 0 ? (fairValue / rendaAnual).toFixed(1) : '—';
+            const cenarios = [
+              { id: 'est', tag: 'Liquidez Rápida',  sub: 'Venda imediata · fundo agressivo',      desc: 'Desconto de 25% sobre o Fair Value. Saída urgente.', total: estressado, cor: 'border-orange-300 bg-orange-50', tagCor: 'bg-orange-100 text-orange-700', valCor: 'text-orange-600', destaque: false },
+              { id: 'fv',  tag: 'Fair Value',        sub: 'Valor Justo de Mercado · Prylom',       desc: `Precificação auditada — 4 motores. Payback: ${paybackAnos} anos.`, total: fairValue, cor: 'border-prylom-gold bg-prylom-dark', tagCor: 'bg-prylom-gold/20 text-prylom-gold', valCor: 'text-prylom-gold', destaque: true },
+              { id: 'pot', tag: 'Valor Potencial',   sub: 'Turnaround · compliance resolvido',     desc: 'Toda área como lavoura, sem passivos. O teto.', total: potencial, cor: 'border-green-300 bg-green-50', tagCor: 'bg-green-100 text-green-700', valCor: 'text-green-600', destaque: false },
+            ];
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <h4 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Valuation Forense</h4>
+                  {compDisc > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-widest">
+                      ⚠ Risco jurídico · −{Math.round(compDisc * 100)}%
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {cenarios.map(c => (
+                    <div key={c.id} className={`rounded-2xl p-4 border-2 space-y-2 ${c.cor}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${c.tagCor}`}>{c.tag}</span>
+                      <p className={`text-[9px] font-bold ${c.destaque ? 'text-white/60' : 'text-gray-400'}`}>{c.sub}</p>
+                      <p className={`text-xl font-black leading-tight ${c.valCor}`}>{fmt(c.total)}</p>
+                      <p className={`text-[8px] font-bold ${c.destaque ? 'text-white/50' : 'text-gray-400'}`}>{fmtHa(c.total)}</p>
+                      <p className={`text-[8px] font-medium leading-relaxed ${c.destaque ? 'text-white/70' : 'text-gray-500'}`}>{c.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Conversão de unidades de área */}
+          <div className="pt-3 border-t border-gray-100">
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 max-w-sm space-y-3">
+              <div>
+                <h4 className="text-xs font-black text-prylom-dark">Conversão de Área</h4>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Unidade de medida de superfície</p>
+              </div>
+              {(() => {
+                const ucUnits: Record<string, number> = {
+                  'Hectare': 1,
+                  'Alqueire Paulista': 2.42,
+                  'Alqueire Mineiro': 4.84,
+                  'Alqueire Goiano': 4.84,
+                  'Acre': 0.404686,
+                  'Metro Quadrado': 0.0001,
+                };
+                const fromFactor = ucUnits[ucFrom] ?? 1;
+                const toFactor   = ucUnits[ucTo]   ?? 1;
+                const converted  = parseFloat(((ucValue * fromFactor) / toFactor).toFixed(4));
+                return (
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Converter</p>
+                      <input
+                        type="number"
+                        value={ucValue}
+                        onChange={e => setUcValue(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#000080] text-sm outline-none focus:border-prylom-gold"
+                      />
+                      <select
+                        value={ucFrom}
+                        onChange={e => setUcFrom(e.target.value)}
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#000080] text-sm outline-none focus:border-prylom-gold cursor-pointer"
+                      >
+                        {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Para</p>
+                      <input
+                        type="number"
+                        readOnly
+                        value={converted}
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#000080] text-sm outline-none bg-gray-100"
+                      />
+                      <select
+                        value={ucTo}
+                        onChange={e => setUcTo(e.target.value)}
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#000080] text-sm outline-none focus:border-prylom-gold cursor-pointer"
+                      >
+                        {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── ALERTAS ESTRATÉGICOS IMOBILIÁRIOS ── */}
+      {(() => {
+        const alertas = [
+          {
+            tipo: 'urgente',
+            categoria: 'Fiscal',
+            impacto: 'Alto',
+            titulo: 'ITR 2026: Novas Tabelas de VTN em Vigor',
+            desc: 'Receita Federal atualiza Valor da Terra Nua em 14 estados. Declarações subavaliadas terão multa de 75% + correção SELIC. Imóveis avaliados abaixo do novo piso podem ter auto de infração retroativo a 2024.',
+            acao: 'Revisar declaração anterior e ajustar VTN',
+            fonte: 'Receita Federal / IN RFB',
+            prazo: '30/04/2026',
+          },
+          {
+            tipo: 'urgente',
+            categoria: 'Regulatório',
+            impacto: 'Alto',
+            titulo: 'INCRA: GEO Obrigatório para Imóveis acima de 4 MF',
+            desc: 'Prazo final dezembro/2026. Propriedades sem georreferenciamento certificado ficam bloqueadas para transferência cartorial, desmembramento e regularização fundiária. MT, GO e PA são os estados com maior volume de pendências.',
+            acao: 'Contratar empresa credenciada INCRA imediatamente',
+            fonte: 'INCRA / Portaria 1.101/2025',
+            prazo: '31/12/2026',
+          },
+          {
+            tipo: 'atencao',
+            categoria: 'Ambiental',
+            impacto: 'Alto',
+            titulo: 'IBAMA Intensifica Embargos no Cerrado e Amazônia',
+            desc: 'Operação Fronteira Verde II: 1.240 novas autuações em fevereiro/2026. Imóveis com passivo ambiental não averbado têm bloqueio automático de transferência no SNCR e perda de acesso ao crédito rural (Pronaf, ABC, FCO).',
+            acao: 'Verificar situação no SICAR e IBAMA antes de negociar',
+            fonte: 'IBAMA / SICAR',
+            prazo: 'Ativo',
+          },
+          {
+            tipo: 'atencao',
+            categoria: 'Compliance',
+            impacto: 'Médio',
+            titulo: 'CAR: Retificação Obrigatória no MATOPIBA até Jul/2026',
+            desc: 'Estados de MA, PI, TO e BA exigem adequação de módulos fiscais em áreas de bioma Cerrado. CAR irregular suspende crédito BNDES, Syngenta e Bayer. Estimativa de 38 mil imóveis ainda pendentes.',
+            acao: 'Checar status no SICAR estadual e protocolar retificação',
+            fonte: 'SEMA-MT / SEMARH-GO',
+            prazo: '31/07/2026',
+          },
+          {
+            tipo: 'oportunidade',
+            categoria: 'Mercado',
+            impacto: 'Alto',
+            titulo: 'FIAgro Atinge R$ 18,4 Bi — Maior Liquidez Histórica',
+            desc: 'Fundos de Investimento Agrícola buscam ativos com lavoura certificada, GEO regularizado e arrendamento ativo. Janela de valorização de 12–18 meses para fazendas em MT, GO e BA. Prêmio médio de 22% sobre valor de mercado para ativos "clean".',
+            acao: 'Preparar dossiê de ativos e conectar com investidores via Prylom',
+            fonte: 'CVM / B3 / ANBIMA',
+            prazo: 'Janela aberta',
+          },
+          {
+            tipo: 'oportunidade',
+            categoria: 'Jurídico',
+            impacto: 'Médio',
+            titulo: 'STJ Consolida Usucapião Rural Quinquenal (Súmula 637)',
+            desc: 'Nova orientação do STJ favorece regularização de posses com 5 anos pacíficos, contínuos e produtivos. Impacto direto em ~190 mil imóveis rurais sem escritura no Brasil. Simplifica due diligence e reduz litígios em transações com histórico de ocupação.',
+            acao: 'Avaliar imóveis com histórico de posse como oportunidade de aquisição',
+            fonte: 'STJ — Recurso Especial 2.089.XXX',
+            prazo: 'Vigente',
+          },
+        ];
+
+        const corTipo: Record<string, { borda: string; tag: string; tagTxt: string; label: string }> = {
+          urgente:     { borda: 'border-l-red-500',    tag: 'bg-red-100',    tagTxt: 'text-red-700',    label: 'URGENTE'      },
+          atencao:     { borda: 'border-l-amber-400',  tag: 'bg-amber-100',  tagTxt: 'text-amber-700',  label: 'ATENÇÃO'      },
+          oportunidade:{ borda: 'border-l-green-500',  tag: 'bg-green-100',  tagTxt: 'text-green-700',  label: 'OPORTUNIDADE' },
+        };
+
+        const corImpacto: Record<string, string> = {
+          'Alto':  'bg-red-50 text-red-600',
+          'Médio': 'bg-amber-50 text-amber-600',
+          'Baixo': 'bg-gray-100 text-gray-500',
+        };
+
+        return (
+          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+              {/* Coluna principal: alertas */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight">Alertas Estratégicos</h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Imóveis Rurais · Atualizado março/2026</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-widest">
+                    {alertas.filter(a => a.tipo === 'urgente').length} urgentes
+                  </span>
+                </div>
+
+                {alertas.map((a, i) => {
+                  const c = corTipo[a.tipo];
+                  return (
+                    <div key={i} className={`bg-gray-50 rounded-2xl border border-gray-100 border-l-4 ${c.borda} p-4 space-y-2`}>
+                      {/* badges */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${c.tag} ${c.tagTxt}`}>{c.label}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[8px] font-bold bg-gray-100 text-gray-500 uppercase">{a.categoria}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${corImpacto[a.impacto]}`}>Impacto {a.impacto}</span>
+                        <span className="ml-auto text-[8px] font-bold text-gray-400 shrink-0">Prazo: {a.prazo}</span>
+                      </div>
+                      {/* conteúdo */}
+                      <p className="text-sm font-black text-prylom-dark leading-tight">{a.titulo}</p>
+                      <p className="text-[11px] font-medium text-gray-500 leading-relaxed">{a.desc}</p>
+                      {/* rodapé */}
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-200">
+                        <p className="text-[8px] font-black text-prylom-gold uppercase tracking-widest">→ {a.acao}</p>
+                        <p className="text-[8px] text-gray-400 font-medium shrink-0 ml-4">{a.fonte}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Sidebar: Due Diligence + Radar */}
+              <div className="space-y-4">
+
+                {/* Checklist de Due Diligence */}
+                <div className="bg-prylom-dark text-white rounded-2xl p-6 space-y-4">
+                  <div>
+                    <p className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.3em]">Prylom</p>
+                    <h4 className="text-sm font-black uppercase tracking-tight mt-0.5">Due Diligence Imobiliária</h4>
+                    <p className="text-[9px] text-white/50 font-medium mt-0.5">Checklist para compra e venda segura</p>
+                  </div>
+                  <div className="space-y-2">
+                    {([
+                      { ok: true,  txt: 'CCIR e ITR vigentes (últimos 5 anos)'          },
+                      { ok: true,  txt: 'Georreferenciamento averbado no CRI'            },
+                      { ok: true,  txt: 'CAR validado — sem sobreposição'                },
+                      { ok: false, txt: 'Certidão negativa de débitos ambientais (IBAMA)'},
+                      { ok: true,  txt: 'Matrícula sem ônus reais ou penhoras'           },
+                      { ok: false, txt: 'GEO e matrícula coincidentes (polígono)'        },
+                      { ok: true,  txt: 'Outorga d\'água ativa (se irrigação)'           },
+                      { ok: false, txt: 'Certidões negativas federais e estaduais'       },
+                    ] as { ok: boolean; txt: string }[]).map((item, i) => (
+                      <div key={i} className="flex items-start gap-2.5">
+                        <span className={`mt-0.5 shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-black ${item.ok ? 'bg-green-500 text-white' : 'bg-white/20 text-white/40'}`}>
+                          {item.ok ? '✓' : '○'}
+                        </span>
+                        <p className={`text-[10px] font-medium leading-tight ${item.ok ? 'text-white/80' : 'text-white/40'}`}>{item.txt}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[8px] text-white/30 pt-2 border-t border-white/10">
+                    Itens em cinza indicam documentação frequentemente ausente em negociações rurais.
+                  </p>
+                </div>
+
+                {/* Radar de Categorias */}
+                <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 space-y-3">
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Radar por Categoria</p>
+                  {([
+                    { cat: 'Fiscal',      urgentes: 1, total: 1, cor: 'bg-red-400'   },
+                    { cat: 'Regulatório', urgentes: 1, total: 1, cor: 'bg-red-400'   },
+                    { cat: 'Ambiental',   urgentes: 0, total: 1, cor: 'bg-amber-400' },
+                    { cat: 'Compliance',  urgentes: 0, total: 1, cor: 'bg-amber-400' },
+                    { cat: 'Mercado',     urgentes: 0, total: 1, cor: 'bg-green-500' },
+                    { cat: 'Jurídico',    urgentes: 0, total: 1, cor: 'bg-green-500' },
+                  ] as { cat: string; urgentes: number; total: number; cor: string }[]).map((r, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${r.cor}`} />
+                      <p className="text-[10px] font-black text-prylom-dark flex-1">{r.cat}</p>
+                      <p className="text-[8px] font-bold text-gray-400">{r.total} alerta{r.total > 1 ? 's' : ''}</p>
+                      {r.urgentes > 0 && <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 text-[7px] font-black">URGENTE</span>}
+                    </div>
+                  ))}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+
+
+</div>
+
+      {/* ── FEED DE NOTÍCIAS AGRO ── */}
+      <div className="space-y-6">
+
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.3em]">{t.liveFeed}</span>
+            </div>
+            <h2 className="text-xl font-black text-[#000080] uppercase tracking-widest">{t.terminalMainEvents}</h2>
+          </div>
+          <button
+            onClick={fetchAgroNews}
+            disabled={loadingNews}
+            className="flex items-center gap-2 text-[9px] font-black text-prylom-gold uppercase tracking-widest hover:underline disabled:opacity-40"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${loadingNews ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {t.terminalUpdateScan}
+          </button>
+        </div>
+
+        {/* Cards */}
+        {loadingNews ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-5 bg-white rounded-3xl border border-gray-100">
+            <div className="w-10 h-10 border-4 border-prylom-gold/20 border-t-prylom-gold rounded-full animate-spin" />
+            <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.4em] animate-pulse">{t.terminalGlobalScan}</p>
+          </div>
+        ) : news.length === 0 ? (
+          <div className="py-16 flex flex-col items-center justify-center gap-3 bg-white rounded-3xl border border-gray-100">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+            <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">{t.marketEmpty}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {news.map((item: MarketNews) => {
+              const catColors: Record<string, string> = {
+                CHICAGO: 'bg-amber-50 text-amber-700 border-amber-200',
+                USDA:    'bg-blue-50 text-blue-700 border-blue-200',
+                CHINA:   'bg-red-50 text-red-700 border-red-200',
+                INPUTS:  'bg-purple-50 text-purple-700 border-purple-200',
+                CLIMATE: 'bg-teal-50 text-teal-700 border-teal-200',
+              };
+              const catLabel: Record<string, string> = {
+                CHICAGO: 'Grãos / CBOT',
+                USDA:    'USDA / Exportação',
+                CHINA:   'China / Ásia',
+                INPUTS:  'Insumos / Mercado',
+                CLIMATE: 'Clima / Safra',
+              };
+              const sentColor = item.sentiment === 'BULLISH'
+                ? 'bg-green-50 text-green-700'
+                : item.sentiment === 'BEARISH'
+                ? 'bg-red-50 text-red-700'
+                : 'bg-gray-100 text-gray-500';
+              const sentIcon = item.sentiment === 'BULLISH' ? '▲' : item.sentiment === 'BEARISH' ? '▼' : '—';
+
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col"
+                >
+                  {/* Badges */}
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${catColors[item.category] ?? catColors.INPUTS}`}>
+                      {catLabel[item.category] ?? item.category}
+                    </span>
+                    <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${sentColor}`}>
+                      {sentIcon} {item.sentiment}
+                    </span>
+                  </div>
+
+                  {/* Title — grows to fill card */}
+                  <h3 className="text-sm font-black text-prylom-dark leading-snug mb-3 line-clamp-3 flex-1">
+                    {item.title}
+                  </h3>
+
+                  {/* Summary */}
+                  <p className="text-[11px] text-gray-500 font-medium leading-relaxed line-clamp-3 mb-4">
+                    {item.summary}
+                  </p>
+
+                  {/* Footer */}
+                  <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide leading-tight">
+                      {item.source}<br />{item.timestamp}
+                    </span>
+                    {item.url && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 flex items-center gap-1 text-[9px] font-black text-prylom-gold uppercase tracking-widest hover:underline"
+                      >
+                        Ver mais
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Disclaimer */}
+        <div className="bg-[#000080] p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
+            <div className="shrink-0 w-12 h-12 rounded-2xl bg-prylom-gold/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-prylom-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-1 block">{t.terminalDisclaimer}</span>
+              <h4 className="text-base font-black mb-1 tracking-tight">{t.terminalExecution}</h4>
+              <p className="text-[11px] font-medium leading-relaxed opacity-70">{t.terminalDisclaimerDesc}</p>
+            </div>
+          </div>
+          <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-prylom-gold/10 rounded-full blur-3xl" />
+        </div>
+
+      </div>
+
           <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-gray-100 space-y-8 min-h-[400px]">
              <header className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-prylom-dark text-prylom-gold rounded-2xl flex items-center justify-center text-2xl shadow-lg">
@@ -1355,337 +2666,6 @@ const fetchAgroIndicators = async (location: string) => {
                </div>
              )}
           </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          {/* Dashboard Barter */}
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100 flex flex-col gap-8">
-            <header className="flex justify-between items-start">
-              <div>
-                <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight mb-1">{t.greenCurrency}</h3>
-                <p className="text-gray-700 text-xs font-bold">Indicadores de Troca e Margem Operacional</p>
-              </div>
-              <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                ratioHealth === 'success' ? 'bg-green-100 text-green-700' : 
-                ratioHealth === 'danger' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {ratioHealth === 'success' ? t.ratioSuccess : ratioHealth === 'danger' ? t.ratioAlert : t.ratioStable}
-              </div>
-            </header>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Cultura / Ativo</label>
-                <select value={commodity} onChange={e => setCommodity(e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold appearance-none cursor-pointer">
-                  <option value="soja">{t.soy} (Saca 60kg)</option>
-                  <option value="milho">{t.corn} (Saca 60kg)</option>
-                  <option value="boi">Boi Gordo (@)</option>
-                  <option value="cafe">Café Arábica (Saca 60kg)</option>
-                  <option value="algodao">Algodão (Pluma)</option>
-                  <option value="trigo">Trigo (Ton)</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">{t.bagPriceLabel}</label>
-                <input type="number" value={commodityPrice} onChange={e => setCommodityPrice(parseFloat(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl font-black text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Custo Insumo ({getSymbol()})</label>
-                <input type="number" value={inputCost} onChange={e => setInputCost(parseFloat(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl font-black text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold" />
-              </div>
-            </div>
-
-            <div className="bg-prylom-dark text-white rounded-[2rem] p-8 flex flex-col md:flex-row items-center gap-8 shadow-2xl relative overflow-hidden">
-               <div className="flex-1 text-center md:text-left z-10">
-                  <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{t.exchangeRatio}</span>
-                  <p className="text-3xl md:text-4xl font-black leading-tight">
-                    {barterRatio.toFixed(2)} 
-                    <span className="text-sm text-gray-300 font-bold uppercase ml-2 block md:inline">unidades / insumo</span>
-                  </p>
-                  <p className="text-[10px] text-gray-400 mt-2 font-medium">Referência de Mercado: {historicalAvg} unidades</p>
-               </div>
-               <div className="w-px h-16 bg-white/10 hidden md:block"></div>
-               <div className="flex-1 text-center md:text-left z-10">
-                  <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{t.breakEven}</span>
-                  <p className="text-3xl font-black">{regionalCosts[region]?.yieldBe} <span className="text-xs text-gray-300 font-bold uppercase">{t.bagsPerHa}</span></p>
-                  <p className="text-[10px] text-gray-400 mt-2 font-medium">Base de Sustentabilidade</p>
-               </div>
-            </div>
-          </div>
-
-          {/* NOVO CARD: INTELIGÊNCIA DE FRETE & SPREAD LOGÍSTICO (VISÃO PRYLOM) */}
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-gray-100 space-y-10 animate-fadeIn">
-            <header className="flex justify-between items-center border-b border-gray-50 pb-8">
-              <div>
-                <h3 className="text-2xl font-black text-[#000080] uppercase tracking-tighter flex items-center gap-3">
-                  📦 Inteligência de Frete & Spread
-                </h3>
-                <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.4em] mt-1">Análise Logística de Alta Precisão</p>
-              </div>
-              <span className={`px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest ${freightAnalysis.ipel > 10 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                IPEL: {freightAnalysis.efficiency}
-              </span>
-            </header>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-              {/* Entradas Logísticas */}
-              <div className="space-y-6">
-                 <div className="p-6 bg-gray-50 rounded-3xl space-y-6 border border-gray-100">
-                    <h4 className="text-[10px] font-black text-prylom-gold uppercase tracking-widest px-1">Definição do Fluxo</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-1">
-                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Origem</label>
-                          <input value={freightOrigin} onChange={e => setFreightOrigin(e.target.value)} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
-                       </div>
-                       <div className="space-y-1">
-                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Destino</label>
-                          <input value={freightDest} onChange={e => setFreightDest(e.target.value)} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
-                       </div>
-                       <div className="space-y-1">
-                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Distância (km)</label>
-                          <input type="number" value={freightDistance} onChange={e => setFreightDistance(Number(e.target.value))} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
-                       </div>
-                       <div className="space-y-1">
-                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">R$ / t / km</label>
-                          <input type="number" value={freightRateKm} step="0.01" onChange={e => setFreightRateKm(Number(e.target.value))} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-                       <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-2">Preço Destino (sc)</label>
-                       <input type="number" value={destPrice} onChange={e => setDestPrice(Number(e.target.value))} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
-                    </div>
-                    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-                       <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-2">Fator de Risco %</label>
-                       <select value={riskFactor} onChange={e => setRiskFactor(Number(e.target.value))} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold appearance-none">
-                          <option value={1.0}>Cenário Limpo (0%)</option>
-                          <option value={1.05}>Safra / Chuvas (+5%)</option>
-                          <option value={1.15}>Risco Alto / Filas (+15%)</option>
-                       </select>
-                    </div>
-                 </div>
-              </div>
-
-              {/* Resultados Estratégicos */}
-              <div className="space-y-8">
-                 <div className="bg-prylom-dark text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-                    <span className="text-prylom-gold text-[9px] font-black uppercase tracking-[0.2em] mb-4 block">Spread Logístico Prylom</span>
-                    <p className="text-4xl font-black text-white">{formatPrice(freightAnalysis.spreadUnit)} <span className="text-xs opacity-40">/ saca</span></p>
-                    <p className="text-[9px] text-gray-400 mt-2 font-medium">Margem Final: Destino – (Origem + Frete Real)</p>
-                    <div className="absolute bottom-0 right-0 p-4 opacity-5 pointer-events-none">
-                       <svg xmlns="http://www.w3.org/2000/svg" className="h-32 w-32" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-6 bg-[#000080]/5 rounded-3xl border border-[#000080]/10 text-center">
-                       <p className="text-[8px] font-black text-gray-400 uppercase mb-2">Índice IPEL</p>
-                       <p className="text-2xl font-black text-[#000080]">{freightAnalysis.ipel.toFixed(1)}</p>
-                       <p className="text-[7px] font-bold text-gray-400 uppercase mt-1">Eficiência Ativo/Frete</p>
-                    </div>
-                    <div className="p-6 bg-green-50 rounded-3xl border border-green-100 text-center">
-                       <p className="text-[8px] font-black text-green-700 uppercase mb-2">Frete por Saca</p>
-                       <p className="text-2xl font-black text-green-700">{formatPrice(freightAnalysis.costPerTon / 16.666)}</p>
-                       <p className="text-[7px] font-bold text-green-600/60 uppercase mt-1">Padrão 60kg</p>
-                    </div>
-                 </div>
-
-                 <div className="p-6 bg-prylom-gold/5 rounded-3xl border border-prylom-gold/20 italic">
-                    <p className="text-[10px] font-black text-[#000080] uppercase tracking-widest mb-2">Diagnóstico Prylom:</p>
-                    <p className="text-xs font-medium text-prylom-dark leading-relaxed">
-                      {freightAnalysis.ipel > 10 
-                        ? "Excelente vantagem logística. O frete representa menos de 10% do valor da carga, garantindo alta resiliência a oscilações de diesel e preço."
-                        : "Logística em zona de atenção. Custos de escoamento consomem parte significativa da margem. Recomenda-se fixação futura para proteger o spread."}
-                    </p>
-                 </div>
-              </div>
-            </div>
-          </div>
-
-
-        </div>
-
-<div className="space-y-8">
-  <div className="bg-gray-50 rounded-[2.5rem] p-8 border border-gray-100 flex flex-col gap-6 shadow-inner">
-    <div>
-      <h3 className="text-lg font-black text-prylom-dark uppercase tracking-tight mb-1">{t.landMeasures}</h3>
-      <p className="text-gray-700 text-xs font-bold">Fonte de Dados: IMEA / CONAB</p>
-    </div>
-    
-    <div className="space-y-4">
-       <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">{t.selectRegion}</label>
-       <select value={region} onChange={e => setRegion(e.target.value)} className="w-full p-4 bg-white rounded-2xl font-bold text-[#000080] border border-gray-200 outline-none appearance-none cursor-pointer shadow-sm">
-          {Object.keys(regionalCosts).map(r => <option key={r} value={r}>{r}</option>)}
-       </select>
-    </div>
-
-    {/* Métricas Conforme Imagem 3 */}
-    <div className="mt-4 space-y-6">
-       <div className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
-         <span className="text-[10px] font-black text-gray-400 uppercase">Custo Médio / Ha</span>
-         <span className="font-black text-prylom-dark">{formatPrice(regionalCosts[region]?.costHa, 0)}</span>
-       </div>
-       <div className="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
-         <span className="text-[10px] font-black text-gray-400 uppercase">Aptidão Reg.</span>
-         <span className="text-[9px] font-black uppercase text-prylom-gold tracking-widest">Alta Performance</span>
-       </div>
-
-       {/* Dados Agro-técnicos (Imagem 3) */}
-       <div className="pt-4 space-y-4 text-center">
-         <div>
-            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Teor médio de Argila</p>
-            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].argila}</p>
-         </div>
-         <div>
-            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Indice Pluviometrico</p>
-            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].pluvio}</p>
-         </div>
-         <div>
-            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Indice de Altimetria</p>
-            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].altimetria}</p>
-         </div>
-         <div>
-            <p className="text-prylom-gold text-[12px] font-black uppercase tracking-tighter">Indice Relevo</p>
-            <p className="text-[#000080] text-lg font-black opacity-40">{regionalCosts[region].relevo}</p>
-         </div>
-       </div>
-
-       {/* Escoamento (Imagem 1) */}
-       <div className="pt-6 border-t border-gray-200">
-         <p className="text-prylom-gold text-[13px] font-black uppercase tracking-tighter text-center mb-4">
-            Escoamento da Produção <br/> <span className="text-[#000080]">{regionalCosts[region].location}</span>
-         </p>
-         <div className="space-y-3">
-           <div className="flex justify-between text-[11px] font-black uppercase">
-             <span className="text-[#000080]">Rodovia:</span>
-             <span className="text-gray-400">{regionalCosts[region].rodovia}</span>
-           </div>
-           <div className="flex justify-between text-[11px] font-black uppercase">
-             <span className="text-[#000080]">Ferrovia:</span>
-             <span className="text-gray-400">{regionalCosts[region].ferrovia}</span>
-           </div>
-           <div className="flex justify-between text-[11px] font-black uppercase">
-             <span className="text-[#000080]">Porto:</span>
-             <span className="text-gray-400">{regionalCosts[region].porto}</span>
-           </div>
-         </div>
-       </div>
-
-       {/* Produção Soja (Imagem 2) */}
-       <div className="bg-[#2C5266] p-6 rounded-[2rem] shadow-lg mt-6">
-          <div className="text-center mb-4">
-            <p className="text-white font-black text-[13px] uppercase leading-tight">Estimativa de Produtividade</p>
-            <p className="text-white/50 font-bold text-[9px] uppercase tracking-widest">(saca/ha) 2025/26</p>
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-prylom-gold text-[10px] font-black uppercase">(MUN) {regionalCosts[region].location}:</span>
-              <span className="text-white font-bold text-xs">{regionalCosts[region].prodLocal} sacas/ha</span>
-            </div>
-            <div className="flex justify-between items-center opacity-80 pt-2 border-t border-white/10">
-              <span className="text-prylom-gold text-[10px] font-black uppercase">Média {regionalCosts[region].labelEstado}:</span>
-              <span className="text-white font-bold text-xs">{regionalCosts[region].prodEstado} sacas/ha</span>
-            </div>
-            <div className="flex justify-between items-center opacity-60">
-              <span className="text-prylom-gold text-[10px] font-black uppercase">Média Brasil:</span>
-              <span className="text-white font-bold text-xs">{regionalCosts[region].prodBrasil} sacas/ha</span>
-            </div>
-          </div>
-       </div>
-    </div>
-  </div>
-</div>
-</div>
-
-      {/* ── FEED DE NOTÍCIAS AGRO ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        {/* Coluna de Notícias */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex justify-between items-center px-2">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.3em]">{t.liveFeed}</span>
-              </div>
-              <h2 className="text-xl font-black text-[#000080] uppercase tracking-widest">{t.terminalMainEvents}</h2>
-            </div>
-            <button onClick={fetchLiveAgroNews} className="text-[9px] font-black text-prylom-gold uppercase tracking-widest hover:underline">
-              {t.terminalUpdateScan}
-            </button>
-          </div>
-
-          {loadingNews ? (
-            <div className="py-20 flex flex-col items-center justify-center gap-6 bg-white rounded-[2.5rem] border border-gray-100">
-              <div className="w-10 h-10 border-4 border-prylom-gold/20 border-t-prylom-gold rounded-full animate-spin"></div>
-              <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.4em] animate-pulse">{t.terminalGlobalScan}</p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {news.length === 0 && (
-                <p className="text-center py-10 text-gray-400 font-bold uppercase text-[10px]">{t.marketEmpty}</p>
-              )}
-              {news.map(item => (
-                <div key={item.id} className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl transition-all duration-500">
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="bg-gray-100 text-gray-500 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
-                      {item.source} • {item.timestamp}
-                    </span>
-                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${item.sentiment === 'BULLISH' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {item.sentiment}
-                    </span>
-                  </div>
-                  <h3 className="text-2xl font-black text-prylom-dark mb-4 leading-tight">{item.title}</h3>
-                  <p className="text-gray-600 text-sm mb-6 font-medium">{item.summary}</p>
-                  <button
-                   // onClick={() => getAiImpact(item)}
-                    disabled={loadingNewsInsight}
-                    className="flex items-center gap-2 text-prylom-gold font-black text-[10px] uppercase tracking-[0.2em] hover:scale-105 transition-all disabled:opacity-50"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    {loadingNewsInsight ? t.adminProcessing : t.aiAnalysis}
-                  </button>
-                  {newsInsight?.newsId === item.id && (
-                    <div className="mt-6 p-6 bg-prylom-dark text-white rounded-3xl border-l-4 border-prylom-gold animate-fadeIn">
-                      <p className="text-xs font-bold leading-relaxed opacity-90 whitespace-pre-wrap">{newsInsight.text}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {sources.length > 0 && (
-            <div className="px-4">
-              <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">{t.terminalSources}</h4>
-              <div className="flex flex-wrap gap-3">
-                {sources.map((source, idx) => (
-                  <a key={idx} href={source.web?.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-prylom-gold hover:underline">
-                    [{idx + 1}] {source.web?.title || 'External Reference'}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Painel Disclaimer */}
-        <div>
-          <div className="bg-[#000080] p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
-            <div className="relative z-10">
-              <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-4 block">{t.terminalDisclaimer}</span>
-              <h4 className="text-xl font-black mb-4 tracking-tight">{t.terminalExecution}</h4>
-              <p className="text-xs font-medium leading-relaxed opacity-70">{t.terminalDisclaimerDesc}</p>
-            </div>
-            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-prylom-gold/10 rounded-full blur-3xl"></div>
-          </div>
-        </div>
-
-      </div>
-
 </div>
   );
 };

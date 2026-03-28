@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Test-Path \"c:\\\\Users\\\\Pc\\\\Documents\\\\Site Prylom\\\\Prylom\\\\components\\\\SharePage.tsx\")",
+      "Bash(npx tsc:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/Pc/Documents/Site Prylom/Prylom/**)",
+      "Bash(done)"
+    ]
+  }
+}
