@@ -983,10 +983,10 @@ const fetchAgroIndicators = async (location: string) => {
         };
       });
 
-    // Fetch an RSS feed via corsproxy.io CORS proxy and parse the XML
+    // Fetch an RSS feed via allorigins CORS proxy and parse the XML
     const tryFeed = async (feedUrl: string, label: string): Promise<MarketNews[] | null> => {
       try {
-        const proxy = `https://corsproxy.io/?url=${encodeURIComponent(feedUrl)}`;
+        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
         const res = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) return null;
         const xmlText = await res.text();
@@ -2440,60 +2440,63 @@ const fetchAgroIndicators = async (location: string) => {
 
           {/* Conversão de unidades de área */}
           <div className="pt-3 border-t border-gray-100">
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 max-w-sm space-y-3">
-              <div>
-                <h4 className="text-xs font-black text-prylom-dark">Conversão de Área</h4>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Converta entre as medidas de terra do campo</p>
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 w-full">
+              <div className="flex items-center gap-6">
+                <div className="shrink-0">
+                  <h4 className="text-xs font-black text-prylom-dark">Conversão de Área</h4>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Converta entre as medidas de terra do campo</p>
+                </div>
+                {(() => {
+                  const ucUnits: Record<string, number> = {
+                    'Hectare': 1,
+                    'Alqueire Paulista': 2.42,
+                    'Alqueire Mineiro': 4.84,
+                    'Alqueire Goiano': 4.84,
+                    'Acre': 0.404686,
+                    'Metro Quadrado': 0.0001,
+                  };
+                  const fromFactor = ucUnits[ucFrom] ?? 1;
+                  const toFactor   = ucUnits[ucTo]   ?? 1;
+                  const converted  = parseFloat(((ucValue * fromFactor) / toFactor).toFixed(4));
+                  return (
+                    <div className="flex flex-1 items-end gap-3">
+                      <div className="flex-1 space-y-1">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Converter</p>
+                        <input
+                          type="number"
+                          value={ucValue}
+                          onChange={e => setUcValue(parseFloat(e.target.value) || 0)}
+                          className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#2c5363] text-sm outline-none focus:border-prylom-gold"
+                        />
+                        <select
+                          value={ucFrom}
+                          onChange={e => setUcFrom(e.target.value)}
+                          className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#2c5363] text-sm outline-none focus:border-prylom-gold cursor-pointer"
+                        >
+                          {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                      </div>
+                      <div className="shrink-0 pb-1 text-gray-400 font-black text-lg">→</div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Para</p>
+                        <input
+                          type="number"
+                          readOnly
+                          value={converted}
+                          className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#2c5363] text-sm outline-none bg-gray-100"
+                        />
+                        <select
+                          value={ucTo}
+                          onChange={e => setUcTo(e.target.value)}
+                          className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#2c5363] text-sm outline-none focus:border-prylom-gold cursor-pointer"
+                        >
+                          {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-              {(() => {
-                const ucUnits: Record<string, number> = {
-                  'Hectare': 1,
-                  'Alqueire Paulista': 2.42,
-                  'Alqueire Mineiro': 4.84,
-                  'Alqueire Goiano': 4.84,
-                  'Acre': 0.404686,
-                  'Metro Quadrado': 0.0001,
-                };
-                const fromFactor = ucUnits[ucFrom] ?? 1;
-                const toFactor   = ucUnits[ucTo]   ?? 1;
-                const converted  = parseFloat(((ucValue * fromFactor) / toFactor).toFixed(4));
-                return (
-                  <div className="space-y-2">
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Converter</p>
-                      <input
-                        type="number"
-                        value={ucValue}
-                        onChange={e => setUcValue(parseFloat(e.target.value) || 0)}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#2c5363] text-sm outline-none focus:border-prylom-gold"
-                      />
-                      <select
-                        value={ucFrom}
-                        onChange={e => setUcFrom(e.target.value)}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#2c5363] text-sm outline-none focus:border-prylom-gold cursor-pointer"
-                      >
-                        {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Para</p>
-                      <input
-                        type="number"
-                        readOnly
-                        value={converted}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#2c5363] text-sm outline-none bg-gray-100"
-                      />
-                      <select
-                        value={ucTo}
-                        onChange={e => setUcTo(e.target.value)}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#2c5363] text-sm outline-none focus:border-prylom-gold cursor-pointer"
-                      >
-                        {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
           </div>
 

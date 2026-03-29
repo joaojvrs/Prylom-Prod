@@ -1958,7 +1958,7 @@ const handleFinalSubmit = async () => {
       body: JSON.stringify({ ...protocolData, id: data[0]?.id }),
     });
 
-    onComplete(); 
+    setSubStep(4);
 
   } catch (error: any) {
     console.error("Erro crítico no salvamento:", error);
@@ -3188,6 +3188,69 @@ DO ESCOPO GEOGRÁFICO E FINANCEIRO ACORDADO, PELO PERÍODO DE 90 DIAS.
   </div>
 )}
   </>
+)}
+
+{subStep === 4 && (
+  privateOrigin === 'BR' ? (
+    <div className="py-20 px-6 text-center space-y-10 animate-fadeIn flex flex-col items-center justify-center min-h-[500px] bg-[#2c5363] text-white rounded-2xl relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-1 bg-[#bba219]/20">
+        <div className="h-full bg-[#bba219] w-1/3 animate-pulse"></div>
+      </div>
+      <div className="relative">
+        <div className="w-24 h-24 border border-white/10 rounded-full flex items-center justify-center">
+          <svg className="w-12 h-12 text-[#bba219]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <div className="absolute inset-0 w-24 h-24 border-t-2 border-[#bba219] rounded-full animate-spin"></div>
+      </div>
+      <div className="space-y-4">
+        <h3 className="text-3xl font-black uppercase tracking-tighter leading-none">
+          Solicitação em Análise de <br/>
+          <span className="text-[#bba219]">Compliance</span>
+        </h3>
+        <p className="text-[10px] font-black text-[#bba219] uppercase tracking-[0.3em] opacity-60">STATUS: CRIPTOGRAFADO E AUTENTICADO</p>
+      </div>
+      <div className="space-y-6 text-sm font-light leading-relaxed max-w-lg opacity-90 uppercase tracking-wide">
+        <p>
+          Obrigado, <span className="font-black text-white">{(fields.nome || fields.companyName || '').split(' ')[0] || 'Investidor'}</span>.
+          Seus dados foram recebidos e protegidos por criptografia de ponta a ponta.
+        </p>
+        <div className="bg-black/20 p-6 rounded-lg space-y-2 border border-white/5">
+          <p className="text-[10px] font-bold text-[#bba219] uppercase tracking-widest leading-none">SLA DE ANÁLISE DO COMITÊ :</p>
+          <p className="text-xl font-black italic tracking-tighter text-white">ATÉ 24 HORAS ÚTEIS</p>
+        </div>
+        <p className="text-[10px] text-gray-400 font-medium max-w-xs mx-auto">
+          O acesso ao Data Room será enviado via <span className="text-white">E-mail</span> e <span className="text-white">WhatsApp</span> após aprovação do comitê.
+        </p>
+      </div>
+      <div className="pt-8 w-full max-w-xs">
+        <button
+          onClick={onBack}
+          className="w-full bg-white text-[#2c5363] py-5 rounded-sm font-black text-[11px] uppercase tracking-[0.3em] hover:bg-[#bba219] hover:text-white transition-all shadow-xl active:scale-95"
+        >
+          Finalizar e Sair
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div className="py-16 px-6 text-center space-y-8 bg-[#2c5363] text-white rounded-xl animate-fadeIn">
+      <div className="w-20 h-20 border-2 border-[#bba219]/30 rounded-full flex items-center justify-center mx-auto relative">
+        <div className="absolute inset-0 border-t-2 border-[#bba219] rounded-full animate-spin"></div>
+        <span className="text-xs">KYC/AM</span>
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-2xl font-black uppercase tracking-tighter">Under Compliance Review</h3>
+        <p className="text-[9px] text-[#bba219] font-black uppercase tracking-[0.3em]">EXECUTING KYC & COMPLIANCE CLEARANCE...</p>
+      </div>
+      <p className="text-xs font-light leading-relaxed max-w-sm mx-auto opacity-70 uppercase tracking-widest">
+        Thank you. Our international desk is validating your accreditation. ESTIMATED CLEARANCE TIME: 24 TO 48 HOURS.
+      </p>
+      <button onClick={onBack} className="bg-white text-[#2c5363] px-8 py-3 font-black text-[10px] uppercase tracking-widest hover:bg-[#bba219] hover:text-white transition-all">
+        RETURN TO PORTFOLIO
+      </button>
+    </div>
+  )
 )}
     </div>
   );

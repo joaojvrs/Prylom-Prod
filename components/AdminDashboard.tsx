@@ -60,6 +60,8 @@ const AdminDashboard: React.FC<Props> = ({ onLogout, t, lang, currency }) => {
   const [shareTargetProduct, setShareTargetProduct] = useState<Product | null>(null);
   const [shareExpiry, setShareExpiry] = useState<string>('24h');
   const [shareRecipientName, setShareRecipientName] = useState<string>('');
+  const [shareRecipientPhone, setShareRecipientPhone] = useState<string>('');
+  const [shareRecipientEmail, setShareRecipientEmail] = useState<string>('');
   const [shareLoadingId, setShareLoadingId] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
@@ -377,10 +379,18 @@ const generateShareLink = async () => {
   const expiresAt = new Date(Date.now() + option.minutes * 60 * 1000).toISOString();
   const { error } = await supabase
     .from('share_tokens')
-    .insert({ produto_id: shareTargetProduct.id, expires_at: expiresAt, recipient_name: shareRecipientName.trim() });
+    .insert({
+      produto_id: shareTargetProduct.id,
+      expires_at: expiresAt,
+      recipient_name: shareRecipientName.trim(),
+      phone: shareRecipientPhone.trim(),
+      email: shareRecipientEmail.trim(),
+    });
   if (!error) {
     await fetchShareLinks(shareTargetProduct.id);
     setShareRecipientName('');
+    setShareRecipientPhone('');
+    setShareRecipientEmail('');
   }
   setShareLoadingId(null);
 };
@@ -3072,6 +3082,30 @@ const handleImproveDescription = async () => {
                 value={shareRecipientName}
                 onChange={e => setShareRecipientName(e.target.value)}
                 placeholder="Ex: João Silva"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-gray-100 text-[11px] font-bold text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#bba219] transition-all"
+              />
+            </div>
+
+            {/* Telefone do destinatário */}
+            <div>
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Telefone do destinatário</p>
+              <input
+                type="tel"
+                value={shareRecipientPhone}
+                onChange={e => setShareRecipientPhone(e.target.value)}
+                placeholder="Ex: (11) 99999-9999"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-gray-100 text-[11px] font-bold text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#bba219] transition-all"
+              />
+            </div>
+
+            {/* E-mail do destinatário */}
+            <div>
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">E-mail do destinatário</p>
+              <input
+                type="email"
+                value={shareRecipientEmail}
+                onChange={e => setShareRecipientEmail(e.target.value)}
+                placeholder="Ex: joao@email.com"
                 className="w-full px-4 py-3 rounded-2xl border-2 border-gray-100 text-[11px] font-bold text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#bba219] transition-all"
               />
             </div>
