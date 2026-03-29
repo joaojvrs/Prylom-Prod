@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
 import L from 'leaflet';
@@ -83,6 +83,18 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
 
   const geoCache = useRef<Record<string, L.LatLng>>({});
 const navigate = useNavigate();
+
+  const PAGE_SIZE = 10;
+  const MAX_WINDOW = 30;
+  const [visibleStart, setVisibleStart] = useState(0);
+  const [visibleEnd, setVisibleEnd] = useState(PAGE_SIZE);
+  const [topSpacerHeight, setTopSpacerHeight] = useState(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const windowRef = useRef({ start: 0, end: PAGE_SIZE, spacer: 0 });
+  const pendingTopLoadRef = useRef(false);
+  const prevDocHeightRef = useRef(0);
   // Filtros Universais
   const [filterState, setFilterState] = useState<string>('');
   const [filterCity, setFilterCity] = useState<string>('');
@@ -485,6 +497,111 @@ if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
     return filtered;
   }, [products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, priceMode, minAreaTotal, selectedTipoAnuncio, maxAreaTotal, minAreaLavoura, soilType, clayContent, topography, docOnlyOk, brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType, planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter, grainCulture, grainHarvest, grainQuality, minVolume, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita, viewMode]);
 
+  // Chave que muda sempre que qualquer filtro muda — usada para resetar a janela virtual
+  const filterKey = [
+    activeCategory, transactionType, filterState, filterCity, filterStatus,
+    minPrice, maxPrice, priceMode, selectedTipoAnuncio,
+    minAreaTotal, maxAreaTotal, minAreaLavoura, minAreaProdutiva, maxAreaProdutiva,
+    minPluviometria, minAltitude, soilType, clayContent, topography, String(docOnlyOk),
+    brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType,
+    planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter,
+    grainCulture, grainHarvest, grainQuality, minVolume,
+    arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita,
+  ].join('|');
+
+  // Reseta janela virtual ao trocar filtros
+  useEffect(() => {
+    windowRef.current = { start: 0, end: PAGE_SIZE, spacer: 0 };
+    setVisibleStart(0);
+    setVisibleEnd(PAGE_SIZE);
+    setTopSpacerHeight(0);
+  }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // IntersectionObserver: carrega mais 10 ao scroll, remove os de cima quando >30 no DOM
+  useEffect(() => {
+    if (viewMode !== 'grid') return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const loadMore = () => {
+      const { start, end, spacer } = windowRef.current;
+      if (end >= filteredProducts.length) return;
+
+      const newEnd = Math.min(end + PAGE_SIZE, filteredProducts.length);
+      const toRemove = Math.max(0, (newEnd - start) - MAX_WINDOW);
+      const newStart = start + toRemove;
+
+      let newSpacer = spacer;
+      if (toRemove > 0 && gridRef.current) {
+        const cards = gridRef.current.querySelectorAll<HTMLElement>('[data-card]');
+        if (cards.length > toRemove) {
+          const firstCard = cards[0];
+          const firstKept = cards[toRemove];
+          newSpacer = spacer + (firstKept.getBoundingClientRect().top - firstCard.getBoundingClientRect().top);
+        }
+      }
+
+      windowRef.current = { start: newStart, end: newEnd, spacer: newSpacer };
+      setVisibleStart(newStart);
+      setVisibleEnd(newEnd);
+      setTopSpacerHeight(newSpacer);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { rootMargin: '500px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [viewMode, filteredProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Observer de subida: carrega os 10 anteriores quando o sentinel do topo aparece
+  useEffect(() => {
+    if (viewMode !== 'grid') return;
+    const sentinel = topSentinelRef.current;
+    if (!sentinel) return;
+
+    const loadPrev = () => {
+      const { start, end, spacer } = windowRef.current;
+      if (start === 0) return;
+
+      const newStart = Math.max(0, start - PAGE_SIZE);
+      const itemsToAdd = start - newStart;
+      const newEnd = (end - newStart > MAX_WINDOW) ? end - itemsToAdd : end;
+
+      prevDocHeightRef.current = document.documentElement.scrollHeight;
+      pendingTopLoadRef.current = true;
+
+      // Se voltamos ao início, spacer deve ser zero (sem itens removidos acima)
+      const newSpacer = newStart === 0 ? 0 : spacer;
+      windowRef.current = { start: newStart, end: newEnd, spacer: newSpacer };
+      setVisibleStart(newStart);
+      setVisibleEnd(newEnd);
+      if (newStart === 0) setTopSpacerHeight(0);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadPrev(); },
+      { rootMargin: '500px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [viewMode, visibleStart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Após adicionar itens no topo: ajusta scroll e reduz spacer para evitar pulo
+  useLayoutEffect(() => {
+    if (!pendingTopLoadRef.current) return;
+    pendingTopLoadRef.current = false;
+
+    const heightAdded = document.documentElement.scrollHeight - prevDocHeightRef.current;
+    if (heightAdded > 0) {
+      window.scrollBy(0, heightAdded);
+      const newSpacer = Math.max(0, windowRef.current.spacer - heightAdded);
+      windowRef.current.spacer = newSpacer;
+      setTopSpacerHeight(newSpacer);
+    }
+  }, [visibleStart]); // dispara após visibleStart mudar
+
   const initGeneralMap = async () => {
     if (!mapContainerRef.current) return;
     if (mapInstance.current) {
@@ -530,6 +647,7 @@ if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
           pos = geoCache.current[searchTerm];
       } else {
         try {
+          await new Promise(resolve => setTimeout(resolve, 1100));
           const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTerm)}&limit=1`);
           const data = await resp.json();
           if (data?.[0]) {
@@ -626,6 +744,22 @@ const ESTADOS_COORDINATES = {
   'SP': [-23.55, -46.63], 'SE': [-10.90, -37.07], 'TO': [-10.17, -48.33]
 };
 
+const validarCPF = (cpf: string) => {
+  cpf = cpf.replace(/[^\d]+/g, '');
+  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+  let add = 0;
+  for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+  let rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(9))) return false;
+  add = 0;
+  for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+  rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(10))) return false;
+  return true;
+};
+
 const EquipeView = ({ t }) => {
   const [corretores, setCorretores] = useState([]);
   const mapContainerRef = useRef(null);
@@ -637,6 +771,81 @@ const [showModal, setShowModal] = useState(false);
 const [showRegisterModal, setShowRegisterModal] = useState(false);
 const [selectedGlobalMember, setSelectedGlobalMember] = useState<any>(null);
 const [showGlobalModal, setShowGlobalModal] = useState(false);
+
+// --- Estado do formulário de cadastro de corretor ---
+const [regFields, setRegFields] = useState({ nome: '', cpf: '', telefone: '', email: '', regiao: '', vinculo: 'Corretor Direto', termos: false });
+const [regDocStatus, setRegDocStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
+const [regSmsSent, setRegSmsSent] = useState(false);
+const [regSmsCode, setRegSmsCode] = useState('');
+const [regIsVerifying, setRegIsVerifying] = useState(false);
+const [regIsCodeValid, setRegIsCodeValid] = useState(false);
+const [regCodeError, setRegCodeError] = useState(false);
+
+useEffect(() => {
+  const soNumeros = regFields.cpf.replace(/\D/g, '');
+  if (soNumeros.length === 11) {
+    setRegDocStatus(validarCPF(soNumeros) ? 'valid' : 'invalid');
+  } else {
+    setRegDocStatus('idle');
+  }
+}, [regFields.cpf]);
+
+useEffect(() => {
+  if (regSmsCode.length !== 6) return;
+  const verificar = async () => {
+    setRegIsVerifying(true);
+    setRegCodeError(false);
+    try {
+      const response = await fetch("https://webhook.saveautomatik.shop/webhook/validaCodigo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefone: regFields.telefone.replace(/\D/g, ""), codigo: regSmsCode }),
+      });
+      const data = await response.json();
+      const isValid = String(data.valid).toLowerCase() === "true";
+      if (isValid) { setRegIsCodeValid(true); setRegCodeError(false); }
+      else { setRegIsCodeValid(false); setRegCodeError(true); alert("Código incorreto ou expirado."); }
+    } catch { setRegCodeError(true); }
+    finally { setRegIsVerifying(false); }
+  };
+  verificar();
+}, [regSmsCode, regFields.telefone]);
+
+const handleRegDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  let value = e.target.value.replace(/\D/g, "");
+  value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  setRegFields({ ...regFields, cpf: value });
+};
+
+const handleRegTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  let v = e.target.value.replace(/\D/g, "");
+  if (!v.startsWith("55")) v = "55" + v;
+  v = v.slice(0, 13);
+  v = v.replace(/^(\d{2})(\d{2})(\d)/g, "$1 ($2) $3");
+  v = v.replace(/(\d)(\d{4})$/, "$1-$2");
+  setRegFields({ ...regFields, telefone: v });
+};
+
+const handleRegSendCode = async () => {
+  setRegIsVerifying(true);
+  try {
+    await fetch("https://webhook.saveautomatik.shop/webhook/validaWhatsapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telefone: regFields.telefone.replace(/\D/g, ""), nome: regFields.nome, projeto: "Prylom Corretor Parceiro" }),
+    });
+    setRegSmsSent(true);
+  } catch { setRegSmsSent(true); }
+  finally { setRegIsVerifying(false); }
+};
+
+const isRegFormValid = useMemo(() => (
+  regFields.nome.trim().length > 3 &&
+  regDocStatus === 'valid' &&
+  regFields.email.includes('@') &&
+  regIsCodeValid &&
+  regFields.termos
+), [regFields, regDocStatus, regIsCodeValid]);
 const handleOpenDetails = (corretor) => {
   setSelectedCorretor(corretor);
   setShowModal(true);
@@ -2097,36 +2306,155 @@ const HeadModal: React.FC<{
 </div>
 
       <div className="overflow-y-auto p-8 md:p-12 space-y-10">
+
+        {/* Barra de progresso de verificação */}
+        <div className="flex items-center gap-3">
+          {[
+            { label: 'Identidade', done: regDocStatus === 'valid' },
+            { label: 'WhatsApp', done: regIsCodeValid },
+            { label: 'Confirmação', done: isRegFormValid },
+          ].map((step, i) => (
+            <React.Fragment key={i}>
+              <div className="flex flex-col items-center gap-1">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black transition-all duration-500 ${step.done ? 'bg-[#bba219] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                  {step.done ? '✓' : i + 1}
+                </div>
+                <span className={`text-[7px] font-bold uppercase tracking-wider ${step.done ? 'text-[#bba219]' : 'text-gray-300'}`}>{step.label}</span>
+              </div>
+              {i < 2 && <div className={`h-px flex-1 transition-all duration-500 ${step.done ? 'bg-[#bba219]' : 'bg-gray-100'}`} />}
+            </React.Fragment>
+          ))}
+        </div>
+
         <form className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* DADOS BÁSICOS */}
           <div className="space-y-1">
             <label className="text-[9px] font-black uppercase text-gray-400">Nome Completo:</label>
-            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="Nome Completo" />
+            <input
+              type="text"
+              value={regFields.nome}
+              onChange={(e) => setRegFields({ ...regFields, nome: e.target.value })}
+              className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent"
+              placeholder="Nome Completo"
+            />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[9px] font-black uppercase text-gray-400">Telefone / Whats:</label>
-            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="(00) 00000-0000" />
+          {/* CPF com validação */}
+          <div className="space-y-1 relative">
+            <label className="text-[9px] font-black uppercase text-gray-400">CPF:</label>
+            <input
+              type="text"
+              value={regFields.cpf}
+              onChange={handleRegDocChange}
+              maxLength={14}
+              className={`w-full border-b py-1 outline-none text-xs font-bold text-prylom-dark bg-transparent transition-colors ${regDocStatus === 'valid' ? 'border-green-400' : regDocStatus === 'invalid' ? 'border-red-400' : 'border-gray-200 focus:border-prylom-gold'}`}
+              placeholder="000.000.000-00"
+            />
+            <div className="absolute right-0 bottom-1.5">
+              {regDocStatus === 'valid' && (
+                <span className="text-[8px] font-black text-green-500 uppercase tracking-widest flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                  Autenticado
+                </span>
+              )}
+              {regDocStatus === 'invalid' && (
+                <span className="text-[8px] font-black text-red-500 uppercase tracking-widest animate-bounce">Inválido</span>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-[9px] font-black uppercase text-gray-400">E-mail:</label>
-            <input type="email" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="contato@email.com" />
+            <input
+              type="email"
+              value={regFields.email}
+              onChange={(e) => setRegFields({ ...regFields, email: e.target.value })}
+              className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent"
+              placeholder="contato@email.com"
+            />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[9px] font-black uppercase text-gray-400">Creci / CPF:</label>
-            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="000.000.000-00" />
+          {/* TELEFONE com 2FA WhatsApp */}
+          <div className="md:col-span-2 space-y-4">
+            <div className="space-y-1 relative">
+              <label className="text-[9px] font-black uppercase text-gray-400">WhatsApp / Telefone:</label>
+              <input
+                type="text"
+                value={regFields.telefone}
+                onChange={handleRegTelefoneChange}
+                className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent"
+                placeholder="55 (00) 00000-0000"
+              />
+              {!regSmsSent && regFields.telefone.length >= 17 && (
+                <button
+                  type="button"
+                  onClick={handleRegSendCode}
+                  className="absolute right-0 bottom-1.5 text-[8px] font-black text-[#bba219] uppercase tracking-widest hover:underline"
+                >
+                  {regIsVerifying ? "Enviando..." : "Validar via WhatsApp"}
+                </button>
+              )}
+            </div>
+
+            {/* 2FA */}
+            {regSmsSent && (
+              <div className={`animate-fadeIn p-5 rounded-lg border transition-all duration-500 ${regIsCodeValid ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'} space-y-3`}>
+                <div className="flex justify-between items-center">
+                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#2c5363]">Código de Verificação</label>
+                  {regIsCodeValid ? (
+                    <span className="text-[8px] font-black text-green-600 uppercase tracking-widest flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      WhatsApp Validado
+                    </span>
+                  ) : (
+                    <span className="text-[8px] font-bold text-[#bba219] uppercase">Confirme o código recebido</span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    maxLength={6}
+                    disabled={regIsCodeValid || regIsVerifying}
+                    value={regSmsCode}
+                    onChange={(e) => setRegSmsCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder={regIsVerifying ? "..." : "000000"}
+                    className={`w-full py-3 text-center text-lg font-black tracking-[0.5em] outline-none transition-all
+                      ${regIsCodeValid ? 'bg-transparent text-green-700' : 'bg-white border border-gray-200 focus:border-[#bba219] text-[#2c5363]'}
+                      ${regCodeError ? 'border-red-500' : ''}
+                    `}
+                  />
+                  {regIsVerifying && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/50">
+                      <div className="w-4 h-4 border-2 border-[#bba219] border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+                {!regIsCodeValid && (
+                  <p className="text-[8px] text-gray-400 font-medium uppercase text-center">
+                    Não recebeu? <button type="button" onClick={handleRegSendCode} className="text-[#bba219] font-bold hover:underline">Reenviar código</button>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">
             <label className="text-[9px] font-black uppercase text-gray-400">Região de Atuação:</label>
-            <input type="text" className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent" placeholder="Ex: Sorriso/MT" />
+            <input
+              type="text"
+              value={regFields.regiao}
+              onChange={(e) => setRegFields({ ...regFields, regiao: e.target.value })}
+              className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent"
+              placeholder="Ex: Sorriso/MT"
+            />
           </div>
 
           <div className="space-y-1">
             <label className="text-[9px] font-black uppercase text-gray-400">Qual Vínculo:</label>
-            <select className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent">
+            <select
+              value={regFields.vinculo}
+              onChange={(e) => setRegFields({ ...regFields, vinculo: e.target.value })}
+              className="w-full border-b border-gray-200 py-1 focus:border-prylom-gold outline-none text-xs font-bold text-prylom-dark bg-transparent"
+            >
               <option>Corretor Direto</option>
               <option>Gerente da Fazenda</option>
               <option>Originador / Consultor Local</option>
@@ -2196,7 +2524,12 @@ const HeadModal: React.FC<{
           </div>
           
           <label className="flex items-start gap-3 p-4 bg-prylom-gold/5 rounded-xl border border-prylom-gold/20 cursor-pointer hover:bg-prylom-gold/10 transition-all">
-            <input type="checkbox" className="mt-1 accent-prylom-gold" required />
+            <input
+              type="checkbox"
+              className="mt-1 accent-prylom-gold"
+              checked={regFields.termos}
+              onChange={(e) => setRegFields({ ...regFields, termos: e.target.checked })}
+            />
             <p className="text-[9px] font-bold text-prylom-dark uppercase leading-tight">
               Confirmo a veracidade das informações prestadas e manifesto integral concordância com as condições de parceria, protocolos de sigilo e normas de conformidade Prylom Agronegócio.
             </p>
@@ -2204,7 +2537,10 @@ const HeadModal: React.FC<{
         </div>
 
         {/* Botão Finalizar */}
-        <button className="w-full py-5 bg-prylom-dark text-white font-black uppercase text-[10px] tracking-[0.4em] rounded-2xl hover:bg-prylom-gold hover:text-prylom-dark transition-all shadow-2xl group">
+        <button
+          disabled={!isRegFormValid}
+          className="w-full py-5 font-black uppercase text-[10px] tracking-[0.4em] rounded-2xl transition-all shadow-2xl group disabled:opacity-40 disabled:cursor-not-allowed bg-prylom-dark text-white hover:bg-prylom-gold hover:text-prylom-dark"
+        >
           Finalize e aguarde.
         </button>
       </div>
@@ -3349,11 +3685,16 @@ useEffect(() => {
       </div>
     ) :
      viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredProducts.map(p => {
+            <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {topSpacerHeight > 0 && (
+                <div style={{ height: topSpacerHeight, gridColumn: '1 / -1', position: 'relative' }}>
+                  <div ref={topSentinelRef} style={{ position: 'absolute', bottom: 0, height: 1, width: '100%' }} aria-hidden="true" />
+                </div>
+              )}
+              {filteredProducts.slice(visibleStart, visibleEnd).map(p => {
                 const price = formatPriceParts(p.valor);
                 return (
-                  <div key={p.id} onClick={() => onSelectProduct(p.id)} className="bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl transition-all cursor-pointer flex flex-col group">
+                  <div key={p.id} data-card onClick={() => onSelectProduct(p.id)} className="bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl transition-all cursor-pointer flex flex-col group">
                     <div className="h-64 relative overflow-hidden bg-gray-50">
                       <img src={p.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800'} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
                     
@@ -3362,18 +3703,18 @@ useEffect(() => {
       onClick={(e) => toggleFavorite(e, p.id)}
       className="absolute top-5 right-5 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg transform transition-all active:scale-90 hover:scale-110"
     >
-      <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        className={`h-5 w-5 transition-colors ${favorites.includes(p.id) ? 'text-red-500 fill-current' : 'text-gray-400'}`} 
-        fill="none" 
-        viewBox="0 0 24 24" 
-        stroke="currentColor"
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-5 w-5 transition-all"
+        viewBox="0 0 24 24"
+        fill={favorites.includes(p.id) ? '#2c5363' : 'none'}
+        stroke={favorites.includes(p.id) ? '#2c5363' : '#9ca3af'}
+        strokeWidth={2}
       >
-        <path 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          strokeWidth={2} 
-          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
         />
       </svg>
     </button>
@@ -3450,6 +3791,12 @@ useEffect(() => {
                   </div>
                 );
               })}
+              <div ref={sentinelRef} style={{ gridColumn: '1 / -1', height: 1 }} aria-hidden="true" />
+              {visibleEnd < filteredProducts.length && (
+                <div style={{ gridColumn: '1 / -1' }} className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-prylom-gold border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
             </div>
           ) : (
             <div className="w-full h-[600px] md:h-[700px] rounded-[4rem] overflow-hidden border-8 border-white shadow-3xl relative bg-gray-100">

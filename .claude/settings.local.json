@@ -6,7 +6,9 @@
       "Bash(for f:*)",
       "Bash(do echo:*)",
       "Read(//c/Users/Pc/Documents/Site Prylom/Prylom/**)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(find 'c:/Users/Pc/Documents/Site Prylom/Prylom' -name *.css -not -path */node_modules/*)",
+      "Bash(find 'c:/Users/Pc/Documents/Site Prylom/Prylom' -name tailwind.config* -not -path */node_modules/*)"
     ]
   }
 }

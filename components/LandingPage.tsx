@@ -212,7 +212,7 @@ const LandingPage: React.FC<Props> = ({
         <div className="max-w-7xl mx-auto px-6">
           <header className="max-w-4xl mx-auto text-center mb-24 space-y-4">
             <span className="text-prylom-gold font-black uppercase text-[11px] tracking-[0.5em] block">Full Stack Solutions</span>
-            <h2 className="text-4xl md:text-6xl font-black text-[#000080] tracking-tighter uppercase leading-none">
+            <h2 className="text-4xl md:text-6xl font-black text-[#2c5363] tracking-tighter uppercase leading-none">
               Ecossistema <span className="italic font-light text-prylom-dark">Prylom</span>
             </h2>
             <p className="text-gray-500 text-lg font-medium max-w-2xl mx-auto">
@@ -482,7 +482,7 @@ const LandingPage: React.FC<Props> = ({
           </div>
           {belleChat.map((chat, i) => (
             <div key={i} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] p-5 rounded-[2rem] text-sm font-medium leading-relaxed shadow-sm ${chat.role === 'user' ? 'bg-[#000080] text-white rounded-tr-none' : 'bg-white text-prylom-dark rounded-tl-none border border-gray-100'}`}>
+              <div className={`max-w-[85%] p-5 rounded-[2rem] text-sm font-medium leading-relaxed shadow-sm ${chat.role === 'user' ? 'bg-[#2c5363] text-white rounded-tr-none' : 'bg-white text-prylom-dark rounded-tl-none border border-gray-100'}`}>
                 {chat.text}
               </div>
             </div>
@@ -532,14 +532,14 @@ const LandingPage: React.FC<Props> = ({
           </div>
           <div className="space-y-1">
             <h5 className="text-[9px] font-black text-prylom-dark/60 uppercase tracking-widest">Compliance Protocol</h5>
-            <p className="text-[10px] leading-relaxed text-gray-400 font-medium">
+            <div className="text-[10px] leading-relaxed text-gray-400 font-medium">
               <div className="text-prylom-dark/70 uppercase"> Aviso de Compliance: A Belle é uma Inteligência Artificial consultiva. Suas respostas são
 simulações automatizadas e NÃO constituem oferta vinculante, laudo técnico, garantia jurídica ou
 promessa de rentabilidade. Em estrita conformidade com a LGPD e a Lei 9.613/98 (Prevenção à
 Lavagem de Dinheiro), todos os diálogos são registrados e auditáveis. O uso deste canal implica na
 aceitação integral do nosso [Termo de Uso - MSA].
 </div>
-            </p>
+            </div>
           </div>
         </div>
       </div>

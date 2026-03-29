@@ -222,10 +222,10 @@ const handleNext = () => {
 
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let v = e.target.value.replace(/\D/g, "");
-    if (v.length <= 13) {
-      v = v.replace(/^(\d{2})(\d{2})(\d)/g, "$1 ($2) $3");
-      v = v.replace(/(\d)(\d{4})$/, "$1-$2");
-    }
+    if (!v.startsWith("55")) v = "55" + v;
+    v = v.slice(0, 13);
+    v = v.replace(/^(\d{2})(\d{2})(\d)/g, "$1 ($2) $3");
+    v = v.replace(/(\d)(\d{4})$/, "$1-$2");
     setFields({ ...fields, telefone: v });
   };
 
@@ -242,7 +242,7 @@ const handleNext = () => {
         }),
       });
       setSmsSent(true);
-    } catch { setSmsSent(true); } 
+    } catch { setSmsSent(true); }
     finally { setIsVerifying(false); }
   };
 
@@ -353,7 +353,7 @@ const handleNext = () => {
         value={fields.telefone}
         onChange={handleTelefoneChange}
       />
-      {!smsSent && fields.telefone.length >= 14 && (
+      {!smsSent && fields.telefone.length >= 17 && (
         <button 
           onClick={handleSendCode}
           className="absolute right-0 bottom-2 text-[9px] font-black text-[#bba219] uppercase tracking-widest hover:underline"
@@ -1977,10 +1977,10 @@ const handleFinalSubmit = async () => {
 
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let v = e.target.value.replace(/\D/g, "");
-    if (v.length <= 13) {
-      v = v.replace(/^(\d{2})(\d{2})(\d)/g, "$1 ($2) $3");
-      v = v.replace(/(\d)(\d{4})$/, "$1-$2");
-    }
+    if (!v.startsWith("55")) v = "55" + v;
+    v = v.slice(0, 13);
+    v = v.replace(/^(\d{2})(\d{2})(\d)/g, "$1 ($2) $3");
+    v = v.replace(/(\d)(\d{4})$/, "$1-$2");
     setFields({ ...fields, telefone: v });
   };
   return (

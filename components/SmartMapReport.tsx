@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { GoogleGenAI } from "@google/genai";
 
 interface Props {
   onBack: () => void;
@@ -22,9 +21,7 @@ const SmartMapReport: React.FC<Props> = ({ onBack, onConfirm, t, lang }) => {
   const polygonRef = useRef<L.Polygon | null>(null);
   const tempPoints = useRef<L.LatLng[]>([]);
 
-  const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'point' | 'polygon'>('polygon');
-  const [analysis, setAnalysis] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [realtimeArea, setRealtimeArea] = useState<number | null>(null);
@@ -141,39 +138,11 @@ const SmartMapReport: React.FC<Props> = ({ onBack, onConfirm, t, lang }) => {
     polygonRef.current = null;
     markerRef.current = null;
     setRealtimeArea(null);
-    setAnalysis(null);
   };
 
-  const runGeoAnalysis = async (center: L.LatLng, points: L.LatLng[] | null) => {
-    setLoading(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `
-        Analista agroambiental Prylom Senior. Lat: ${center.lat}, Lng: ${center.lng}.
-        ${points ? 'O usuário delimitou um perímetro (polígono/circunferência).' : 'O usuário marcou um ponto central.'}
-        Retorne um JSON estrito em português com:
-        - municipio, estado, regiao_agricola, bioma
-        - area_hectares (estimada ou calculada)
-        - clima: {aptidao_score(0-10), chuvas_anual_mm, risco_hidrico}
-        - logistica: {distancia_rodovia_km, distancia_porto_km, principal_escoamento}
-        - mercado: {preco_terra_ha_brl, liquidez_regional}
-        - risco_territorial: {classificacao (Baixo/Medio/Alto), detalhes}
-        - confidence_score: (0-100)
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-      });
-
-      const data = JSON.parse(response.text || '{}');
-      setAnalysis(data);
-    } catch (e) {
-      console.error("Análise falhou", e);
-    } finally {
-      setLoading(false);
-    }
+  const runGeoAnalysis = (_center: L.LatLng, _points: L.LatLng[] | null) => {
+    setLoading(false);
+    setAnalysis(null);
   };
 
   return (
@@ -219,7 +188,7 @@ const SmartMapReport: React.FC<Props> = ({ onBack, onConfirm, t, lang }) => {
 
       {/* PAINEL DE ANÁLISE */}
       <div className="w-full h-[55vh] md:h-full md:w-1/3 overflow-y-auto bg-[#FDFCFB] shadow-[-20px_0_80px_rgba(0,0,0,0.15)] z-[1020] flex flex-col p-8 md:p-12 no-scrollbar border-l border-gray-100">
-        {!analysis && !loading && (
+        {realtimeArea === null && (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-10">
             <div className="w-24 h-24 bg-gray-50 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-inner border border-gray-100 animate-pulse">🌍</div>
             <div>
@@ -229,59 +198,18 @@ const SmartMapReport: React.FC<Props> = ({ onBack, onConfirm, t, lang }) => {
           </div>
         )}
 
-        {loading && (
-          <div className="flex-1 flex flex-col items-center justify-center space-y-8">
-            <div className="w-16 h-16 border-8 border-gray-100 border-t-prylom-gold rounded-full animate-spin"></div>
-            <p className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] animate-pulse text-center">Cruzando Dados Orbitais<br/>e Geográficos</p>
-          </div>
-        )}
-
-        {analysis && !loading && (
-          <div className="animate-fadeIn space-y-10">
-            <header className="border-b border-gray-100 pb-8">
-              <span className="bg-[#000080] text-white text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-4 inline-block shadow-lg">Auditória em Tempo Real</span>
-              <h2 className="text-4xl font-black text-[#000080] tracking-tighter leading-[0.9] uppercase mb-4">{analysis.municipio}, {analysis.estado}</h2>
-              <div className="flex flex-wrap gap-2">
-                 <span className="bg-gray-100 text-prylom-dark text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{analysis.bioma}</span>
-                 <span className="bg-gray-100 text-prylom-dark text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{analysis.regiao_agricola}</span>
-              </div>
-            </header>
-
-            <div className="grid grid-cols-1 gap-4">
-               <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Área Auditada</p>
-                  <p className="text-4xl font-black text-prylom-dark">{analysis.area_hectares} <span className="text-sm">ha</span></p>
-               </div>
-               <div className="bg-prylom-dark text-white p-8 rounded-[2.5rem] shadow-2xl">
-                  <p className="text-prylom-gold text-[10px] font-black uppercase tracking-widest mb-2">Estimativa de Mercado</p>
-                  <p className="text-2xl font-black">R$ {Number(analysis.mercado?.preco_terra_ha_brl).toLocaleString()}<span className="text-xs opacity-50"> /ha</span></p>
-               </div>
+        {realtimeArea !== null && realtimeArea > 0 && onConfirm && (
+          <div className="animate-fadeIn space-y-6 flex-1 flex flex-col justify-center">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm text-center">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Área Delimitada</p>
+              <p className="text-4xl font-black text-prylom-dark">{realtimeArea.toLocaleString(undefined, { maximumFractionDigits: 1 })} <span className="text-sm">ha</span></p>
             </div>
-
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 flex justify-between items-center">
-                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Aptidão Agrícola</span>
-                 <div className="flex gap-1">
-                    {[1,2,3,4,5].map(s => (
-                      <div key={s} className={`w-3 h-1.5 rounded-full ${s <= (analysis.clima?.aptidao_score / 2) ? 'bg-prylom-gold' : 'bg-gray-200'}`}></div>
-                    ))}
-                 </div>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 flex justify-between items-center">
-                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Risco Ambiental</span>
-                 <span className={`text-[10px] font-black uppercase ${analysis.risco_territorial?.classificacao === 'Baixo' ? 'text-green-600' : 'text-red-500'}`}>{analysis.risco_territorial?.classificacao}</span>
-              </div>
-            </div>
-
-            {/* Conditionally render confirm button if onConfirm callback is provided */}
-            {onConfirm && (
-              <button 
-                onClick={() => onConfirm({ type: mode, analysis, coords: tempPoints.current })}
-                className="w-full bg-[#000080] text-white font-black py-7 rounded-full shadow-3xl hover:bg-prylom-gold transition-all text-xs uppercase tracking-[0.2em] group active:scale-95"
-              >
-                Confirmar e Prosseguir
-              </button>
-            )}
+            <button
+              onClick={() => onConfirm({ type: mode, coords: tempPoints.current, area_ha: realtimeArea })}
+              className="w-full bg-[#000080] text-white font-black py-7 rounded-full shadow-3xl hover:bg-prylom-gold transition-all text-xs uppercase tracking-[0.2em] active:scale-95"
+            >
+              Confirmar e Prosseguir
+            </button>
           </div>
         )}
       </div>

@@ -80,6 +80,12 @@ const [agroIndicators, setAgroIndicators] = useState<{
   const [news, setNews] = useState<MarketNews[]>([]);
   const [loadingNews, setLoadingNews] = useState(true);
 
+  // Módulos colapsáveis (accordion)
+  const [openModules, setOpenModules] = useState<Set<string>>(new Set());
+  const toggleModule = (id: string) => setOpenModules(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+
   const rates = useMemo(() => ({
     [AppCurrency.BRL]: 1,
     [AppCurrency.USD]: 0.19,
@@ -448,9 +454,6 @@ const prodMapEstado: Record<string, { prodLocal: string; prodEstado: string; lab
     return { costPerTon, totalFreightLoad, spreadUnit, ipel, efficiency: ipel > 10 ? 'Alta' : ipel < 6 ? 'Baixa' : 'Média' };
   }, [freightDistance, freightRateKm, loadWeight, commodityPrice, destPrice, riskFactor, extraCosts]);
 
-  useEffect(() => {
-    fetchLocalInsight();
-  }, [lang]);
 
   // ── TradingView Ticker Tape (script injection) ──
   // Guard prevents double-run in React Strict Mode (which would crash TV's script)
@@ -538,11 +541,10 @@ const fetchLocalInsight = async (specificLocation?: string) => {
         async (pos) => {
           try {
             const revRes = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`,
-              { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'PrylomApp/1.0' } }
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=pt`
             );
             const revData = await revRes.json();
-            const cityName = revData.address?.city || revData.address?.town || revData.address?.municipality || revData.address?.county || "Minha Localização";
+            const cityName = revData.city || revData.locality || revData.principalSubdivision || "Minha Localização";
             setManualRegion(cityName);
             await analyze(cityName, pos.coords.latitude, pos.coords.longitude);
           } catch {
@@ -562,28 +564,41 @@ const fetchLocalInsight = async (specificLocation?: string) => {
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualRegion.trim()) {
-      setLoadingAgro(true); // loading imediato ao clicar em Analisar
+      setLoadingAgro(true);
       fetchLocalInsight(manualRegion);
     }
+  };
+
+  const handleUseLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const revRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=pt`
+          );
+          const revData = await revRes.json();
+          const cityName = revData.city || revData.locality || revData.principalSubdivision || '';
+          if (cityName) setManualRegion(cityName);
+        } catch { /* silencioso */ }
+      },
+      () => { /* permissão negada */ }
+    );
   };
 
 const fetchAgroIndicators = async (location: string) => {
   setLoadingAgro(true);
   try {
-    // 1. Geocodificação
+    // 1. Geocodificação via Open-Meteo (CORS-friendly, sem necessidade de proxy)
     const geoRes = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location + ' Brasil')}&format=json&limit=1&addressdetails=1`,
-      { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'PrylomApp/1.0' } }
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=pt&format=json&countryCode=BR`
     );
     const geoData = await geoRes.json();
-    if (!geoData.length) throw new Error("Localização não encontrada.");
+    if (!geoData.results?.length) throw new Error("Localização não encontrada.");
 
-    const lat = parseFloat(geoData[0].lat);
-    const lon = parseFloat(geoData[0].lon);
-    const addr = geoData[0].address || {};
-    const cityLabel = addr.city || addr.town || addr.municipality || addr.county || location;
-    const stateLabel = addr.state || 'Estado';
-    // Nominatim nem sempre retorna state_code — fallback por nome do estado
+    const lat = geoData.results[0].latitude;
+    const lon = geoData.results[0].longitude;
+    const cityLabel = geoData.results[0].name || location;
+    const stateLabel = geoData.results[0].admin1 || 'Estado';
     const stateNameToCode: Record<string, string> = {
       'acre':'AC','alagoas':'AL','amapá':'AP','amazonas':'AM','bahia':'BA',
       'ceará':'CE','distrito federal':'DF','espírito santo':'ES','goiás':'GO',
@@ -594,8 +609,7 @@ const fetchAgroIndicators = async (location: string) => {
       'roraima':'RR','santa catarina':'SC','são paulo':'SP',
       'sergipe':'SE','tocantins':'TO',
     };
-    const rawCode = addr.state_code?.toUpperCase().replace('BR-', '').substring(0, 2) || '';
-    const stateCode = rawCode || stateNameToCode[stateLabel.toLowerCase()] || '';
+    const stateCode = stateNameToCode[stateLabel.toLowerCase()] || '';
 
     // 2. APIs paralelas principais
     const [nasaRes, weatherRes, elevRes] = await Promise.all([
@@ -866,12 +880,12 @@ const fetchAgroIndicators = async (location: string) => {
     setCalcDistLoading(true);
     try {
       const [g1, g2] = await Promise.all([
-        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(orig)}&format=json&limit=1`, { headers: { 'User-Agent': 'PrylomApp/1.0' } }).then(r => r.json()),
-        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(dest)}&format=json&limit=1`, { headers: { 'User-Agent': 'PrylomApp/1.0' } }).then(r => r.json()),
+        fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(orig)}&count=1&language=pt&format=json`).then(r => r.json()),
+        fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(dest)}&count=1&language=pt&format=json`).then(r => r.json()),
       ]);
-      if (g1.length && g2.length) {
-        const lat1 = parseFloat(g1[0].lat), lon1 = parseFloat(g1[0].lon);
-        const lat2 = parseFloat(g2[0].lat), lon2 = parseFloat(g2[0].lon);
+      if (g1.results?.length && g2.results?.length) {
+        const lat1 = g1.results[0].latitude, lon1 = g1.results[0].longitude;
+        const lat2 = g2.results[0].latitude, lon2 = g2.results[0].longitude;
         const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -980,27 +994,26 @@ const fetchAgroIndicators = async (location: string) => {
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col md:flex-row items-center gap-6">
-         <form onSubmit={handleManualSearch} className="flex-1 w-full flex flex-col md:flex-row items-end gap-4">
+      <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+         <form onSubmit={handleManualSearch} className="w-full flex flex-col md:flex-row items-end gap-4">
             <div className="flex-1 w-full space-y-2">
                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">{t.manualLocationLabel}</label>
-               <input 
-                 type="text" 
+               <input
+                 type="text"
                  value={manualRegion}
                  onChange={e => setManualRegion(e.target.value)}
-                 placeholder={t.manualLocationPlaceholder} 
-                 className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#000080] transition-all"
+                 placeholder={t.manualLocationPlaceholder}
+                 className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all"
                />
             </div>
-            <button type="submit" className="bg-prylom-dark text-white font-black px-8 py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-prylom-gold active:scale-95 transition-all w-full md:w-auto shadow-xl">
+            <button type="button" onClick={handleUseLocation} className="text-prylom-gold font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-prylom-gold/5 px-5 py-4 rounded-2xl transition-all whitespace-nowrap w-full md:w-auto justify-center border border-prylom-gold/30">
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+               {t.useAutoLocation}
+            </button>
+            <button type="submit" className="bg-prylom-dark text-white font-black px-8 py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-prylom-gold active:scale-95 transition-all w-full md:w-auto shadow-xl whitespace-nowrap">
                Analisar Região
             </button>
          </form>
-         <div className="h-10 w-px bg-gray-200 hidden md:block"></div>
-         <button onClick={() => fetchLocalInsight()} className="text-prylom-gold font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-prylom-gold/5 p-4 rounded-2xl transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
-            {t.useAutoLocation}
-         </button>
       </div>
                 
                 {/* ── Ticker TradingView ── */}
@@ -1011,28 +1024,27 @@ const fetchAgroIndicators = async (location: string) => {
 
 
       {/* ── ECONOMICS & INDICADORES AGROTECNOLÓGICOS ── */}
-      <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <span className="text-prylom-gold text-[9px] font-black uppercase tracking-[0.4em] block mb-1">
-              ▲ Economics & Indicadores Agrotecnológicos
-            </span>
-            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-              {agroIndicators
-                ? `${agroIndicators.locationLabel} · ${agroIndicators.stateLabel}`
-                : 'Selecione uma região para carregar os indicadores'}
-            </p>
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('agro')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
           </div>
-          {(loadingAgro || loadingInsight) && (
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-prylom-gold/30 border-t-prylom-gold rounded-full animate-spin" />
-              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest animate-pulse hidden md:block">
-                Consultando fontes oficiais...
-              </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Indicadores Agrotecnológicos</h3>
+              {agroIndicators && <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase tracking-widest">Dados carregados</span>}
+              {(loadingAgro || loadingInsight) && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-widest animate-pulse">Carregando...</span>}
             </div>
-          )}
-        </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Veja o potencial da sua região: qualidade do solo, chuva anual, temperatura, relevo e mais de 10 dados agronômicos.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('agro') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('agro') && (
+        <div className="border-t border-gray-100 p-6 md:p-8">
 
         {/* Estado vazio */}
         {!agroIndicators && !(loadingAgro || loadingInsight) && (
@@ -1056,21 +1068,21 @@ const fetchAgroIndicators = async (location: string) => {
           const loc = agroIndicators.locationLabel.toUpperCase();
           const st = `Média ${agroIndicators.stateCode || agroIndicators.stateLabel.split(' ')[0].toUpperCase()}`;
           const cards = [
-            { title: 'Teor Médio de Argila',         f: agroIndicators.argila },
-            { title: 'Índice Pluviométrico',          f: agroIndicators.pluvio },
-            { title: 'Índice de Altimetria',          f: agroIndicators.altimetria },
-            { title: 'Índice Relevo',                 f: agroIndicators.relevo },
-            { title: 'Solo Predominante',             f: agroIndicators.solo },
-            { title: 'Irradiação Global Horizontal',  f: agroIndicators.irradiacao },
-            { title: 'Evapotranspiração Ano',         f: agroIndicators.evapotranspiracao },
-            { title: 'Temperatura (°C) Ano',          f: agroIndicators.temperatura },
+            { title: 'Argila no Solo',                f: agroIndicators.argila },
+            { title: 'Chuva Anual',                   f: agroIndicators.pluvio },
+            { title: 'Altitude',                      f: agroIndicators.altimetria },
+            { title: 'Relevo',                        f: agroIndicators.relevo },
+            { title: 'Tipo de Solo',                  f: agroIndicators.solo },
+            { title: 'Radiação Solar',                f: agroIndicators.irradiacao },
+            { title: 'Perda de Água (Ano)',           f: agroIndicators.evapotranspiracao },
+            { title: 'Temperatura Média Anual',       f: agroIndicators.temperatura },
             { title: 'Hidrografia',                   f: agroIndicators.hidrografia },
-            { title: 'Principais Culturas',           f: agroIndicators.culturas },
-            { title: 'Vento (A Trava da Pulverização)', f: agroIndicators.vento },
-            { title: 'Umidade Relativa do Ar (%)',    f: agroIndicators.umidade },
-            { title: 'Temperatura Dinâmica',          f: agroIndicators.tempDinamica },
-            { title: 'Classificação de Aptidão',      f: agroIndicators.aptidao },
-            { title: 'Valor de Produção',             f: agroIndicators.valorProducao },
+            { title: 'Culturas da Região',            f: agroIndicators.culturas },
+            { title: 'Vento (Risco de Pulverização)', f: agroIndicators.vento },
+            { title: 'Umidade do Ar',                 f: agroIndicators.umidade },
+            { title: 'Variação de Temperatura',       f: agroIndicators.tempDinamica },
+            { title: 'Aptidão Agrícola',              f: agroIndicators.aptidao },
+            { title: 'Valor da Produção',             f: agroIndicators.valorProducao },
           ];
           return (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 animate-fadeIn">
@@ -1097,10 +1109,38 @@ const fetchAgroIndicators = async (location: string) => {
             </div>
           );
         })()}
+        </div>
+        )}
       </div>
 
       {/* ── MONITORAMENTO AGROMETEOROLÓGICO ── */}
-      {weatherForecast && (() => {
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('meteo')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Monitoramento Agrometeorológico</h3>
+              {weatherForecast && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase tracking-widest"><span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"/><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"/></span>Live</span>}
+              {loadingAgro && !weatherForecast && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-widest animate-pulse">Carregando...</span>}
+            </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Previsão do tempo para os próximos 15 dias com alertas de geada, chuva forte e vento — para planejar a lavoura com segurança.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('meteo') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('meteo') && (
+          <div className="border-t border-gray-100 p-6 md:p-8">
+            {!weatherForecast && !loadingAgro && (
+              <div className="py-12 text-center opacity-40">
+                <p className="text-sm font-medium">Selecione uma região para carregar os dados meteorológicos.</p>
+              </div>
+            )}
+            {weatherForecast && (() => {
         const w = weatherForecast.data;
         const cur = w.current || {};
         const getWeatherIcon = (code: number) => {
@@ -1120,7 +1160,7 @@ const fetchAgroIndicators = async (location: string) => {
           }
         };
         return (
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100 animate-fadeIn">
+          <div className="animate-fadeIn">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-5 mb-7">
               <div>
@@ -1568,28 +1608,33 @@ const fetchAgroIndicators = async (location: string) => {
 
           </div>
         );
-      })()}
+            })()}
+          </div>
+        )}
+      </div>
 
       {/* ── INTELIGÊNCIA DE ESCOAMENTO ── */}
-      <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <span className="text-prylom-gold text-[9px] font-black uppercase tracking-[0.4em] block mb-1">
-              ▲ Inteligência de Escoamento
-            </span>
-            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-              {escoamentoData
-                ? `${escoamentoData.locationLabel} · ${escoamentoData.stateCode}`
-                : 'Selecione uma região para carregar a inteligência logística'}
-            </p>
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('esco')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>
           </div>
-          {loadingAgro && (
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-prylom-gold/30 border-t-prylom-gold rounded-full animate-spin" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Inteligência de Escoamento</h3>
+              {escoamentoData && <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase tracking-widest">Dados carregados</span>}
+              {loadingAgro && !escoamentoData && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-widest animate-pulse">Carregando...</span>}
             </div>
-          )}
-        </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Calcule quanto custa levar sua produção até o porto e veja qual é o lucro real por saca depois do frete.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('esco') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('esco') && (
+        <div className="border-t border-gray-100 p-6 md:p-8">
 
         {/* Estado vazio */}
         {!escoamentoData && !loadingAgro && (
@@ -1612,11 +1657,11 @@ const fetchAgroIndicators = async (location: string) => {
           const loc = escoamentoData.locationLabel.toUpperCase();
           const st = `Média ${escoamentoData.stateCode}`;
           const infCards = [
-            { title: 'Rodovia',    f: escoamentoData.rodovia },
-            { title: 'Ferrovia',   f: escoamentoData.ferrovia },
-            { title: 'Porto',      f: escoamentoData.porto },
-            { title: 'Frete Médio\n(R$/Tonelada · R$/Saca)', f: escoamentoData.freteMedio },
-            { title: 'Custo de Pedágios\n(Estimativa por Eixo)', f: escoamentoData.pedagios },
+            { title: 'Estradas / Rodovias', f: escoamentoData.rodovia },
+            { title: 'Ferrovia',            f: escoamentoData.ferrovia },
+            { title: 'Porto Mais Próximo',  f: escoamentoData.porto },
+            { title: 'Frete Médio\n(R$ por tonelada / saca)', f: escoamentoData.freteMedio },
+            { title: 'Pedágios\n(estimativa por eixo)',        f: escoamentoData.pedagios },
           ];
           const freteTon = freightDistance * freightRateKm * riskFactor;
           const freteSaca = freteTon * 0.06;
@@ -1660,11 +1705,11 @@ const fetchAgroIndicators = async (location: string) => {
                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Origem</label>
                     <div className="flex gap-2">
                       <select value={escoOrigemEstado} onChange={e => { setEscoOrigemEstado(e.target.value); setEscoOrigemCidade(''); }}
-                        className="w-16 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold appearance-none text-center">
+                        className="w-16 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold appearance-none text-center">
                         {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <select value={escoOrigemCidade} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEscoOrigemCidade(e.target.value)}
-                        className="flex-1 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold appearance-none">
+                        className="flex-1 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold appearance-none">
                         <option value="">Cidade</option>
                         {(brasilCidades[escoOrigemEstado] || []).map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
@@ -1676,11 +1721,11 @@ const fetchAgroIndicators = async (location: string) => {
                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Destino</label>
                     <div className="flex gap-2">
                       <select value={escoDestinoEstado} onChange={e => { setEscoDestinoEstado(e.target.value); setEscoDestinoCidade(''); }}
-                        className="w-16 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold appearance-none text-center">
+                        className="w-16 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold appearance-none text-center">
                         {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <select value={escoDestinoCidade} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEscoDestinoCidade(e.target.value)}
-                        className="flex-1 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold appearance-none">
+                        className="flex-1 bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold appearance-none">
                         <option value="">Cidade / Porto</option>
                         {(brasilCidades[escoDestinoEstado] || []).map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
@@ -1705,14 +1750,14 @@ const fetchAgroIndicators = async (location: string) => {
                   {/* Distância manual + tarifa */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">KM</label>
+                      <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Distância (km)</label>
                       <input type="number" value={freightDistance} onChange={e => setFreightDistance(Number(e.target.value))}
-                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
+                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">R$/T/KM</label>
+                      <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Tarifa (R$/t/km)</label>
                       <input type="number" step="0.01" value={freightRateKm} onChange={e => setFreightRateKm(Number(e.target.value))}
-                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
+                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold" />
                     </div>
                   </div>
                 </div>
@@ -1725,7 +1770,7 @@ const fetchAgroIndicators = async (location: string) => {
                       R$ {spreadEsc.toFixed(2).replace('.', ',')}
                       <span className="text-xs opacity-40 ml-1">/ saca</span>
                     </p>
-                    <p className="text-[9px] text-gray-400 mt-1 font-medium">Margem Final: Destino – Origem + Frete Real</p>
+                    <p className="text-[9px] text-gray-400 mt-1 font-medium">O que sobra por saca depois do frete</p>
                   </div>
                   <div className="absolute bottom-0 right-0 p-4 opacity-5 pointer-events-none">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-28 w-28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1738,10 +1783,10 @@ const fetchAgroIndicators = async (location: string) => {
                 {/* Métricas + Diagnóstico */}
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-[#000080]/5 rounded-2xl p-4 border border-[#000080]/10 text-center">
-                      <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Índice FPL</p>
-                      <p className="text-2xl font-black text-[#000080]">{indiceFPL.toFixed(1)}</p>
-                      <p className="text-[7px] font-bold text-gray-400 uppercase mt-0.5">Incidência %</p>
+                    <div className="bg-[#2c5363]/5 rounded-2xl p-4 border border-[#2c5363]/10 text-center">
+                      <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Peso do Frete</p>
+                      <p className="text-2xl font-black text-[#2c5363]">{indiceFPL.toFixed(1)}</p>
+                      <p className="text-[7px] font-bold text-gray-400 uppercase mt-0.5">% sobre o preço</p>
                     </div>
                     <div className="bg-green-50 rounded-2xl p-4 border border-green-100 text-center">
                       <p className="text-[8px] font-black text-green-700 uppercase mb-1">Frete por Saca</p>
@@ -1749,14 +1794,14 @@ const fetchAgroIndicators = async (location: string) => {
                       <p className="text-[7px] font-bold text-green-600/60 uppercase mt-0.5">Padrão 60 kg</p>
                     </div>
                     <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                      <label className="text-[8px] font-black text-gray-400 uppercase block mb-1">Preço Destino (sc)</label>
+                      <label className="text-[8px] font-black text-gray-400 uppercase block mb-1">Preço no Destino (R$/saca)</label>
                       <input type="number" value={destPrice} onChange={e => setDestPrice(Number(e.target.value))}
-                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold" />
+                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold" />
                     </div>
                     <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                      <label className="text-[8px] font-black text-gray-400 uppercase block mb-1">Fator de Risco %</label>
+                      <label className="text-[8px] font-black text-gray-400 uppercase block mb-1">Condição da Rota</label>
                       <select value={riskFactor} onChange={e => setRiskFactor(Number(e.target.value))}
-                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#000080] outline-none focus:border-prylom-gold appearance-none">
+                        className="w-full bg-white border border-gray-200 p-2 rounded-xl text-xs font-bold text-[#2c5363] outline-none focus:border-prylom-gold appearance-none">
                         <option value={1.0}>Cenário Limpo (0%)</option>
                         <option value={1.05}>Safra / Chuvas (+5%)</option>
                         <option value={1.15}>Risco Alto / Filas (+15%)</option>
@@ -1764,7 +1809,7 @@ const fetchAgroIndicators = async (location: string) => {
                     </div>
                   </div>
                   <div className="bg-prylom-gold/5 rounded-2xl p-4 border border-prylom-gold/20">
-                    <p className="text-[9px] font-black text-[#000080] uppercase tracking-widest mb-1">Diagnóstico Prylom:</p>
+                    <p className="text-[9px] font-black text-[#2c5363] uppercase tracking-widest mb-1">Diagnóstico Prylom:</p>
                     <p className="text-[10px] font-medium text-prylom-dark leading-relaxed italic">{fplDiag}</p>
                   </div>
                 </div>
@@ -1772,11 +1817,31 @@ const fetchAgroIndicators = async (location: string) => {
             </div>
           );
         })()}
+        </div>
+        )}
       </div>
 
 
       {/* ── ESTIMATIVA DE PRODUTIVIDADE + BARTER + DIAGNÓSTICO ── */}
-      {(() => {
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('prod')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Produtividade & Barter</h3>
+              {agroIndicators && <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase tracking-widest">Dados carregados</span>}
+            </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Veja quantas sacas por hectare sua região produz e se o custo dos insumos está valendo a pena nesta safra.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('prod') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('prod') && (() => {
         const sc = agroIndicators?.stateCode ?? '';
         const pd = sc ? produtividadeMap[sc] : null;
         const loc = agroIndicators?.locationLabel ?? '—';
@@ -1800,7 +1865,7 @@ const fetchAgroIndicators = async (location: string) => {
 
         const cards = pd ? [
           {
-            titulo: 'SACA/HA 2025/26', subtitulo: 'Soja',
+            titulo: 'Sacas/Ha — Safra 2025/26', subtitulo: 'Soja',
             rows: [
               { label: `(mun) ${loc}`,        valor: `${pd.soja.mun} SACAS/Ha`, bold: true },
               { label: `Média ${stLbl}`,       valor: `${pd.soja.estado} SACAS/Ha`, bold: true },
@@ -1808,7 +1873,7 @@ const fetchAgroIndicators = async (location: string) => {
             ],
           },
           {
-            titulo: 'SACA/HA 2025/26', subtitulo: 'Milho Safrinha',
+            titulo: 'Sacas/Ha — Safra 2025/26', subtitulo: 'Milho Safrinha',
             rows: [
               { label: `(mun) ${loc}`,        valor: `${pd.milho.mun} SACAS/Ha`, bold: true },
               { label: `Média ${stLbl}`,       valor: `${pd.milho.estado} SACAS/Ha`, bold: true },
@@ -1816,7 +1881,7 @@ const fetchAgroIndicators = async (location: string) => {
             ],
           },
           {
-            titulo: 'O Delta de Evolução', subtitulo: 'Soja / Milho',
+            titulo: 'Evolução vs. Safra Anterior', subtitulo: 'Soja / Milho',
             rows: [
               { label: `(mun) ${loc}`,        valor: fmtDelta(pd.delta.soja), bold: true, isPos: pd.delta.soja >= 0 },
               { label: `Média ${stLbl}`,       valor: fmtDelta(pd.delta.soja * 0.85), bold: false, isPos: pd.delta.soja >= 0 },
@@ -1826,27 +1891,27 @@ const fetchAgroIndicators = async (location: string) => {
           (() => {
             const m = calcMetrica(pd.soja.mun, pd.soja.precoSaca, pd.soja.custoProd);
             return {
-              titulo: 'Métrica Financeira', subtitulo: 'Soja estimativa',
+              titulo: 'Resultado por Hectare', subtitulo: 'Soja estimativa',
               rows: [
-                { label: 'Faturamento Bruto',   valor: m.brutoStr,   bold: true },
-                { label: 'Faturamento Líquido', valor: m.liquidoStr, bold: true, isPos: m.isPos },
+                { label: 'Receita Bruta (R$/ha)',    valor: m.brutoStr,   bold: true },
+                { label: 'Lucro Estimado (R$/ha)',   valor: m.liquidoStr, bold: true, isPos: m.isPos },
               ],
             };
           })(),
           (() => {
             const m = calcMetrica(pd.milho.mun, pd.milho.precoSaca, pd.milho.custoProd);
             return {
-              titulo: 'Métrica Financeira', subtitulo: 'Milho Safrinha',
+              titulo: 'Resultado por Hectare', subtitulo: 'Milho Safrinha',
               rows: [
-                { label: 'Faturamento Bruto',   valor: m.brutoStr,   bold: true },
-                { label: 'Faturamento Líquido', valor: m.liquidoStr, bold: true, isPos: m.isPos },
+                { label: 'Receita Bruta (R$/ha)',    valor: m.brutoStr,   bold: true },
+                { label: 'Lucro Estimado (R$/ha)',   valor: m.liquidoStr, bold: true, isPos: m.isPos },
               ],
             };
           })(),
         ] : null;
 
         return (
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100 space-y-8">
+          <div className="p-6 md:p-8 space-y-8">
 
             {/* ── Cards: Estimativa de Produtividade ── */}
             <div>
@@ -1887,7 +1952,7 @@ const fetchAgroIndicators = async (location: string) => {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight mb-1">{t.greenCurrency}</h3>
-                    <p className="text-gray-700 text-xs font-bold">Indicadores de Troca e Margem Operacional</p>
+                    <p className="text-gray-700 text-xs font-bold">Relação de troca e margem operacional da safra</p>
                   </div>
                   <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${ratioHealth === 'success' ? 'bg-green-100 text-green-700' : ratioHealth === 'danger' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     {ratioHealth === 'success' ? t.ratioSuccess : ratioHealth === 'danger' ? t.ratioAlert : t.ratioStable}
@@ -1896,8 +1961,8 @@ const fetchAgroIndicators = async (location: string) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">Cultura / Ativo</label>
-                    <select value={commodity} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCommodity(e.target.value)} className="w-full p-3 bg-gray-50 rounded-2xl font-bold text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold appearance-none cursor-pointer text-sm">
+                    <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">Cultura</label>
+                    <select value={commodity} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCommodity(e.target.value)} className="w-full p-3 bg-gray-50 rounded-2xl font-bold text-[#2c5363] outline-none border-2 border-transparent focus:border-prylom-gold appearance-none cursor-pointer text-sm">
                       <option value="soja">{t.soy} (Saca 60kg)</option>
                       <option value="milho">{t.corn} (Saca 60kg)</option>
                       <option value="boi">Boi Gordo (@)</option>
@@ -1908,11 +1973,11 @@ const fetchAgroIndicators = async (location: string) => {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">{t.bagPriceLabel}</label>
-                    <input type="number" value={commodityPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommodityPrice(parseFloat(e.target.value))} className="w-full p-3 bg-gray-50 rounded-2xl font-black text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold text-sm" />
+                    <input type="number" value={commodityPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommodityPrice(parseFloat(e.target.value))} className="w-full p-3 bg-gray-50 rounded-2xl font-black text-[#2c5363] outline-none border-2 border-transparent focus:border-prylom-gold text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">Custo Insumo ({getSymbol()})</label>
-                    <input type="number" value={inputCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputCost(parseFloat(e.target.value))} className="w-full p-3 bg-gray-50 rounded-2xl font-black text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold text-sm" />
+                    <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">Custo de Insumos ({getSymbol()})</label>
+                    <input type="number" value={inputCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputCost(parseFloat(e.target.value))} className="w-full p-3 bg-gray-50 rounded-2xl font-black text-[#2c5363] outline-none border-2 border-transparent focus:border-prylom-gold text-sm" />
                   </div>
                 </div>
 
@@ -1926,14 +1991,14 @@ const fetchAgroIndicators = async (location: string) => {
                   <div className="flex-1 text-center md:text-left z-10">
                     <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{t.breakEven}</span>
                     <p className="text-3xl font-black">{regionalCosts[region]?.yieldBe} <span className="text-xs text-gray-300 font-bold uppercase">{t.bagsPerHa}</span></p>
-                    <p className="text-[10px] text-gray-400 mt-1.5 font-medium">Base de Sustentabilidade</p>
+                    <p className="text-[10px] text-gray-400 mt-1.5 font-medium">Mínimo para cobrir os custos</p>
                   </div>
                 </div>
               </div>
 
               {/* Diagnóstico Prylom */}
               <div className="bg-prylom-gold/5 rounded-3xl border border-prylom-gold/20 p-6 flex flex-col justify-center italic">
-                <p className="text-[10px] font-black text-[#000080] uppercase tracking-widest mb-3 not-italic">Diagnóstico Prylom:</p>
+                <p className="text-[10px] font-black text-[#2c5363] uppercase tracking-widest mb-3 not-italic">Diagnóstico Prylom:</p>
                 <p className="text-sm font-medium text-prylom-dark leading-relaxed">
                   {barterRatio >= (historicalAvg * 0.95)
                     ? 'Relação de troca favorável. O custo operacional está dentro da média histórica, indicando alta eficiência produtiva e margem sustentável para a safra.'
@@ -1952,21 +2017,37 @@ const fetchAgroIndicators = async (location: string) => {
             </div>
           </div>
         );
-      })()}
+        })()}
+      </div>
 
       {/* ── TERMÔMETRO IMOBILIÁRIO ── */}
-      <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100 space-y-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight">
-            Termômetro Imobiliário
-          </h3>
-          <div className="flex items-center gap-3">
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('termo')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Termômetro Imobiliário</h3>
+            </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Descubra quanto vale seu imóvel rural hoje, o valor de arrendamento e quanto a terra valorizou nos últimos anos.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('termo') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('termo') && (
+        <div className="border-t border-gray-100 p-6 md:p-8 space-y-8">
+          {/* Estado selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estado:</label>
             <select
               value={vtEstado}
               onChange={e => setVtEstado(e.target.value)}
-              className="p-2 px-4 bg-gray-50 rounded-xl font-bold text-[#000080] outline-none border-2 border-transparent focus:border-prylom-gold text-sm appearance-none cursor-pointer"
+              className="p-2 px-4 bg-gray-50 rounded-xl font-bold text-[#2c5363] outline-none border-2 border-transparent focus:border-prylom-gold text-sm appearance-none cursor-pointer"
             >
               {Object.keys(termometroMap).map(k => (
                 <option key={k} value={k}>{k} – {termometroMap[k].nomeEstado}</option>
@@ -1992,7 +2073,7 @@ const fetchAgroIndicators = async (location: string) => {
 
           const cards = [
             {
-              titulo: 'PREÇO DO HECTARE',
+              titulo: 'Preço por Hectare',
               rows: [
                 { label: `(mun) ${loc}`,   valor: `${fmtBRL(td.precoHaMin)} – ${fmtBRL(td.precoHaMax)}` },
                 { label: `Média ${stLbl}`, valor: fmtBRL(precoMedioHa) },
@@ -2000,7 +2081,7 @@ const fetchAgroIndicators = async (location: string) => {
               ],
             },
             {
-              titulo: 'PREÇO DO HECTARE DE ATIVOS PRYLOM',
+              titulo: 'Hectare (Ativos Prylom)',
               rows: [
                 { label: `(mun) ${loc}`,   valor: fmtBRL(prylomPrecoHa) },
                 { label: `Média ${stLbl}`, valor: fmtBRL(precoMedioHa) },
@@ -2008,7 +2089,7 @@ const fetchAgroIndicators = async (location: string) => {
               ],
             },
             {
-              titulo: 'PREÇO DO HECTARE ARRENDAMENTO',
+              titulo: 'Arrendamento (sc/ha)',
               rows: [
                 { label: `(mun) ${loc}`,   valor: `${td.arrendMin} – ${td.arrendMax} sc/ha` },
                 { label: `Média ${stLbl}`, valor: `${arrendMed.toFixed(1)} sc/ha` },
@@ -2016,7 +2097,7 @@ const fetchAgroIndicators = async (location: string) => {
               ],
             },
             {
-              titulo: 'ARRENDAMENTO DE ATIVOS PRYLOM',
+              titulo: 'Arrendamento Prylom',
               rows: [
                 { label: `(mun) ${loc}`,   valor: `${prylomArrdSc} sc/ha` },
                 { label: `Média ${stLbl}`, valor: `${arrendMed.toFixed(1)} sc/ha` },
@@ -2024,7 +2105,7 @@ const fetchAgroIndicators = async (location: string) => {
               ],
             },
             {
-              titulo: 'VALORIZAÇÃO IMOBILIÁRIA',
+              titulo: 'Valorização da Terra',
               rows: [
                 { label: `(mun) ${loc}`,   valor: `${td.valorizacao12m.toFixed(1)}% / 12m` },
                 { label: `Média ${stLbl}`, valor: `${td.valorizacao5a.toFixed(1)}% / 5 anos` },
@@ -2080,7 +2161,7 @@ const fetchAgroIndicators = async (location: string) => {
                       type="number"
                       value={f.val}
                       onChange={e => f.set(parseFloat(e.target.value) || 0)}
-                      className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#000080] text-sm outline-none"
+                      className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#2c5363] text-sm outline-none"
                     />
                   </div>
                 ))}
@@ -2101,7 +2182,7 @@ const fetchAgroIndicators = async (location: string) => {
                 {([
                   { label: 'Produtividade estimada (sc/ha)',       val: vtProdSacas,                            set: setVtProdSacas,  step: 1  },
                   { label: 'Arrendamento praticado (sc/ha/ano)',   val: vtArrendSacas,                          set: setVtArrendSacas, step: 1  },
-                  { label: 'Taxa de Atratividade – Cap Rate (%)',  val: parseFloat((vtCapRate*100).toFixed(1)), set: (v: number) => setVtCapRate(v/100), step: 0.5 },
+                  { label: 'Taxa de Retorno Esperado (%)',          val: parseFloat((vtCapRate*100).toFixed(1)), set: (v: number) => setVtCapRate(v/100), step: 0.5 },
                 ] as { label: string; val: number; set: (v: number) => void; step: number }[]).map(f => (
                   <div key={f.label} className="space-y-0.5">
                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">{f.label}</p>
@@ -2110,13 +2191,13 @@ const fetchAgroIndicators = async (location: string) => {
                       step={f.step}
                       value={f.val}
                       onChange={e => f.set(parseFloat(e.target.value) || 0)}
-                      className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#000080] text-sm outline-none"
+                      className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#2c5363] text-sm outline-none"
                     />
                   </div>
                 ))}
               </div>
               <p className="text-[8px] text-gray-400 pt-1 border-t border-gray-200">
-                <span className="font-black text-gray-500">Fórmula:</span> Renda Anual ÷ Cap Rate = Valor Capitalizado
+                <span className="font-black text-gray-500">Como funciona:</span> Renda anual ÷ taxa de retorno = valor da terra
               </p>
             </div>
 
@@ -2134,7 +2215,7 @@ const fetchAgroIndicators = async (location: string) => {
                     type="number"
                     value={vtDistAsfalto}
                     onChange={e => setVtDistAsfalto(parseFloat(e.target.value) || 0)}
-                    className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#000080] text-sm outline-none"
+                    className="w-full p-2 bg-white border-2 border-transparent focus:border-prylom-gold rounded-lg font-black text-[#2c5363] text-sm outline-none"
                   />
                 </div>
                 <div>
@@ -2166,8 +2247,8 @@ const fetchAgroIndicators = async (location: string) => {
               </div>
               <div className="space-y-2">
                 {([
-                  { label: 'Matrícula Vintenária Limpa?',         sub: 'Situação dominial regular',            val: vtMatricula,   set: setVtMatricula,   simBom: true,  desc: 'Sem matrícula: −35%' },
-                  { label: 'GEO e CAR Averbados e Regulares?',    sub: 'Sem sobreposição de áreas',            val: vtGeoAverbado, set: setVtGeoAverbado, simBom: true,  desc: 'Sem GEO/CAR: −25%'  },
+                  { label: 'Matrícula Limpa (20 anos)?',          sub: 'Situação da propriedade regular',      val: vtMatricula,   set: setVtMatricula,   simBom: true,  desc: 'Sem matrícula: −35%' },
+                  { label: 'GEO e CAR Regulares?',                sub: 'Sem sobreposição de áreas',            val: vtGeoAverbado, set: setVtGeoAverbado, simBom: true,  desc: 'Sem GEO/CAR: −25%'  },
                   { label: 'Tem Passivo Ambiental / IBAMA?',       sub: 'Embargo, autuação ou desmatamento',   val: vtPassivo,     set: setVtPassivo,     simBom: false, desc: 'Com passivo: −30%'   },
                 ] as { label: string; sub: string; val: boolean; set: (v: boolean) => void; simBom: boolean; desc: string }[]).map(f => (
                   <div key={f.label} className="bg-white border border-gray-200 rounded-xl p-2.5 space-y-1.5">
@@ -2226,9 +2307,9 @@ const fetchAgroIndicators = async (location: string) => {
             const fmtHa = (v: number) => vtAreaTotal > 0 ? `R$ ${Math.round(v / vtAreaTotal).toLocaleString('pt-BR')}/ha` : '—';
             const paybackAnos = rendaAnual > 0 ? (fairValue / rendaAnual).toFixed(1) : '—';
             const cenarios = [
-              { id: 'est', tag: 'Liquidez Rápida',  sub: 'Venda imediata · fundo agressivo',      desc: 'Desconto de 25% sobre o Fair Value. Saída urgente.', total: estressado, cor: 'border-orange-300 bg-orange-50', tagCor: 'bg-orange-100 text-orange-700', valCor: 'text-orange-600', destaque: false },
-              { id: 'fv',  tag: 'Fair Value',        sub: 'Valor Justo de Mercado · Prylom',       desc: `Precificação auditada — 4 motores. Payback: ${paybackAnos} anos.`, total: fairValue, cor: 'border-prylom-gold bg-prylom-dark', tagCor: 'bg-prylom-gold/20 text-prylom-gold', valCor: 'text-prylom-gold', destaque: true },
-              { id: 'pot', tag: 'Valor Potencial',   sub: 'Turnaround · compliance resolvido',     desc: 'Toda área como lavoura, sem passivos. O teto.', total: potencial, cor: 'border-green-300 bg-green-50', tagCor: 'bg-green-100 text-green-700', valCor: 'text-green-600', destaque: false },
+              { id: 'est', tag: 'Venda Rápida',      sub: 'Desconto de 25% para venda imediata',   desc: 'Valor com desconto para quem precisa vender rápido.', total: estressado, cor: 'border-orange-300 bg-orange-50', tagCor: 'bg-orange-100 text-orange-700', valCor: 'text-orange-600', destaque: false },
+              { id: 'fv',  tag: 'Valor Justo',       sub: 'Precificação completa — 4 motores',      desc: `Precificação completa Prylom. Payback: ${paybackAnos} anos.`, total: fairValue, cor: 'border-prylom-gold bg-prylom-dark', tagCor: 'bg-prylom-gold/20 text-prylom-gold', valCor: 'text-prylom-gold', destaque: true },
+              { id: 'pot', tag: 'Valor Potencial',   sub: 'Documentação em dia e área aproveitada', desc: 'Se toda a documentação estiver regularizada e toda a área produtiva. O valor máximo.', total: potencial, cor: 'border-green-300 bg-green-50', tagCor: 'bg-green-100 text-green-700', valCor: 'text-green-600', destaque: false },
             ];
             return (
               <div className="space-y-3">
@@ -2260,7 +2341,7 @@ const fetchAgroIndicators = async (location: string) => {
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 max-w-sm space-y-3">
               <div>
                 <h4 className="text-xs font-black text-prylom-dark">Conversão de Área</h4>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Unidade de medida de superfície</p>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Converta entre as medidas de terra do campo</p>
               </div>
               {(() => {
                 const ucUnits: Record<string, number> = {
@@ -2282,12 +2363,12 @@ const fetchAgroIndicators = async (location: string) => {
                         type="number"
                         value={ucValue}
                         onChange={e => setUcValue(parseFloat(e.target.value) || 0)}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#000080] text-sm outline-none focus:border-prylom-gold"
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#2c5363] text-sm outline-none focus:border-prylom-gold"
                       />
                       <select
                         value={ucFrom}
                         onChange={e => setUcFrom(e.target.value)}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#000080] text-sm outline-none focus:border-prylom-gold cursor-pointer"
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#2c5363] text-sm outline-none focus:border-prylom-gold cursor-pointer"
                       >
                         {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
@@ -2298,12 +2379,12 @@ const fetchAgroIndicators = async (location: string) => {
                         type="number"
                         readOnly
                         value={converted}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#000080] text-sm outline-none bg-gray-100"
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-black text-[#2c5363] text-sm outline-none bg-gray-100"
                       />
                       <select
                         value={ucTo}
                         onChange={e => setUcTo(e.target.value)}
-                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#000080] text-sm outline-none focus:border-prylom-gold cursor-pointer"
+                        className="w-full p-2 bg-white border border-gray-200 rounded-lg font-bold text-[#2c5363] text-sm outline-none focus:border-prylom-gold cursor-pointer"
                       >
                         {Object.keys(ucUnits).map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
@@ -2315,10 +2396,30 @@ const fetchAgroIndicators = async (location: string) => {
           </div>
 
         </div>
+        </div>
+        )}
       </div>
 
       {/* ── ALERTAS ESTRATÉGICOS IMOBILIÁRIOS ── */}
-      {(() => {
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('alertas')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Alertas Estratégicos Imobiliários</h3>
+              <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[7px] font-black uppercase tracking-widest">2 urgentes</span>
+            </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Fique por dentro de prazos fiscais, exigências ambientais e oportunidades que afetam diretamente o seu imóvel rural.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('alertas') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('alertas') && (() => {
         const alertas = [
           {
             tipo: 'urgente',
@@ -2395,7 +2496,7 @@ const fetchAgroIndicators = async (location: string) => {
         };
 
         return (
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-gray-100">
+          <div className="p-6 md:p-8 border-t border-gray-100">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
               {/* Coluna principal: alertas */}
@@ -2441,8 +2542,8 @@ const fetchAgroIndicators = async (location: string) => {
                 <div className="bg-prylom-dark text-white rounded-2xl p-6 space-y-4">
                   <div>
                     <p className="text-[8px] font-black text-prylom-gold uppercase tracking-[0.3em]">Prylom</p>
-                    <h4 className="text-sm font-black uppercase tracking-tight mt-0.5">Due Diligence Imobiliária</h4>
-                    <p className="text-[9px] text-white/50 font-medium mt-0.5">Checklist para compra e venda segura</p>
+                    <h4 className="text-sm font-black uppercase tracking-tight mt-0.5">Checklist de Compra Segura</h4>
+                    <p className="text-[9px] text-white/50 font-medium mt-0.5">O que verificar antes de fechar o negócio</p>
                   </div>
                   <div className="space-y-2">
                     {([
@@ -2464,13 +2565,13 @@ const fetchAgroIndicators = async (location: string) => {
                     ))}
                   </div>
                   <p className="text-[8px] text-white/30 pt-2 border-t border-white/10">
-                    Itens em cinza indicam documentação frequentemente ausente em negociações rurais.
+                    Itens em cinza são documentos que frequentemente faltam na hora de negociar uma terra.
                   </p>
                 </div>
 
                 {/* Radar de Categorias */}
                 <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 space-y-3">
-                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Radar por Categoria</p>
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Alertas por Área</p>
                   {([
                     { cat: 'Fiscal',      urgentes: 1, total: 1, cor: 'bg-red-400'   },
                     { cat: 'Regulatório', urgentes: 1, total: 1, cor: 'bg-red-400'   },
@@ -2492,37 +2593,44 @@ const fetchAgroIndicators = async (location: string) => {
             </div>
           </div>
         );
-      })()}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-
-
-</div>
+        })()}
+      </div>
 
       {/* ── FEED DE NOTÍCIAS AGRO ── */}
-      <div className="space-y-6">
-
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.3em]">{t.liveFeed}</span>
-            </div>
-            <h2 className="text-xl font-black text-[#000080] uppercase tracking-widest">{t.terminalMainEvents}</h2>
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('noticias')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>
           </div>
-          <button
-            onClick={fetchAgroNews}
-            disabled={loadingNews}
-            className="flex items-center gap-2 text-[9px] font-black text-prylom-gold uppercase tracking-widest hover:underline disabled:opacity-40"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${loadingNews ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {t.terminalUpdateScan}
-          </button>
-        </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">{t.terminalMainEvents}</h3>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[7px] font-black uppercase tracking-widest"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block mr-0.5"/>Live</span>
+            </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Notícias do dia sobre soja, milho, commodities e o que está movendo o mercado agro no Brasil e no mundo.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('noticias') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('noticias') && (
+        <div className="border-t border-gray-100 p-6 md:p-8 space-y-6">
+
+          {/* Atualizar */}
+          <div className="flex justify-end">
+            <button
+              onClick={fetchAgroNews}
+              disabled={loadingNews}
+              className="flex items-center gap-2 text-[9px] font-black text-prylom-gold uppercase tracking-widest hover:underline disabled:opacity-40"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${loadingNews ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {t.terminalUpdateScan}
+            </button>
+          </div>
 
         {/* Cards */}
         {loadingNews ? (
@@ -2612,7 +2720,7 @@ const fetchAgroIndicators = async (location: string) => {
         )}
 
         {/* Disclaimer */}
-        <div className="bg-[#000080] p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+        <div className="bg-[#2c5363] p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
             <div className="shrink-0 w-12 h-12 rounded-2xl bg-prylom-gold/20 flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-prylom-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2627,19 +2735,32 @@ const fetchAgroIndicators = async (location: string) => {
           </div>
           <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-prylom-gold/10 rounded-full blur-3xl" />
         </div>
-
+        </div>
+        )}
       </div>
 
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-gray-100 space-y-8 min-h-[400px]">
-             <header className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-prylom-dark text-prylom-gold rounded-2xl flex items-center justify-center text-2xl shadow-lg">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </div>
-                <div>
-                   <h3 className="text-xl font-black text-prylom-dark uppercase tracking-tight">Análise de Região Prylom AI</h3>
-                   <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">{localInsight?.locationName || 'Detectando...'}</p>
-                </div>
-             </header>
+      {/* ── ANÁLISE DE REGIÃO PRYLOM AI ── */}
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => toggleModule('ai')}
+          className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+        >
+          <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Análise de Região Prylom AI</h3>
+              {localInsight && <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase tracking-widest">Análise gerada</span>}
+              {loadingInsight && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-widest animate-pulse">Gerando...</span>}
+            </div>
+            <p className="text-[11px] text-gray-400 font-medium leading-snug">Receba um resumo completo em linguagem simples sobre o potencial produtivo e os riscos da região buscada.</p>
+          </div>
+          <svg className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('ai') ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {openModules.has('ai') && (
+        <div className="border-t border-gray-100 p-6 md:p-8 space-y-8 min-h-[200px]">
 
              {loadingInsight ? (
                <div className="py-20 flex flex-col items-center justify-center gap-6">
@@ -2654,7 +2775,7 @@ const fetchAgroIndicators = async (location: string) => {
                   </div>
                   <div className="bg-gray-50 p-8 rounded-[2rem] border border-gray-100 flex flex-col">
                      <span className="text-prylom-dark/40 text-[10px] font-black uppercase tracking-widest mb-4">Em Resumo</span>
-                     <p className="text-sm font-bold text-[#000080] italic leading-relaxed mb-8">"{localInsight.simple}"</p>
+                     <p className="text-sm font-bold text-[#2c5363] italic leading-relaxed mb-8">"{localInsight.simple}"</p>
                      <div className="mt-auto pt-6 border-t border-gray-200 flex justify-between items-center">
                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ref: {localInsight.coords}</span>
                      </div>
@@ -2666,7 +2787,9 @@ const fetchAgroIndicators = async (location: string) => {
                </div>
              )}
           </div>
-</div>
+        )}
+      </div>
+    </div>
   );
 };
 

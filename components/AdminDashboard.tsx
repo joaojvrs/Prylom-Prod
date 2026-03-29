@@ -59,6 +59,7 @@ const AdminDashboard: React.FC<Props> = ({ onLogout, t, lang, currency }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareTargetProduct, setShareTargetProduct] = useState<Product | null>(null);
   const [shareExpiry, setShareExpiry] = useState<string>('24h');
+  const [shareRecipientName, setShareRecipientName] = useState<string>('');
   const [shareLoadingId, setShareLoadingId] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
@@ -337,11 +338,10 @@ const fetchAssets = async () => {
       }));
 
       setAssets(mapped);
-      console.log('✅ Dados carregados:', mapped.length);
     }
   } catch (err) {
-    console.error('❌ fetchAssets CATCH ERROR:', err);
-    alert("Erro ao carregar ativos. Abra o console (F12) e veja o 'Erro detalhado do Supabase'.");
+    console.error('fetchAssets error:', err);
+    alert("Erro ao carregar ativos. Tente novamente.");
   } finally {
     setLoading(false);
   }
@@ -371,14 +371,16 @@ const fetchShareLinks = async (produtoId: string) => {
 
 const generateShareLink = async () => {
   if (!shareTargetProduct) return;
+  if (!shareRecipientName.trim()) return;
   setShareLoadingId(shareTargetProduct.id);
   const option = expiryOptions.find(o => o.value === shareExpiry)!;
   const expiresAt = new Date(Date.now() + option.minutes * 60 * 1000).toISOString();
   const { error } = await supabase
     .from('share_tokens')
-    .insert({ produto_id: shareTargetProduct.id, expires_at: expiresAt });
+    .insert({ produto_id: shareTargetProduct.id, expires_at: expiresAt, recipient_name: shareRecipientName.trim() });
   if (!error) {
     await fetchShareLinks(shareTargetProduct.id);
+    setShareRecipientName('');
   }
   setShareLoadingId(null);
 };
@@ -469,7 +471,6 @@ const handleEdit = async (asset: Product) => {
         const auth = docData.find(d => String(d.autorizacao) == "1");
 
         if (auth) {
-          console.log("✅ Autorização encontrada:", auth.documento_url);
           setAutorizacaoVenda({
             url: auth.documento_url,
             isExisting: true
@@ -1302,58 +1303,56 @@ const handleImproveDescription = async () => {
 };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-[#FDFCFB]">
+    <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-[#f4f6f8]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       {/* SIDEBAR */}
-      <aside className="w-full md:w-80 bg-prylom-dark p-10 flex flex-col text-white shadow-2xl z-50">
-        <div className="mb-16">
-          <div className="text-prylom-gold font-black text-3xl mb-2 tracking-tighter">Prylom<span className="text-white">.</span></div>
-          <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.4em]">Intelligence Center</p>
+      <aside className="w-full md:w-72 bg-[#2c5363] flex flex-col text-white z-50 shadow-2xl">
+        {/* Logo */}
+        <div className="px-8 pt-10 pb-8 border-b border-white/10">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-8 h-8 rounded-xl bg-[#bba219] flex items-center justify-center">
+              <span className="text-white font-black text-xs">P</span>
+            </div>
+            <span className="text-white font-black text-xl tracking-tight">Prylom</span>
+          </div>
+          <p className="text-white/30 text-[9px] font-bold uppercase tracking-[0.35em] pl-11">Intelligence Center</p>
         </div>
-        <nav className="flex flex-col gap-3">
-          <button 
-            onClick={() => setActiveTab('crm')}
-            className={`flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'crm' ? 'bg-prylom-gold text-white shadow-2xl' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
-          >
-            Administração de Ativos
-          </button>
-        <button 
-  onClick={() => setActiveTab('corretores')} // Você pode renomear para 'corretores' se preferir
-  className={`flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'corretores' ? 'bg-prylom-gold text-white' : 'text-white/60'}`}
->
-  Gestão de Corretores
-</button>
 
-          <button 
-            onClick={() => setActiveTab('listings')}
-            className={`flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'listings' ? 'bg-prylom-gold text-white shadow-2xl' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
-          >
-            Gestão de Anúncios
-          </button>
-          <button
-  onClick={() => setActiveTab('cadastrados')}
-  className={`flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'cadastrados' ? 'bg-prylom-gold text-white' : 'text-white/60 hover:bg-white/5'}`}
->
-  Produtos Cadastrados
-</button>
-          <button
-  onClick={() => { setActiveTab('offmarket'); setOffMarketProductId(null); }}
-  className={`flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'offmarket' ? 'bg-prylom-gold text-white shadow-2xl' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
->
-  Off Market
-</button>
-  
-          <div className="h-px bg-white/10 my-8"></div>
-          <button onClick={() => navigate('/')} className="flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-all">
+        {/* Nav */}
+        <nav className="flex-1 px-4 py-6 flex flex-col gap-1">
+          {([
+            { tab: 'crm', label: 'Administração de Ativos' },
+            { tab: 'corretores', label: 'Gestão de Corretores' },
+            { tab: 'listings', label: 'Gestão de Anúncios' },
+            { tab: 'cadastrados', label: 'Produtos Cadastrados' },
+            { tab: 'offmarket', label: 'Off Market' },
+          ] as const).map(({ tab, label }) => (
+            <button
+              key={tab}
+              onClick={() => { if (tab === 'offmarket') setOffMarketProductId(null); setActiveTab(tab); }}
+              className={`w-full text-left px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                activeTab === tab
+                  ? 'bg-[#bba219] text-white shadow-lg'
+                  : 'text-white/50 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Footer actions */}
+        <div className="px-4 pb-8 pt-4 border-t border-white/10 flex flex-col gap-1">
+          <button onClick={() => navigate('/')} className="w-full text-left px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/10 transition-all">
             ← Voltar ao Site
           </button>
-          <button onClick={onLogout} className="flex items-center gap-4 px-8 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-red-400 hover:bg-red-400/10 transition-all">
+          <button onClick={onLogout} className="w-full text-left px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-red-300 hover:bg-red-400/15 transition-all">
             Encerrar Sessão
           </button>
-        </nav>
+        </div>
       </aside>
 
       {/* CONTENT */}
-      <main className="flex-1 p-8 md:p-14 overflow-y-auto no-scrollbar">
+      <main className="flex-1 p-8 md:p-12 overflow-y-auto no-scrollbar bg-[#f4f6f8]">
         {activeTab === 'crm' ? (
           <AssetCRM assets={assets} currency={currency} />
         ) : activeTab === 'corretores' ? (
@@ -1362,7 +1361,7 @@ const handleImproveDescription = async () => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
         <div>
           <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">Parceiros</span>
-          <h2 className="text-5xl font-black text-[#000080] tracking-tighter uppercase mb-2">Gestão de Corretores</h2>
+          <h2 className="text-5xl font-black text-[#2c5363] tracking-tighter uppercase mb-2">Gestão de Corretores</h2>
           <p className="text-gray-400 text-sm font-medium tracking-wide">Cadastro e controle de corretores credenciados</p>
         </div>
 <button 
@@ -1374,7 +1373,7 @@ const handleImproveDescription = async () => {
     setNewCorretor({ nome: '', estado: '', telefone: '', email: '', creci: '', foto_url: '', cargo: '', descricao: '' });
     setShowCorretorModal(true);
   }}
-          className="bg-[#000080] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all"
+          className="bg-[#2c5363] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all"
         >
           Novo Corretor
         </button>
@@ -1416,7 +1415,7 @@ const handleImproveDescription = async () => {
       <td className="py-8 text-right space-x-2">
         <button 
           onClick={() => handleEditCorretor(corretor)}
-          className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-blue-50 text-blue-500 hover:bg-[#000080] hover:text-white transition-all"
+          className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-blue-50 text-blue-500 hover:bg-[#2c5363] hover:text-white transition-all"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1453,10 +1452,10 @@ const handleImproveDescription = async () => {
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
       <div>
         <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">Intelligence Base</span>
-        <h2 className="text-5xl font-black text-[#000080] tracking-tighter uppercase mb-2">Produtos Cadastrados</h2>
+        <h2 className="text-5xl font-black text-[#2c5363] tracking-tighter uppercase mb-2">Produtos Cadastrados</h2>
         <p className="text-gray-400 text-sm font-medium tracking-wide">Base completa de captação e auditoria (ativos_cadastro)</p>
       </div>
-      <button onClick={fetchProdutosCadastrados} className="bg-[#000080] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all">
+      <button onClick={fetchProdutosCadastrados} className="bg-[#2c5363] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all">
         Sincronizar Dados
       </button>
     </header>
@@ -1482,7 +1481,7 @@ const handleImproveDescription = async () => {
                       <img src={item.cadastrados_imagens?.[0]?.image_url || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" alt="" />
                     </div>
                     <div>
-                      <p className="font-black text-base text-[#000080] leading-none mb-1 uppercase tracking-tight">{item.nome_propriedade || 'Sem Nome'}</p>
+                      <p className="font-black text-base text-[#2c5363] leading-none mb-1 uppercase tracking-tight">{item.nome_propriedade || 'Sem Nome'}</p>
                       <p className="text-[9px] font-bold text-prylom-gold uppercase">{item.nome_proprietario}</p>
                     </div>
                   </div>
@@ -1495,7 +1494,7 @@ const handleImproveDescription = async () => {
                 </td>
                 <td className="py-8">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-[#000080] uppercase tracking-tighter">{item.valor_por_hectare}</span>
+                    <span className="text-[10px] font-black text-[#2c5363] uppercase tracking-tighter">{item.valor_por_hectare}</span>
                     <span className="text-[9px] font-bold text-prylom-gold uppercase">{item.tipo_negociacao}</span>
                   </div>
                 </td>
@@ -1537,7 +1536,7 @@ const handleImproveDescription = async () => {
           <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
             <div>
               <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">Portfólio Restrito</span>
-              <h2 className="text-5xl font-black text-[#000080] tracking-tighter uppercase mb-2">Off Market</h2>
+              <h2 className="text-5xl font-black text-[#2c5363] tracking-tighter uppercase mb-2">Off Market</h2>
               <p className="text-gray-400 text-sm font-medium tracking-wide">
                 Fazendas com tipo de anúncio Off Marketing — acesso interno exclusivo
               </p>
@@ -1670,7 +1669,7 @@ const handleImproveDescription = async () => {
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
                 <div>
                    <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">Operação</span>
-                   <h2 className="text-5xl font-black text-[#000080] tracking-tighter uppercase mb-2">Gestão de Anúncios</h2>
+                   <h2 className="text-5xl font-black text-[#2c5363] tracking-tighter uppercase mb-2">Gestão de Anúncios</h2>
                    <p className="text-gray-400 text-sm font-medium tracking-wide">Publicação, Edição e Auditoria de Ativos no Marketplace</p>
                 </div>
                 <button onClick={() => { 
@@ -1682,7 +1681,7 @@ const handleImproveDescription = async () => {
     setSelectedDocuments([]);
     setAutorizacaoVenda(null);
     setShowModal(true); 
-  }} className="bg-[#000080] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all">
+  }} className="bg-[#2c5363] text-white px-10 py-6 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-3xl hover:bg-prylom-gold transition-all">
                    Novo Anúncio
                 </button>
             </header>
@@ -1906,7 +1905,7 @@ const handleImproveDescription = async () => {
                                      <img src={asset.main_image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=150'} alt="" className="w-full h-full object-cover" />
                                    </div>
                                    <div>
-                                     <p className="font-black text-base text-[#000080] leading-none mb-1 uppercase tracking-tight">{asset.titulo}</p>
+                                     <p className="font-black text-base text-[#2c5363] leading-none mb-1 uppercase tracking-tight">{asset.titulo}</p>
                                      <p className="text-[8px] font-black text-prylom-gold tracking-widest uppercase">{asset.codigo || 'S/COD'}</p>
                                    </div>
                                  </div>
@@ -1991,7 +1990,7 @@ const handleImproveDescription = async () => {
 
 <td className="py-8">
   <div className="flex flex-col">
-    <span className="text-[10px] font-bold text-[#000080]">
+    <span className="text-[10px] font-bold text-[#2c5363]">
       {formatDateBR(asset.updated_at)}
     </span>
     {daysSince(asset.updated_at) !== null && (
@@ -2023,8 +2022,8 @@ const handleImproveDescription = async () => {
   <button
     onClick={() => handleEdit(asset)}
     className="w-12 h-12 flex items-center justify-center rounded-2xl
-               bg-gray-50 text-[#000080]
-               hover:bg-[#000080] hover:text-white
+               bg-gray-50 text-[#2c5363]
+               hover:bg-[#2c5363] hover:text-white
                transition-all shadow-sm"
     title="Editar ativo"
   >
@@ -2093,7 +2092,7 @@ const handleImproveDescription = async () => {
     >
       <div className="mb-8">
         <span className="text-prylom-gold text-[9px] font-black uppercase tracking-[0.4em] block mb-1">Cadastro</span>
-        <h3 className="text-3xl font-black text-[#000080] uppercase tracking-tighter">
+        <h3 className="text-3xl font-black text-[#2c5363] uppercase tracking-tighter">
           {isEditingCorretor ? 'Editar Corretor' : 'Novo Corretor Parceiro'}
         </h3>
       </div>
@@ -2111,7 +2110,7 @@ const handleImproveDescription = async () => {
           className="col-span-2 flex items-center gap-6 p-6 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 mb-2"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="w-20 h-20 rounded-full bg-white overflow-hidden border-2 border-[#000080] shrink-0 shadow-lg">
+          <div className="w-20 h-20 rounded-full bg-white overflow-hidden border-2 border-[#2c5363] shrink-0 shadow-lg">
             {fotoFile ? (
               <img src={URL.createObjectURL(fotoFile)} className="w-full h-full object-cover" alt="Preview" />
             ) : newCorretor.foto_url ? (
@@ -2121,12 +2120,12 @@ const handleImproveDescription = async () => {
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-black text-[#000080] uppercase tracking-widest">Foto do Perfil</label>
+            <label className="text-[9px] font-black text-[#2c5363] uppercase tracking-widest">Foto do Perfil</label>
             <input 
               type="file" 
               accept="image/*"
               onChange={(e) => setFotoFile(e.target.files?.[0] || null)}
-              className="text-[9px] font-bold text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[9px] file:font-black file:uppercase file:bg-[#000080] file:text-white hover:file:bg-prylom-gold cursor-pointer"
+              className="text-[9px] font-bold text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[9px] file:font-black file:uppercase file:bg-[#2c5363] file:text-white hover:file:bg-prylom-gold cursor-pointer"
             />
           </div>
         </div>
@@ -2249,7 +2248,7 @@ const handleImproveDescription = async () => {
             <header className="flex justify-between items-center mb-10 border-b border-gray-100 pb-6">
                <div>
                   <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">{isEditing ? 'Edição de Ativo' : 'Novo Anúncio'}</span>
-                  <h3 className="text-3xl font-black text-[#000080] tracking-tighter uppercase leading-none">Dossiê do Ativo</h3>
+                  <h3 className="text-3xl font-black text-[#2c5363] tracking-tighter uppercase leading-none">Dossiê do Ativo</h3>
                </div>
                <button onClick={() => setShowModal(false)} className="text-gray-300 hover:text-prylom-dark p-2 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </header>
@@ -2707,7 +2706,7 @@ const handleImproveDescription = async () => {
             <span className="bg-prylom-gold text-white px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">Dossiê de Inteligência</span>
             <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest">Cod: {viewingAsset.codigo || 'S/COD'}</span>
           </div>
-          <h2 className="text-3xl md:text-5xl font-black text-[#000080] tracking-tighter uppercase mb-2">{viewingAsset.titulo}</h2>
+          <h2 className="text-3xl md:text-5xl font-black text-[#2c5363] tracking-tighter uppercase mb-2">{viewingAsset.titulo}</h2>
           <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">{viewingAsset.cidade} - {viewingAsset.estado} | {viewingAsset.categoria}</p>
         </div>
         <button onClick={() => setShowViewModal(false)} className="bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 p-4 rounded-full transition-all group">
@@ -2722,7 +2721,7 @@ const handleImproveDescription = async () => {
           
           {/* CARDS DE DESTAQUE */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[#000080] p-6 rounded-[2rem] text-white shadow-xl">
+            <div className="bg-[#2c5363] p-6 rounded-[2rem] text-white shadow-xl">
               <p className="text-[8px] font-black uppercase opacity-60 mb-1 tracking-[0.2em]">Valor de Oferta</p>
               <p className="text-2xl font-black tracking-tighter">{formatPrice(viewingAsset.valor)}</p>
             </div>
@@ -2807,7 +2806,7 @@ const handleImproveDescription = async () => {
       viewingAsset.documentos_fazenda
         .filter((d: any) => Number(d.autorizacao) !== 1) // Remove a autorização desta lista
         .map((doc: any, i: number) => (
-          <a key={i} href={doc.documento_url} download target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 bg-gray-50 hover:bg-[#000080] hover:text-white rounded-2xl border border-gray-100 transition-all group">
+          <a key={i} href={doc.documento_url} download target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 bg-gray-50 hover:bg-[#2c5363] hover:text-white rounded-2xl border border-gray-100 transition-all group">
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 text-prylom-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               <span className="text-[10px] font-black uppercase tracking-wider">Documento Anexo {i + 1}</span>
@@ -2918,7 +2917,7 @@ const handleImproveDescription = async () => {
       </div>
 
       <footer className="mt-12 pt-8 border-t border-gray-100 flex gap-4 justify-end">
-        <button onClick={() => setShowViewModal(false)} className="bg-prylom-dark text-white font-black px-12 py-5 rounded-full text-[10px] uppercase tracking-widest hover:bg-[#000080] transition-all shadow-2xl">
+        <button onClick={() => setShowViewModal(false)} className="bg-prylom-dark text-white font-black px-12 py-5 rounded-full text-[10px] uppercase tracking-widest hover:bg-[#2c5363] transition-all shadow-2xl">
           Fechar Dossiê
         </button>
       </footer>
@@ -2938,7 +2937,7 @@ const handleImproveDescription = async () => {
       <header className="flex justify-between items-start mb-12 border-b border-gray-100 pb-8">
         <div>
           <span className="bg-prylom-gold text-white px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-4 inline-block">Dossiê de Origem Completo</span>
-          <h2 className="text-5xl font-black text-[#000080] tracking-tighter uppercase">{viewingCadastrado.nome_propriedade}</h2>
+          <h2 className="text-5xl font-black text-[#2c5363] tracking-tighter uppercase">{viewingCadastrado.nome_propriedade}</h2>
           <p className="text-gray-400 font-bold uppercase text-xs mt-2 tracking-[0.3em]">{viewingCadastrado.localizacao_municipio} | {viewingCadastrado.aptidao}</p>
         </div>
         <button onClick={() => setShowViewCadastrado(false)} className="bg-gray-100 text-gray-400 p-4 rounded-full hover:bg-red-50 hover:text-red-500 transition-all">
@@ -2968,7 +2967,7 @@ const handleImproveDescription = async () => {
         {/* DADOS TÉCNICOS */}
         <div className="lg:col-span-2 space-y-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-             <div className="bg-[#000080] p-6 rounded-3xl text-white shadow-xl"><p className="text-[8px] font-black uppercase opacity-60">Área Total</p><p className="text-2xl font-black">{viewingCadastrado.area_total_hectares} ha</p></div>
+             <div className="bg-[#2c5363] p-6 rounded-3xl text-white shadow-xl"><p className="text-[8px] font-black uppercase opacity-60">Área Total</p><p className="text-2xl font-black">{viewingCadastrado.area_total_hectares} ha</p></div>
              <div className="bg-prylom-dark p-6 rounded-3xl text-white shadow-xl"><p className="text-[8px] font-black uppercase opacity-60">Produção</p><p className="text-2xl font-black">{viewingCadastrado.area_producao_atual} ha</p></div>
              <div className="bg-gray-50 p-6 rounded-3xl border border-gray-200"><p className="text-[8px] font-black text-prylom-gold">Teor Argila</p><p className="text-2xl font-black">{viewingCadastrado.teor_argila}</p></div>
              <div className="bg-gray-50 p-6 rounded-3xl border border-gray-200"><p className="text-[8px] font-black text-prylom-gold">Valor/ha</p><p className="text-2xl font-black text-prylom-dark">{viewingCadastrado.valor_por_hectare}</p></div>
@@ -2992,8 +2991,8 @@ const handleImproveDescription = async () => {
              ))}
           </div>
           
-          <div className="bg-[#000080]/5 p-8 rounded-[2rem] border border-[#000080]/10">
-             <h4 className="text-[10px] font-black text-[#000080] uppercase mb-4 tracking-widest">Observações e Descritivo</h4>
+          <div className="bg-[#2c5363]/5 p-8 rounded-[2rem] border border-[#2c5363]/10">
+             <h4 className="text-[10px] font-black text-[#2c5363] uppercase mb-4 tracking-widest">Observações e Descritivo</h4>
              <p className="text-xs text-gray-600 leading-relaxed mb-4 italic">"{viewingCadastrado.descricao_detalhada}"</p>
              <div className="h-px bg-gray-200 my-4"></div>
              <p className="text-[11px] font-medium text-gray-500"><strong>Notas Internas:</strong> {viewingCadastrado.observacoes}</p>
@@ -3003,7 +3002,7 @@ const handleImproveDescription = async () => {
 
       <footer className="mt-16 pt-12 border-t border-gray-100 grid grid-cols-1 lg:grid-cols-2 gap-12">
         <section>
-          <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-widest mb-6">🖼️ Fotos do Cadastro</h4>
+          <h4 className="text-[11px] font-black text-[#2c5363] uppercase tracking-widest mb-6">🖼️ Fotos do Cadastro</h4>
           <div className="grid grid-cols-4 gap-4">
             {viewingCadastrado.cadastrados_imagens?.map((img: any, i: number) => (
               <a key={i} href={img.image_url} target="_blank" className="aspect-square rounded-2xl overflow-hidden shadow-md border border-gray-100"><img src={img.image_url} className="w-full h-full object-cover" alt="" /></a>
@@ -3011,7 +3010,7 @@ const handleImproveDescription = async () => {
           </div>
         </section>
         <section>
-          <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-widest mb-6">📄 Documentos Recebidos</h4>
+          <h4 className="text-[11px] font-black text-[#2c5363] uppercase tracking-widest mb-6">📄 Documentos Recebidos</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {viewingCadastrado.documentos_cadastro?.map((doc: any, i: number) => (
               <a key={i} href={doc.documento_url} target="_blank" className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-prylom-gold hover:text-white transition-all group">
@@ -3065,10 +3064,22 @@ const handleImproveDescription = async () => {
               </div>
             </div>
 
+            {/* Nome do destinatário */}
+            <div>
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Nome do destinatário</p>
+              <input
+                type="text"
+                value={shareRecipientName}
+                onChange={e => setShareRecipientName(e.target.value)}
+                placeholder="Ex: João Silva"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-gray-100 text-[11px] font-bold text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#bba219] transition-all"
+              />
+            </div>
+
             {/* Botão gerar */}
             <button
               onClick={generateShareLink}
-              disabled={shareLoadingId === shareTargetProduct.id}
+              disabled={shareLoadingId === shareTargetProduct.id || !shareRecipientName.trim()}
               className="w-full py-5 rounded-2xl bg-[#bba219] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2332] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {shareLoadingId === shareTargetProduct.id ? (
@@ -3110,6 +3121,9 @@ const handleImproveDescription = async () => {
                               {expired && !revoked ? 'Expirou' : 'Expira'} {expiresStr}
                             </span>
                           </div>
+                          {link.recipient_name && (
+                            <p className="text-[10px] font-bold text-gray-600 mb-0.5">{link.recipient_name}</p>
+                          )}
                           <p className="text-[9px] font-mono text-gray-400 truncate">{link.token}</p>
                         </div>
                         {isActive && (

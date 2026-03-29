@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
-import { GoogleGenAI } from "@google/genai";
 import { createPortal } from 'react-dom';
 import DataRoomModal from './DataRoomModal'; // Certifique-se de que o caminho está correto
 import PropertyRegistrationForm from './PropertyRegistrationForm';
@@ -23,6 +22,7 @@ interface Props {
   productId: string | null;
   onSelectProduct?: (id: string) => void;
   onBack: () => void;
+  fromFavorites?: boolean;
   t: any;
   lang: AppLanguage;
   currency: AppCurrency;
@@ -33,7 +33,7 @@ const getFullImage = (url: string) => {
 
 
 
-const ProductDetails: React.FC<Props> = ({ productId, onSelectProduct, onBack, t, lang, currency }) => {
+const ProductDetails: React.FC<Props> = ({ productId, onSelectProduct, onBack, fromFavorites, t, lang, currency }) => {
   const [product, setProduct] = useState<any>(null);
   const [spec, setSpec] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
@@ -41,8 +41,7 @@ const ProductDetails: React.FC<Props> = ({ productId, onSelectProduct, onBack, t
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [availableAudios, setAvailableAudios] = useState<any[]>([]);
-  const [prylomScore, setPrylomScore] = useState<number | null>(null);
-  const [analyzingScore, setAnalyzingScore] = useState(false);
+  const prylomScore = 8.2;
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
@@ -476,7 +475,6 @@ const scroll = (direction: 'left' | 'right') => {
         }
       }
       if (audioData) setAvailableAudios(audioData);
-      analyzePrylomScore(baseData, specData);
       fetchRelatedProducts(baseData);
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
@@ -1537,57 +1535,10 @@ const handleDownloadPdfEn = async () => {
     const valorScHa: string | number =
       spec?.valor_sc_ha ?? spec?.valor ?? product?.valor ?? "--";
  
-    // ── STEP 10 · Auto-translate dynamic fields via Claude API ───────────
-    // We batch titulo + descricao in a single call to save latency.
-    // Returns { titulo, descricao } — falls back to originals on error.
-    let titleEn   = product?.titulo   ?? "Asset Dossier";
-    let descricaoEn = product?.descricao ?? "";
- 
-    const textsToTranslate: Record<string, string> = {};
-    if (product?.titulo)    textsToTranslate.titulo    = product.titulo;
-    if (product?.descricao) textsToTranslate.descricao = product.descricao;
- 
-    if (Object.keys(textsToTranslate).length > 0) {
-      try {
-        const translateRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 2000,
-            messages: [
-              {
-                role: "user",
-                content: `You are a professional translator specializing in Brazilian agribusiness and rural real estate.
-Translate the following fields from Brazilian Portuguese to English.
-Preserve technical terms, property names, city/state names as-is.
-Respond ONLY with a valid JSON object — no markdown, no preamble.
-Format: { "titulo": "...", "descricao": "..." }
- 
-Fields to translate:
-${JSON.stringify(textsToTranslate, null, 2)}`,
-              },
-            ],
-          }),
-        });
- 
-        const translateData = await translateRes.json();
-        const raw = translateData?.content
-          ?.filter((b: { type: string }) => b.type === "text")
-          ?.map((b: { text: string }) => b.text)
-          ?.join("") ?? "";
- 
-        // Strip possible ```json fences before parsing
-        const clean = raw.replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(clean);
- 
-        if (parsed.titulo)    titleEn     = parsed.titulo;
-        if (parsed.descricao) descricaoEn = parsed.descricao;
-      } catch {
-        // Silent fallback to originals — translation is non-critical
-      }
-    }
- 
+    // ── STEP 10 · Use original fields (translation removed) ─────────────
+    const titleEn   = product?.titulo   ?? "Asset Dossier";
+    const descricaoEn = product?.descricao ?? "";
+
     // ── STEP 11 · Economics HTML (English) ───────────────────────────────
     const economicsHtml = farmEconomics
       ? (() => {
@@ -2316,16 +2267,6 @@ ${JSON.stringify(textsToTranslate, null, 2)}`,
 };
 
 
-  const analyzePrylomScore = async (p: any, s: any) => {
-    setAnalyzingScore(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Premium Asset Analysis (Private Equity). Asset: ${p.titulo}, Category: ${p.categoria}. Rate 0.0-10.0 based on liquidity, market history, demand, and risk. Return ONLY the number.`;
-      const response = await ai.models.generateContent({ model: "gemini-3-flash-preview", contents: prompt });
-      const score = p.categoria === 'graos' ? "8.7" : (response.text?.trim() || "8.2");
-      setPrylomScore(parseFloat(score));
-    } catch (e) { setPrylomScore(p.categoria === 'graos' ? 8.7 : 8.2); } finally { setAnalyzingScore(false); }
-  };
 
   if (loading || !product) return <div className="p-40 text-center animate-pulse text-prylom-gold font-black uppercase text-[10px]">{t.mapProcessing}</div>;
 
@@ -2431,10 +2372,23 @@ ${JSON.stringify(textsToTranslate, null, 2)}`,
     `}} />
 
 
-      <button onClick={onBack} className="flex items-center gap-2 text-[10px] font-black uppercase text-prylom-gold tracking-widest transition-all no-print">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-        {t.hubTitle} / {t.btnShopping}
-      </button>
+      <div className="flex items-center gap-4 no-print">
+        <button onClick={onBack} className="flex items-center gap-2 text-[10px] font-black uppercase text-prylom-gold tracking-widest transition-all">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          {t.hubTitle} / {t.btnShopping}
+        </button>
+        {fromFavorites && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#2c5363]/10 hover:bg-[#2c5363]/20 rounded-full text-[10px] font-black uppercase text-[#2c5363] tracking-widest transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="#2c5363">
+              <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            Voltar aos Favoritos
+          </button>
+        )}
+      </div>
 
       {/* BLOCO 1: IDENTIDADE DO ATIVO */}
       <section className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-8 print-full">

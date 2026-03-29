@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { AppLanguage, AppCurrency } from '../types';
 
 interface Props {
@@ -13,13 +12,13 @@ const LegalAgro: React.FC<Props> = ({ onBack, t, lang, currency }) => {
   const [activeTab, setActiveTab] = useState<'radar' | 'modules' | 'agronomo' | 'risk' | 'ai'>('radar');
   const [aiMessage, setAiMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'bot'; text: string }[]>([]);
-  const [loadingAi, setLoadingAi] = useState(false);
+  const loadingAi = false;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Estados para o Modal de Tópicos
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [topicContent, setTopicContent] = useState<string | null>(null);
-  const [loadingTopic, setLoadingTopic] = useState(false);
+  const loadingTopic = false;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -110,90 +109,19 @@ Sucessão é a transferência do patrimônio rural aos herdeiros. No agro, a fal
       return;
     }
 
-
-    // FALLBACK PARA IA SE NÃO FOR TÓPICO FIXO
-setLoadingTopic(true);
-try {
-  const prompt = `
-Você é um consultor jurídico especializado em agronegócio brasileiro,
-com experiência prática em fiscalização ambiental, crédito rural e risco regulatório.
-
-Explique de forma objetiva e direta:
-"${topic}"
-
-Regras obrigatórias:
-- Linguagem simples, usada por produtores rurais
-- Foco em risco, multa, embargo e impacto financeiro
-- Evite juridiquês e formalidades
-- Use bullets curtos
-- Traga valores e cenários reais
-- SEJA DIRETO E DINAMICO, USANDO POUCAS PALAVRAS
-- Tom consultivo e estratégico, não acadêmico
-- Idioma: ${lang}
-
-Finalize com:
-⚠️ Este insight é orientativo e não substitui consulta jurídica.
-`;
-
-  const response = await fetch('http://localhost:3333/api/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
-  });
-
-  const data = await response.json();
-  setTopicContent(data.text || 'Informação indisponível.');
-} catch (e) {
-  setTopicContent('Erro ao acessar terminal legal.');
-} finally {
-  setLoadingTopic(false);
-}
-
-
+    setTopicContent('Conteúdo não disponível para este tópico.');
   };
 
-  const sendToLegalAi = async (e: React.FormEvent) => {
+  const sendToLegalAi = (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiMessage.trim()) return;
     const userText = aiMessage;
     setAiMessage('');
-    setChatHistory(prev => [...prev, { role: 'user', text: userText }]);
-    setLoadingAi(true);
-try {
-
-  const prompt = `
-Você é um consultor jurídico especializado em agronegócio brasileiro,
-com experiência prática em fiscalização ambiental, crédito rural e risco regulatório.
-
-Explique de forma objetiva e direta:
-"${userText}"
-
-Regras obrigatórias:
-- Linguagem simples, usada por produtores rurais
-- Foco em risco, multa, embargo e impacto financeiro
-- Evite juridiquês e formalidades
-- Use bullets curtos
-- Traga valores e cenários reais
-- Tom consultivo e estratégico, não acadêmico
-- SEJA DIRETO E DINAMICO, USANDO POUCAS PALAVRAS
-- Idioma: ${lang}
-
-Finalize com:
-⚠️ Este insight é orientativo e não substitui consulta jurídica.
-`;
-
-  const response = await fetch('http://localhost:3333/api/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
-  });
-
-  const data = await response.json();
-  setChatHistory(prev => [...prev, { role: 'bot', text: data.text || 'Erro na análise.' }]);
-} catch (e) {
-  setChatHistory(prev => [...prev, { role: 'bot', text: 'Erro de conexão.' }]);
-}
-
+    setChatHistory(prev => [
+      ...prev,
+      { role: 'user', text: userText },
+      { role: 'bot', text: 'Serviço de consulta IA temporariamente indisponível.' }
+    ]);
   };
 
   return (
@@ -208,7 +136,7 @@ Finalize com:
             </button>
             <header className="mb-8 shrink-0">
                <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">Dossiê Jurídico Prylom</span>
-               <h3 className="text-3xl font-black text-[#000080] tracking-tighter uppercase leading-tight">{selectedTopic}</h3>
+               <h3 className="text-3xl font-black text-[#2c5363] tracking-tighter uppercase leading-tight">{selectedTopic}</h3>
             </header>
             <div className="flex-1 overflow-y-auto no-scrollbar pr-2">
                {loadingTopic ? (
@@ -272,7 +200,7 @@ Finalize com:
         {activeTab === 'radar' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fadeIn">
             <div className="md:col-span-2 space-y-6">
-              <h3 className="text-xl font-black text-[#000080] uppercase tracking-tighter px-2">Alertas Estratégicos Recentes</h3>
+              <h3 className="text-xl font-black text-[#2c5363] uppercase tracking-tighter px-2">Alertas Estratégicos Recentes</h3>
               {[
                 { type: 'danger', title: 'Novas Regras de ITR 2026', desc: 'Receita Federal endurece fiscalização sobre valor da Terra Nua declarado.' },
                 { type: 'warning', title: 'Prazos de CAR em MT/GO', desc: 'Vencimento de retificações obrigatórias para áreas em bioma Cerrado.' },
@@ -398,7 +326,7 @@ Finalize com:
                 )}
                 {chatHistory.map((chat, i) => (
                   <div key={i} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-6 rounded-[2rem] text-sm font-medium leading-relaxed ${chat.role === 'user' ? 'bg-[#000080] text-white rounded-tr-none' : 'bg-gray-100 text-prylom-dark rounded-tl-none border border-gray-200'}`}>{chat.text}</div>
+                    <div className={`max-w-[80%] p-6 rounded-[2rem] text-sm font-medium leading-relaxed ${chat.role === 'user' ? 'bg-[#2c5363] text-white rounded-tr-none' : 'bg-gray-100 text-prylom-dark rounded-tl-none border border-gray-200'}`}>{chat.text}</div>
                   </div>
                 ))}
                 {loadingAi && <div className="flex justify-start"><div className="bg-gray-100 p-6 rounded-[2rem] border border-gray-200 flex gap-2"><div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce"></div><div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div><div className="w-2 h-2 bg-prylom-gold rounded-full animate-bounce" style={{animationDelay:'0.4s'}}></div></div></div>}

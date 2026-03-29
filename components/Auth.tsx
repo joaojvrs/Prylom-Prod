@@ -14,6 +14,7 @@ const Auth: React.FC = () => {
   // Novos campos
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [cpfCnpj, setCpfCnpj] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -44,6 +45,7 @@ const Auth: React.FC = () => {
             data: {
               full_name: fullName,
               phone: phone,
+              cpf_cnpj: cpfCnpj,
             }
           }
         });
@@ -120,11 +122,22 @@ const Auth: React.FC = () => {
 
               <div className="space-y-2 group animate-fadeIn">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2 group-focus-within:text-prylom-gold transition-colors">Telefone</label>
-                <input 
+                <input
                   type="tel" required
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="(00) 00000-0000"
+                  className="w-full p-5 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-3xl outline-none font-bold text-prylom-dark transition-all placeholder:text-gray-200"
+                />
+              </div>
+
+              <div className="space-y-2 group animate-fadeIn">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2 group-focus-within:text-prylom-gold transition-colors">CPF / CNPJ</label>
+                <input
+                  type="text" required
+                  value={cpfCnpj}
+                  onChange={e => setCpfCnpj(e.target.value)}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
                   className="w-full p-5 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-3xl outline-none font-bold text-prylom-dark transition-all placeholder:text-gray-200"
                 />
               </div>

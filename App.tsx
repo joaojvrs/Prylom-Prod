@@ -21,6 +21,7 @@ import LegalAgro from './components/LegalAgro';
 import { translations } from './translations';
 import DataRoomModal from './components/DataRoomModal';
 import SharePage from './components/SharePage';
+import UserProfile from './components/UserProfile';
 
 
 const App: React.FC = () => {
@@ -138,7 +139,7 @@ const ProtectedRoute = ({ children, isAdmin = false }: { children: React.ReactNo
   }
 
   // Se for rota de admin, mas o e-mail não for o permitido (Troque pelo seu e-mail)
-  if (isAdmin && user.email !== 'joao.jvrs0807@gmail.com') {
+  if (isAdmin && user.email !== import.meta.env.VITE_ADMIN_EMAIL) {
     return <Navigate to="/" replace />;
   }
 
@@ -200,7 +201,7 @@ const channel = supabase
         <div className={`absolute right-0 top-0 bottom-0 w-[85%] md:w-[450px] bg-white shadow-3xl transition-transform duration-500 flex flex-col ${isHubOpen ? 'translate-x-0' : 'translate-x-full'}`}>
            <header className="p-8 pb-4 flex justify-between items-center border-b border-gray-50 shrink-0">
               <div>
-                 <h3 className="text-2xl font-black text-[#000080] tracking-tighter uppercase">{t.hubTitle}</h3>
+                 <h3 className="text-2xl font-black text-[#2c5363] tracking-tighter uppercase">{t.hubTitle}</h3>
                  <p className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mt-2">{t.hubSub}</p>
               </div>
 {user ? (
@@ -258,7 +259,8 @@ const channel = supabase
   { path: "/market", icon: "📈", label: t.btnMarket, desc: t.livePulse },
   { path: "/legal", icon: "📑", label: t.btnLegal, desc: t.legalSub },
   { path: "/tools", icon: "🛠️", label: t.btnTools, desc: t.economicDueDiligence },
-  { path: "/valuation", icon: "📋", label: t.btnValuation, desc: t.valuationTitle }
+  { path: "/valuation", icon: "📋", label: t.btnValuation, desc: t.valuationTitle },
+  ...(user ? [{ path: "/perfil", icon: "👤", label: "Meu Perfil", desc: "Dados cadastrais e preferências" }] : []),
 ].map((item, idx) => (
                 <button 
                   key={item.path}
@@ -276,7 +278,7 @@ const channel = supabase
 
 <footer className="p-8 pt-4 border-t border-gray-100 shrink-0 flex flex-col gap-3">
   {/* A MÁGICA: Agora só aparece se existir um usuário E esse usuário for o seu e-mail */}
-  {user && user.email === 'joao.jvrs0807@gmail.com' && (
+  {user && user.email === import.meta.env.VITE_ADMIN_EMAIL && (
     <button 
       onClick={() => navigateTo('/admin/dashboard')} 
       className="w-full p-4 bg-gray-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-400 hover:bg-prylom-dark hover:text-white transition-all"
@@ -301,7 +303,7 @@ const channel = supabase
       {!isMapView && !isAdminView && (
         <header className={`py-4 px-6 md:px-12 flex justify-between items-center sticky top-0 z-[60] transition-all duration-500 bg-white border-b border-gray-100 shadow-sm`}>
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigateTo('/')}>
-            <div className={`font-black text-2xl md:text-3xl flex items-center tracking-tighter transition-all duration-500 text-[#000080] group-hover:text-prylom-gold`}>
+            <div className={`font-black text-2xl md:text-3xl flex items-center tracking-tighter transition-all duration-500 text-[#2c5363] group-hover:text-prylom-gold`}>
               <span className="text-prylom-gold mr-1">〈</span>
               <span>Prylom</span>
               <span className="text-prylom-gold ml-1">〉</span>
@@ -324,25 +326,26 @@ const channel = supabase
     </div>
 
     {/* Widget de Favoritos */}
-    <button 
+    <button
       onClick={() => navigateTo('/favorites')}
-      className="group relative flex items-center gap-3 pl-1"
+      className="group relative flex items-center gap-2.5 pl-1"
     >
-      <div className="relative flex items-center justify-center w-10 h-10 bg-gray-50 rounded-full group-hover:bg-red-50 transition-colors">
-        <span className="text-xl group-hover:scale-125 transition-transform duration-300">❤️</span>
+      <div className="relative flex items-center justify-center w-9 h-9 bg-[#2c5363]/10 rounded-2xl group-hover:bg-[#2c5363]/20 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24" fill="#2c5363">
+          <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
         {favCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-[#2c5363] text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 border-2 border-white leading-none">
+            {favCount}
           </span>
         )}
       </div>
 
-      <div className="flex flex-col items-start min-w-[60px]">
-        <span className="text-sm font-black text-prylom-dark leading-none">
+      <div className="flex flex-col items-start">
+        <span className="text-[13px] font-black text-prylom-dark leading-none tabular-nums">
           {favCount.toString().padStart(2, '0')}
         </span>
-        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-1 group-hover:text-red-400 transition-colors">
+        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5 group-hover:text-[#2c5363] transition-colors">
           Favoritos
         </span>
       </div>
@@ -455,6 +458,7 @@ const channel = supabase
     <Route path="/map" element={<SmartMapReport onBack={() => navigateTo('/owner')} t={t} lang={lang} currency={currency} />} />
     <Route path="/legal" element={<LegalAgro onBack={() => navigateTo('/')} t={t} lang={lang} currency={currency} />} />
     <Route path="/success" element={<SuccessScreen onRestart={() => navigateTo('/')} t={t} lang={lang} currency={currency} />} />
+ <Route path="/perfil" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
  <Route path="*" element={<NotFound t={t} navigateTo={navigateTo} />} />
  <Route path="/login" element={<Auth />} />
  <Route path="/share/:token" element={<SharePage />} />
@@ -465,7 +469,7 @@ const channel = supabase
         <footer className="py-20 px-8 bg-white border-t border-gray-100">
           <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 text-center md:text-left">
             <div className="md:col-span-1 space-y-4">
-              <div className="text-[#000080] font-black text-3xl tracking-tighter">
+              <div className="text-[#2c5363] font-black text-3xl tracking-tighter">
                 Prylom<span className="text-prylom-gold">.</span>
               </div>
               <p className="text-gray-500 text-xs leading-relaxed font-medium">
@@ -523,7 +527,15 @@ const NotFound = ({ t, navigateTo }: any) => {
   );
 };
 
-const ProductWrapper = ({ t, lang, currency, openProduct, navigateTo }: any) => {
+const ProductWrapper = ({ t, lang, currency, navigateTo }: any) => {
   const { id } = useParams();
-  return <ProductDetails productId={id || null} onSelectProduct={openProduct} onBack={() => navigateTo('/shopping')} t={t} lang={lang} currency={currency} />;
+  const location = useLocation();
+  const fromFavorites = !!(location.state as any)?.fromFavorites;
+  return <ProductDetails
+    productId={id || null}
+    onSelectProduct={(productId: string) => navigateTo(`/product/${productId}`)}
+    onBack={() => navigateTo(fromFavorites ? '/favorites' : '/shopping')}
+    fromFavorites={fromFavorites}
+    t={t} lang={lang} currency={currency}
+  />;
 };
