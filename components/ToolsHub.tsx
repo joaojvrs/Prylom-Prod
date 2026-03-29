@@ -619,8 +619,9 @@ const fetchAgroIndicators = async (location: string) => {
   setLoadingAgro(true);
   try {
     // 1. Geocodificação via Open-Meteo (CORS-friendly, sem necessidade de proxy)
+    const geoSearchName = location.split(',')[0].trim();
     const geoRes = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=pt&format=json&countryCode=BR`
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(geoSearchName)}&count=1&language=pt&format=json&countryCode=BR`
     );
     const geoData = await geoRes.json();
     if (!geoData.results?.length) throw new Error("Localização não encontrada.");
