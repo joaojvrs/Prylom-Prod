@@ -138,8 +138,8 @@ const ProtectedRoute = ({ children, isAdmin = false }: { children: React.ReactNo
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Se for rota de admin, mas o e-mail não for o permitido (Troque pelo seu e-mail)
-  if (isAdmin && user.email !== import.meta.env.VITE_ADMIN_EMAIL) {
+  // Se for rota de admin, mas o app_metadata não tiver role: "admin"
+  if (isAdmin && user.app_metadata?.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
 
@@ -278,7 +278,7 @@ const channel = supabase
 
 <footer className="p-8 pt-4 border-t border-gray-100 shrink-0 flex flex-col gap-3">
   {/* A MÁGICA: Agora só aparece se existir um usuário E esse usuário for o seu e-mail */}
-  {user && user.email === import.meta.env.VITE_ADMIN_EMAIL && (
+  {user && user.app_metadata?.role === 'admin' && (
     <button 
       onClick={() => navigateTo('/admin/dashboard')} 
       className="w-full p-4 bg-gray-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-400 hover:bg-prylom-dark hover:text-white transition-all"

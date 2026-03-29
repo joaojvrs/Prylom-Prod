@@ -8,12 +8,43 @@ interface Props {
   currency: AppCurrency;
 }
 
+const BR_STATES: { sigla: string; nome: string; cidades: string[] }[] = [
+  { sigla: 'AC', nome: 'Acre', cidades: ['Rio Branco', 'Cruzeiro do Sul', 'Sena Madureira', 'Tarauacá', 'Feijó'] },
+  { sigla: 'AL', nome: 'Alagoas', cidades: ['Maceió', 'Arapiraca', 'Palmeira dos Índios', 'São Miguel dos Campos', 'Penedo', 'União dos Palmares'] },
+  { sigla: 'AM', nome: 'Amazonas', cidades: ['Manaus', 'Parintins', 'Itacoatiara', 'Manacapuru', 'Coari', 'Tefé', 'Humaitá'] },
+  { sigla: 'AP', nome: 'Amapá', cidades: ['Macapá', 'Santana', 'Laranjal do Jari', 'Oiapoque', 'Porto Grande'] },
+  { sigla: 'BA', nome: 'Bahia', cidades: ['Salvador', 'Feira de Santana', 'Luís Eduardo Magalhães', 'Barreiras', 'Vitória da Conquista', 'Ilhéus', 'Juazeiro', 'Bom Jesus da Lapa', 'Correntina', 'Formosa do Rio Preto', 'São Desidério', 'Riachão das Neves', 'Cotegipe'] },
+  { sigla: 'CE', nome: 'Ceará', cidades: ['Fortaleza', 'Sobral', 'Juazeiro do Norte', 'Quixadá', 'Iguatu', 'Russas', 'Cratéus', 'Limoeiro do Norte'] },
+  { sigla: 'DF', nome: 'Distrito Federal', cidades: ['Brasília', 'Planaltina', 'Paranoá', 'Brazlândia'] },
+  { sigla: 'ES', nome: 'Espírito Santo', cidades: ['Vitória', 'Cachoeiro de Itapemirim', 'Colatina', 'Linhares', 'São Mateus', 'Alegre', 'Barra de São Francisco', 'Nova Venécia'] },
+  { sigla: 'GO', nome: 'Goiás', cidades: ['Goiânia', 'Anápolis', 'Rio Verde', 'Jataí', 'Mineiros', 'Catalão', 'Itumbiara', 'Formosa', 'Cristalina', 'Quirinópolis', 'Morrinhos', 'Chapadão do Céu', 'Montividiu', 'Serranópolis', 'Paraúna'] },
+  { sigla: 'MA', nome: 'Maranhão', cidades: ['São Luís', 'Imperatriz', 'Caxias', 'Timon', 'Balsas', 'Barra do Corda', 'Chapadinha', 'Codó', 'Açailândia', 'Santa Inês', 'Tasso Fragoso', 'Riachão'] },
+  { sigla: 'MG', nome: 'Minas Gerais', cidades: ['Belo Horizonte', 'Uberlândia', 'Uberaba', 'Patos de Minas', 'Montes Claros', 'Sete Lagoas', 'Divinópolis', 'Varginha', 'Araguari', 'Ituiutaba', 'Paracatu', 'Araxá', 'Frutal', 'Iturama', 'Buritis', 'João Pinheiro', 'Coromandel', 'Vazante'] },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul', cidades: ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá', 'Ponta Porã', 'Naviraí', 'Nova Andradina', 'Maracaju', 'Rio Brilhante', 'Chapadão do Sul', 'Sidrolândia', 'Sonora', 'Coxim', 'Amambai', 'Iguatemi', 'São Gabriel do Oeste'] },
+  { sigla: 'MT', nome: 'Mato Grosso', cidades: ['Cuiabá', 'Sorriso', 'Lucas do Rio Verde', 'Sinop', 'Rondonópolis', 'Tangará da Serra', 'Primavera do Leste', 'Campo Verde', 'Nova Mutum', 'Sapezal', 'Campo Novo do Parecis', 'Querência', 'Água Boa', 'Canarana', 'Alta Floresta', 'Diamantino', 'Nova Ubiratã', 'Ipiranga do Norte', 'Tapurah', 'Vera', 'São José do Rio Claro', 'Brasnorte'] },
+  { sigla: 'PA', nome: 'Pará', cidades: ['Belém', 'Santarém', 'Marabá', 'Castanhal', 'Paragominas', 'Altamira', 'Redenção', 'Dom Eliseu', 'Rondon do Pará', 'Itaituba', 'Novo Progresso', 'Ulianópolis', 'Abel Figueiredo'] },
+  { sigla: 'PB', nome: 'Paraíba', cidades: ['João Pessoa', 'Campina Grande', 'Patos', 'Sousa', 'Cajazeiras', 'Pombal', 'Guarabira'] },
+  { sigla: 'PE', nome: 'Pernambuco', cidades: ['Recife', 'Caruaru', 'Petrolina', 'Garanhuns', 'Santa Cruz do Capibaribe', 'Salgueiro', 'Serra Talhada', 'Araripina', 'Ouricuri'] },
+  { sigla: 'PI', nome: 'Piauí', cidades: ['Teresina', 'Parnaíba', 'Picos', 'Floriano', 'Bom Jesus', 'Uruçuí', 'Corrente', 'São Raimundo Nonato', 'Baixa Grande do Ribeiro', 'Santa Filomena', 'Sebastião Leal'] },
+  { sigla: 'PR', nome: 'Paraná', cidades: ['Curitiba', 'Cascavel', 'Londrina', 'Maringá', 'Ponta Grossa', 'Guarapuava', 'Campo Mourão', 'Umuarama', 'Toledo', 'Palmas', 'Francisco Beltrão', 'Paranavaí', 'Cianorte', 'Medianeira', 'Palotina', 'Corbélia', 'Assis Chateaubriand', 'Irati'] },
+  { sigla: 'RJ', nome: 'Rio de Janeiro', cidades: ['Rio de Janeiro', 'Niterói', 'Campos dos Goytacazes', 'Macaé', 'Barra do Piraí', 'Petrópolis', 'Nova Friburgo'] },
+  { sigla: 'RN', nome: 'Rio Grande do Norte', cidades: ['Natal', 'Mossoró', 'Caicó', 'Açu', 'Currais Novos', 'Apodi', 'Pau dos Ferros'] },
+  { sigla: 'RO', nome: 'Rondônia', cidades: ['Porto Velho', 'Ji-Paraná', 'Ariquemes', 'Vilhena', 'Cacoal', 'Rolim de Moura', 'Jaru', 'Ouro Preto do Oeste', 'Cerejeiras', 'Colorado do Oeste', 'Corumbiara'] },
+  { sigla: 'RR', nome: 'Roraima', cidades: ['Boa Vista', 'Rorainópolis', 'Caracaraí', 'Mucajaí', 'Cantá'] },
+  { sigla: 'RS', nome: 'Rio Grande do Sul', cidades: ['Porto Alegre', 'Caxias do Sul', 'Passo Fundo', 'Pelotas', 'Santa Maria', 'Ijuí', 'Cruz Alta', 'Cachoeira do Sul', 'Não-Me-Toque', 'Erechim', 'Santo Ângelo', 'Bagé', 'Uruguaiana', 'Giruá', 'Carazinho', 'Palmeira das Missões', 'Tupanciretã', 'São Borja', 'Alegrete', 'Santana do Livramento'] },
+  { sigla: 'SC', nome: 'Santa Catarina', cidades: ['Florianópolis', 'Joinville', 'Blumenau', 'Chapecó', 'Lages', 'Caçador', 'Concórdia', 'Campos Novos', 'Curitibanos', 'Xanxerê', 'São Miguel do Oeste', 'Abelardo Luz', 'Quilombo'] },
+  { sigla: 'SE', nome: 'Sergipe', cidades: ['Aracaju', 'Nossa Senhora do Socorro', 'Lagarto', 'Itabaiana', 'Tobias Barreto', 'Estância', 'Simão Dias'] },
+  { sigla: 'SP', nome: 'São Paulo', cidades: ['São Paulo', 'Campinas', 'Ribeirão Preto', 'São José do Rio Preto', 'Araçatuba', 'Bauru', 'Marília', 'Presidente Prudente', 'Ourinhos', 'Assis', 'Tupã', 'Votuporanga', 'Fernandópolis', 'Franca', 'Barretos', 'Jaboticabal', 'Bebedouro', 'Orlândia', 'Sertãozinho', 'Lins', 'Penápolis', 'Andradina'] },
+  { sigla: 'TO', nome: 'Tocantins', cidades: ['Palmas', 'Araguaína', 'Gurupi', 'Porto Nacional', 'Paraíso do Tocantins', 'Dianópolis', 'Pedro Afonso', 'Formoso do Araguaia', 'Campos Lindos', 'São Félix do Tocantins', 'Lagoa da Confusão'] },
+];
+
 const ToolsHub: React.FC<Props> = ({ onBack, t, lang, currency }) => {
   const [commodity, setCommodity] = useState('soja');
   const [commodityPrice, setCommodityPrice] = useState(135.50);
   const [inputCost, setInputCost] = useState(2500);
   const [region, setRegion] = useState('MT - Médio Norte');
-  const [manualRegion, setManualRegion] = useState('');
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [localInsight, setLocalInsight] = useState<{technical: string, simple: string, coords: string, locationName: string} | null>(null);
 
@@ -545,7 +576,6 @@ const fetchLocalInsight = async (specificLocation?: string) => {
             );
             const revData = await revRes.json();
             const cityName = revData.city || revData.locality || revData.principalSubdivision || "Minha Localização";
-            setManualRegion(cityName);
             await analyze(cityName, pos.coords.latitude, pos.coords.longitude);
           } catch {
             await analyze("Minha Localização", pos.coords.latitude, pos.coords.longitude);
@@ -563,26 +593,26 @@ const fetchLocalInsight = async (specificLocation?: string) => {
 
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (manualRegion.trim()) {
-      setLoadingAgro(true);
-      fetchLocalInsight(manualRegion);
-    }
+    if (!selectedState) return;
+    const stateObj = BR_STATES.find(s => s.sigla === selectedState)!;
+    const locationQuery = selectedCity
+      ? `${selectedCity}, ${stateObj.nome}, Brasil`
+      : `${stateObj.nome}, Brasil`;
+    setAgroIndicators(null);
+    setWeatherForecast(null);
+    setLocalInsight(null);
+    setLoadingAgro(true);
+    fetchLocalInsight(locationQuery);
   };
 
   const handleUseLocation = () => {
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const revRes = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=pt`
-          );
-          const revData = await revRes.json();
-          const cityName = revData.city || revData.locality || revData.principalSubdivision || '';
-          if (cityName) setManualRegion(cityName);
-        } catch { /* silencioso */ }
-      },
-      () => { /* permissão negada */ }
-    );
+    setSelectedState('');
+    setSelectedCity('');
+    setAgroIndicators(null);
+    setWeatherForecast(null);
+    setLocalInsight(null);
+    setLoadingAgro(true);
+    fetchLocalInsight();
   };
 
 const fetchAgroIndicators = async (location: string) => {
@@ -996,21 +1026,42 @@ const fetchAgroIndicators = async (location: string) => {
 
       <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
          <form onSubmit={handleManualSearch} className="w-full flex flex-col md:flex-row items-end gap-4">
+            {/* Estado */}
             <div className="flex-1 w-full space-y-2">
-               <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">{t.manualLocationLabel}</label>
-               <input
-                 type="text"
-                 value={manualRegion}
-                 onChange={e => setManualRegion(e.target.value)}
-                 placeholder={t.manualLocationPlaceholder}
-                 className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all"
-               />
+               <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Estado</label>
+               <select
+                 value={selectedState}
+                 onChange={e => { setSelectedState(e.target.value); setSelectedCity(''); }}
+                 className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all appearance-none cursor-pointer"
+               >
+                 <option value="">Selecione o estado...</option>
+                 {BR_STATES.map(s => (
+                   <option key={s.sigla} value={s.sigla}>{s.nome}</option>
+                 ))}
+               </select>
             </div>
+            {/* Cidade */}
+            <div className="flex-1 w-full space-y-2">
+               <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Cidade</label>
+               <select
+                 value={selectedCity}
+                 onChange={e => setSelectedCity(e.target.value)}
+                 disabled={!selectedState}
+                 className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+               >
+                 <option value="">Analisar apenas o estado</option>
+                 {selectedState && BR_STATES.find(s => s.sigla === selectedState)?.cidades.map(c => (
+                   <option key={c} value={c}>{c}</option>
+                 ))}
+               </select>
+            </div>
+            {/* Usar localização */}
             <button type="button" onClick={handleUseLocation} className="text-prylom-gold font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-prylom-gold/5 px-5 py-4 rounded-2xl transition-all whitespace-nowrap w-full md:w-auto justify-center border border-prylom-gold/30">
                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
                {t.useAutoLocation}
             </button>
-            <button type="submit" className="bg-prylom-dark text-white font-black px-8 py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-prylom-gold active:scale-95 transition-all w-full md:w-auto shadow-xl whitespace-nowrap">
+            {/* Analisar */}
+            <button type="submit" disabled={!selectedState} className="bg-prylom-dark text-white font-black px-8 py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-prylom-gold active:scale-95 transition-all w-full md:w-auto shadow-xl whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
                Analisar Região
             </button>
          </form>
