@@ -8,34 +8,34 @@ interface Props {
   currency: AppCurrency;
 }
 
-const BR_STATES: { sigla: string; nome: string; cidades: string[] }[] = [
-  { sigla: 'AC', nome: 'Acre', cidades: ['Rio Branco', 'Cruzeiro do Sul', 'Sena Madureira', 'Tarauacá', 'Feijó'] },
-  { sigla: 'AL', nome: 'Alagoas', cidades: ['Maceió', 'Arapiraca', 'Palmeira dos Índios', 'São Miguel dos Campos', 'Penedo', 'União dos Palmares'] },
-  { sigla: 'AM', nome: 'Amazonas', cidades: ['Manaus', 'Parintins', 'Itacoatiara', 'Manacapuru', 'Coari', 'Tefé', 'Humaitá'] },
-  { sigla: 'AP', nome: 'Amapá', cidades: ['Macapá', 'Santana', 'Laranjal do Jari', 'Oiapoque', 'Porto Grande'] },
-  { sigla: 'BA', nome: 'Bahia', cidades: ['Salvador', 'Feira de Santana', 'Luís Eduardo Magalhães', 'Barreiras', 'Vitória da Conquista', 'Ilhéus', 'Juazeiro', 'Bom Jesus da Lapa', 'Correntina', 'Formosa do Rio Preto', 'São Desidério', 'Riachão das Neves', 'Cotegipe'] },
-  { sigla: 'CE', nome: 'Ceará', cidades: ['Fortaleza', 'Sobral', 'Juazeiro do Norte', 'Quixadá', 'Iguatu', 'Russas', 'Cratéus', 'Limoeiro do Norte'] },
-  { sigla: 'DF', nome: 'Distrito Federal', cidades: ['Brasília', 'Planaltina', 'Paranoá', 'Brazlândia'] },
-  { sigla: 'ES', nome: 'Espírito Santo', cidades: ['Vitória', 'Cachoeiro de Itapemirim', 'Colatina', 'Linhares', 'São Mateus', 'Alegre', 'Barra de São Francisco', 'Nova Venécia'] },
-  { sigla: 'GO', nome: 'Goiás', cidades: ['Goiânia', 'Anápolis', 'Rio Verde', 'Jataí', 'Mineiros', 'Catalão', 'Itumbiara', 'Formosa', 'Cristalina', 'Quirinópolis', 'Morrinhos', 'Chapadão do Céu', 'Montividiu', 'Serranópolis', 'Paraúna'] },
-  { sigla: 'MA', nome: 'Maranhão', cidades: ['São Luís', 'Imperatriz', 'Caxias', 'Timon', 'Balsas', 'Barra do Corda', 'Chapadinha', 'Codó', 'Açailândia', 'Santa Inês', 'Tasso Fragoso', 'Riachão'] },
-  { sigla: 'MG', nome: 'Minas Gerais', cidades: ['Belo Horizonte', 'Uberlândia', 'Uberaba', 'Patos de Minas', 'Montes Claros', 'Sete Lagoas', 'Divinópolis', 'Varginha', 'Araguari', 'Ituiutaba', 'Paracatu', 'Araxá', 'Frutal', 'Iturama', 'Buritis', 'João Pinheiro', 'Coromandel', 'Vazante'] },
-  { sigla: 'MS', nome: 'Mato Grosso do Sul', cidades: ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá', 'Ponta Porã', 'Naviraí', 'Nova Andradina', 'Maracaju', 'Rio Brilhante', 'Chapadão do Sul', 'Sidrolândia', 'Sonora', 'Coxim', 'Amambai', 'Iguatemi', 'São Gabriel do Oeste'] },
-  { sigla: 'MT', nome: 'Mato Grosso', cidades: ['Cuiabá', 'Sorriso', 'Lucas do Rio Verde', 'Sinop', 'Rondonópolis', 'Tangará da Serra', 'Primavera do Leste', 'Campo Verde', 'Nova Mutum', 'Sapezal', 'Campo Novo do Parecis', 'Querência', 'Água Boa', 'Canarana', 'Alta Floresta', 'Diamantino', 'Nova Ubiratã', 'Ipiranga do Norte', 'Tapurah', 'Vera', 'São José do Rio Claro', 'Brasnorte'] },
-  { sigla: 'PA', nome: 'Pará', cidades: ['Belém', 'Santarém', 'Marabá', 'Castanhal', 'Paragominas', 'Altamira', 'Redenção', 'Dom Eliseu', 'Rondon do Pará', 'Itaituba', 'Novo Progresso', 'Ulianópolis', 'Abel Figueiredo'] },
-  { sigla: 'PB', nome: 'Paraíba', cidades: ['João Pessoa', 'Campina Grande', 'Patos', 'Sousa', 'Cajazeiras', 'Pombal', 'Guarabira'] },
-  { sigla: 'PE', nome: 'Pernambuco', cidades: ['Recife', 'Caruaru', 'Petrolina', 'Garanhuns', 'Santa Cruz do Capibaribe', 'Salgueiro', 'Serra Talhada', 'Araripina', 'Ouricuri'] },
-  { sigla: 'PI', nome: 'Piauí', cidades: ['Teresina', 'Parnaíba', 'Picos', 'Floriano', 'Bom Jesus', 'Uruçuí', 'Corrente', 'São Raimundo Nonato', 'Baixa Grande do Ribeiro', 'Santa Filomena', 'Sebastião Leal'] },
-  { sigla: 'PR', nome: 'Paraná', cidades: ['Curitiba', 'Cascavel', 'Londrina', 'Maringá', 'Ponta Grossa', 'Guarapuava', 'Campo Mourão', 'Umuarama', 'Toledo', 'Palmas', 'Francisco Beltrão', 'Paranavaí', 'Cianorte', 'Medianeira', 'Palotina', 'Corbélia', 'Assis Chateaubriand', 'Irati'] },
-  { sigla: 'RJ', nome: 'Rio de Janeiro', cidades: ['Rio de Janeiro', 'Niterói', 'Campos dos Goytacazes', 'Macaé', 'Barra do Piraí', 'Petrópolis', 'Nova Friburgo'] },
-  { sigla: 'RN', nome: 'Rio Grande do Norte', cidades: ['Natal', 'Mossoró', 'Caicó', 'Açu', 'Currais Novos', 'Apodi', 'Pau dos Ferros'] },
-  { sigla: 'RO', nome: 'Rondônia', cidades: ['Porto Velho', 'Ji-Paraná', 'Ariquemes', 'Vilhena', 'Cacoal', 'Rolim de Moura', 'Jaru', 'Ouro Preto do Oeste', 'Cerejeiras', 'Colorado do Oeste', 'Corumbiara'] },
-  { sigla: 'RR', nome: 'Roraima', cidades: ['Boa Vista', 'Rorainópolis', 'Caracaraí', 'Mucajaí', 'Cantá'] },
-  { sigla: 'RS', nome: 'Rio Grande do Sul', cidades: ['Porto Alegre', 'Caxias do Sul', 'Passo Fundo', 'Pelotas', 'Santa Maria', 'Ijuí', 'Cruz Alta', 'Cachoeira do Sul', 'Não-Me-Toque', 'Erechim', 'Santo Ângelo', 'Bagé', 'Uruguaiana', 'Giruá', 'Carazinho', 'Palmeira das Missões', 'Tupanciretã', 'São Borja', 'Alegrete', 'Santana do Livramento'] },
-  { sigla: 'SC', nome: 'Santa Catarina', cidades: ['Florianópolis', 'Joinville', 'Blumenau', 'Chapecó', 'Lages', 'Caçador', 'Concórdia', 'Campos Novos', 'Curitibanos', 'Xanxerê', 'São Miguel do Oeste', 'Abelardo Luz', 'Quilombo'] },
-  { sigla: 'SE', nome: 'Sergipe', cidades: ['Aracaju', 'Nossa Senhora do Socorro', 'Lagarto', 'Itabaiana', 'Tobias Barreto', 'Estância', 'Simão Dias'] },
-  { sigla: 'SP', nome: 'São Paulo', cidades: ['São Paulo', 'Campinas', 'Ribeirão Preto', 'São José do Rio Preto', 'Araçatuba', 'Bauru', 'Marília', 'Presidente Prudente', 'Ourinhos', 'Assis', 'Tupã', 'Votuporanga', 'Fernandópolis', 'Franca', 'Barretos', 'Jaboticabal', 'Bebedouro', 'Orlândia', 'Sertãozinho', 'Lins', 'Penápolis', 'Andradina'] },
-  { sigla: 'TO', nome: 'Tocantins', cidades: ['Palmas', 'Araguaína', 'Gurupi', 'Porto Nacional', 'Paraíso do Tocantins', 'Dianópolis', 'Pedro Afonso', 'Formoso do Araguaia', 'Campos Lindos', 'São Félix do Tocantins', 'Lagoa da Confusão'] },
+const BR_STATES: { sigla: string; nome: string; capital: string; cidades: string[] }[] = [
+  { sigla: 'AC', nome: 'Acre', capital: 'Rio Branco', cidades: ['Rio Branco', 'Cruzeiro do Sul', 'Sena Madureira', 'Tarauacá', 'Feijó'] },
+  { sigla: 'AL', nome: 'Alagoas', capital: 'Maceió', cidades: ['Maceió', 'Arapiraca', 'Palmeira dos Índios', 'São Miguel dos Campos', 'Penedo', 'União dos Palmares'] },
+  { sigla: 'AM', nome: 'Amazonas', capital: 'Manaus', cidades: ['Manaus', 'Parintins', 'Itacoatiara', 'Manacapuru', 'Coari', 'Tefé', 'Humaitá'] },
+  { sigla: 'AP', nome: 'Amapá', capital: 'Macapá', cidades: ['Macapá', 'Santana', 'Laranjal do Jari', 'Oiapoque', 'Porto Grande'] },
+  { sigla: 'BA', nome: 'Bahia', capital: 'Salvador', cidades: ['Salvador', 'Feira de Santana', 'Luís Eduardo Magalhães', 'Barreiras', 'Vitória da Conquista', 'Ilhéus', 'Juazeiro', 'Bom Jesus da Lapa', 'Correntina', 'Formosa do Rio Preto', 'São Desidério', 'Riachão das Neves', 'Cotegipe'] },
+  { sigla: 'CE', nome: 'Ceará', capital: 'Fortaleza', cidades: ['Fortaleza', 'Sobral', 'Juazeiro do Norte', 'Quixadá', 'Iguatu', 'Russas', 'Cratéus', 'Limoeiro do Norte'] },
+  { sigla: 'DF', nome: 'Distrito Federal', capital: 'Brasília', cidades: ['Brasília', 'Planaltina', 'Paranoá', 'Brazlândia'] },
+  { sigla: 'ES', nome: 'Espírito Santo', capital: 'Vitória', cidades: ['Vitória', 'Cachoeiro de Itapemirim', 'Colatina', 'Linhares', 'São Mateus', 'Alegre', 'Barra de São Francisco', 'Nova Venécia'] },
+  { sigla: 'GO', nome: 'Goiás', capital: 'Goiânia', cidades: ['Goiânia', 'Anápolis', 'Rio Verde', 'Jataí', 'Mineiros', 'Catalão', 'Itumbiara', 'Formosa', 'Cristalina', 'Quirinópolis', 'Morrinhos', 'Chapadão do Céu', 'Montividiu', 'Serranópolis', 'Paraúna'] },
+  { sigla: 'MA', nome: 'Maranhão', capital: 'São Luís', cidades: ['São Luís', 'Imperatriz', 'Caxias', 'Timon', 'Balsas', 'Barra do Corda', 'Chapadinha', 'Codó', 'Açailândia', 'Santa Inês', 'Tasso Fragoso', 'Riachão'] },
+  { sigla: 'MG', nome: 'Minas Gerais', capital: 'Belo Horizonte', cidades: ['Belo Horizonte', 'Uberlândia', 'Uberaba', 'Patos de Minas', 'Montes Claros', 'Sete Lagoas', 'Divinópolis', 'Varginha', 'Araguari', 'Ituiutaba', 'Paracatu', 'Araxá', 'Frutal', 'Iturama', 'Buritis', 'João Pinheiro', 'Coromandel', 'Vazante'] },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul', capital: 'Campo Grande', cidades: ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá', 'Ponta Porã', 'Naviraí', 'Nova Andradina', 'Maracaju', 'Rio Brilhante', 'Chapadão do Sul', 'Sidrolândia', 'Sonora', 'Coxim', 'Amambai', 'Iguatemi', 'São Gabriel do Oeste'] },
+  { sigla: 'MT', nome: 'Mato Grosso', capital: 'Cuiabá', cidades: ['Cuiabá', 'Sorriso', 'Lucas do Rio Verde', 'Sinop', 'Rondonópolis', 'Tangará da Serra', 'Primavera do Leste', 'Campo Verde', 'Nova Mutum', 'Sapezal', 'Campo Novo do Parecis', 'Querência', 'Água Boa', 'Canarana', 'Alta Floresta', 'Diamantino', 'Nova Ubiratã', 'Ipiranga do Norte', 'Tapurah', 'Vera', 'São José do Rio Claro', 'Brasnorte'] },
+  { sigla: 'PA', nome: 'Pará', capital: 'Belém', cidades: ['Belém', 'Santarém', 'Marabá', 'Castanhal', 'Paragominas', 'Altamira', 'Redenção', 'Dom Eliseu', 'Rondon do Pará', 'Itaituba', 'Novo Progresso', 'Ulianópolis', 'Abel Figueiredo'] },
+  { sigla: 'PB', nome: 'Paraíba', capital: 'João Pessoa', cidades: ['João Pessoa', 'Campina Grande', 'Patos', 'Sousa', 'Cajazeiras', 'Pombal', 'Guarabira'] },
+  { sigla: 'PE', nome: 'Pernambuco', capital: 'Recife', cidades: ['Recife', 'Caruaru', 'Petrolina', 'Garanhuns', 'Santa Cruz do Capibaribe', 'Salgueiro', 'Serra Talhada', 'Araripina', 'Ouricuri'] },
+  { sigla: 'PI', nome: 'Piauí', capital: 'Teresina', cidades: ['Teresina', 'Parnaíba', 'Picos', 'Floriano', 'Bom Jesus', 'Uruçuí', 'Corrente', 'São Raimundo Nonato', 'Baixa Grande do Ribeiro', 'Santa Filomena', 'Sebastião Leal'] },
+  { sigla: 'PR', nome: 'Paraná', capital: 'Curitiba', cidades: ['Curitiba', 'Cascavel', 'Londrina', 'Maringá', 'Ponta Grossa', 'Guarapuava', 'Campo Mourão', 'Umuarama', 'Toledo', 'Palmas', 'Francisco Beltrão', 'Paranavaí', 'Cianorte', 'Medianeira', 'Palotina', 'Corbélia', 'Assis Chateaubriand', 'Irati'] },
+  { sigla: 'RJ', nome: 'Rio de Janeiro', capital: 'Rio de Janeiro', cidades: ['Rio de Janeiro', 'Niterói', 'Campos dos Goytacazes', 'Macaé', 'Barra do Piraí', 'Petrópolis', 'Nova Friburgo'] },
+  { sigla: 'RN', nome: 'Rio Grande do Norte', capital: 'Natal', cidades: ['Natal', 'Mossoró', 'Caicó', 'Açu', 'Currais Novos', 'Apodi', 'Pau dos Ferros'] },
+  { sigla: 'RO', nome: 'Rondônia', capital: 'Porto Velho', cidades: ['Porto Velho', 'Ji-Paraná', 'Ariquemes', 'Vilhena', 'Cacoal', 'Rolim de Moura', 'Jaru', 'Ouro Preto do Oeste', 'Cerejeiras', 'Colorado do Oeste', 'Corumbiara'] },
+  { sigla: 'RR', nome: 'Roraima', capital: 'Boa Vista', cidades: ['Boa Vista', 'Rorainópolis', 'Caracaraí', 'Mucajaí', 'Cantá'] },
+  { sigla: 'RS', nome: 'Rio Grande do Sul', capital: 'Porto Alegre', cidades: ['Porto Alegre', 'Caxias do Sul', 'Passo Fundo', 'Pelotas', 'Santa Maria', 'Ijuí', 'Cruz Alta', 'Cachoeira do Sul', 'Não-Me-Toque', 'Erechim', 'Santo Ângelo', 'Bagé', 'Uruguaiana', 'Giruá', 'Carazinho', 'Palmeira das Missões', 'Tupanciretã', 'São Borja', 'Alegrete', 'Santana do Livramento'] },
+  { sigla: 'SC', nome: 'Santa Catarina', capital: 'Florianópolis', cidades: ['Florianópolis', 'Joinville', 'Blumenau', 'Chapecó', 'Lages', 'Caçador', 'Concórdia', 'Campos Novos', 'Curitibanos', 'Xanxerê', 'São Miguel do Oeste', 'Abelardo Luz', 'Quilombo'] },
+  { sigla: 'SE', nome: 'Sergipe', capital: 'Aracaju', cidades: ['Aracaju', 'Nossa Senhora do Socorro', 'Lagarto', 'Itabaiana', 'Tobias Barreto', 'Estância', 'Simão Dias'] },
+  { sigla: 'SP', nome: 'São Paulo', capital: 'São Paulo', cidades: ['São Paulo', 'Campinas', 'Ribeirão Preto', 'São José do Rio Preto', 'Araçatuba', 'Bauru', 'Marília', 'Presidente Prudente', 'Ourinhos', 'Assis', 'Tupã', 'Votuporanga', 'Fernandópolis', 'Franca', 'Barretos', 'Jaboticabal', 'Bebedouro', 'Orlândia', 'Sertãozinho', 'Lins', 'Penápolis', 'Andradina'] },
+  { sigla: 'TO', nome: 'Tocantins', capital: 'Palmas', cidades: ['Palmas', 'Araguaína', 'Gurupi', 'Porto Nacional', 'Paraíso do Tocantins', 'Dianópolis', 'Pedro Afonso', 'Formoso do Araguaia', 'Campos Lindos', 'São Félix do Tocantins', 'Lagoa da Confusão'] },
 ];
 
 const ToolsHub: React.FC<Props> = ({ onBack, t, lang, currency }) => {
@@ -557,12 +557,7 @@ const fetchLocalInsight = async (specificLocation?: string) => {
       // Dispara indicadores agrotecnológicos em paralelo
       fetchAgroIndicators(locInfo);
 
-      // Lógica de região (opcional, baseada no nome da localização)
-      const locLower = locInfo.toLowerCase();
-      if (locLower.includes('mt') || locLower.includes('mato grosso')) setRegion('MT - Médio Norte');
-      else if (locLower.includes('go') || locLower.includes('goiás')) setRegion('GO - Sudoeste');
-      else if (locLower.includes('pr') || locLower.includes('paraná')) setRegion('PR - Oeste');
-      else if (locLower.includes('ms') || locLower.includes('mato grosso do sul')) setRegion('MS - Sul');
+      // Região é atualizada em fetchAgroIndicators via stateCode (geocoding)
     };
 
     if (specificLocation) {
@@ -595,9 +590,8 @@ const fetchLocalInsight = async (specificLocation?: string) => {
     e.preventDefault();
     if (!selectedState) return;
     const stateObj = BR_STATES.find(s => s.sigla === selectedState)!;
-    const locationQuery = selectedCity
-      ? `${selectedCity}, ${stateObj.nome}, Brasil`
-      : `${stateObj.nome}, Brasil`;
+    // Envia só o nome da cidade ou a capital — a API de geocoding não aceita strings compostas
+    const locationQuery = selectedCity || stateObj.capital;
     setAgroIndicators(null);
     setWeatherForecast(null);
     setLocalInsight(null);
@@ -619,9 +613,8 @@ const fetchAgroIndicators = async (location: string) => {
   setLoadingAgro(true);
   try {
     // 1. Geocodificação via Open-Meteo (CORS-friendly, sem necessidade de proxy)
-    const geoSearchName = location.split(',')[0].trim();
     const geoRes = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(geoSearchName)}&count=1&language=pt&format=json&countryCode=BR`
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=pt&format=json&countryCode=BR`
     );
     const geoData = await geoRes.json();
     if (!geoData.results?.length) throw new Error("Localização não encontrada.");
@@ -777,6 +770,7 @@ const fetchAgroIndicators = async (location: string) => {
       'MS': 'MS - Sul',
     };
     const detectedRegionKey = stateToRegion[stateCode];
+    if (detectedRegionKey) setRegion(detectedRegionKey);
     const rc = detectedRegionKey ? regionalCosts[detectedRegionKey] : null;
 
     // Médias estaduais aproximadas para campos físicos (fallback quando rc é null)
@@ -962,10 +956,10 @@ const fetchAgroIndicators = async (location: string) => {
         };
       });
 
-    // Fetch an RSS feed via allorigins.win CORS proxy and parse the XML
+    // Fetch an RSS feed via corsproxy.io CORS proxy and parse the XML
     const tryFeed = async (feedUrl: string, label: string): Promise<MarketNews[] | null> => {
       try {
-        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
+        const proxy = `https://corsproxy.io/?url=${encodeURIComponent(feedUrl)}`;
         const res = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) return null;
         const xmlText = await res.text();
