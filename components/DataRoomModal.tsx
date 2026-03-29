@@ -4,7 +4,6 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import logoPrylom from "../assets/logo-prylom.png";
 import { supabase } from '../supabaseClient';
-import { useParams } from 'react-router-dom';
 // Definindo uma Interface para as Props (Boa prática em TS)
 interface InputLineProps {
   label: string;
@@ -1665,18 +1664,16 @@ const handleSubmit = async () => {
   );
 };
 
-const PrivateProtocol = ({ 
-  product, 
-  onComplete, 
-  onBack, 
-  subStep,      // Recebe do pai
-  setSubStep    // Recebe do pai
-}: { 
-  product: any, 
-  onComplete: () => void, 
+const PrivateProtocol = ({
+  product,
+  onBack,
+  subStep,
+  setSubStep
+}: {
+  product: any,
   onBack: () => void,
   subStep: number,
-  setSubStep: (s: number) => void 
+  setSubStep: (s: number) => void
 }) => {
 
   const [acceptedConditions, setAcceptedConditions] = useState(false);
@@ -1688,38 +1685,6 @@ const [isCodeValid, setIsCodeValid] = useState(false);
 const [codeError, setCodeError] = useState(false);
 
 
-const handleSubmitProtocol = async () => {
-  setIsVerifying(true); // Reutilizando o estado de loading
-
-  // Estruturação do Payload unificado
-  const payload = {
-    ...fields,
-    protocolType: privateOrigin, // 'BR' ou 'INT'
-    productName: product?.title || "Prylom Private",
-    timestamp: new Date().toISOString(),
-    status: "PENDING_COMPLIANCE",
-    // Os campos específicos já estão dentro do objeto 'fields'
-  };
-
-  try {
-    const response = await fetch("https://webhook.saveautomatik.shop/webhook/finalizaOnboarding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (response.ok) {
-      onComplete(); // Chama a função de sucesso do pai
-    } else {
-      alert("Error saving data. Please contact support.");
-    }
-  } catch (error) {
-    console.error("Submission error:", error);
-    alert("Connection failed.");
-  } finally {
-    setIsVerifying(false);
-  }
-};
 const handleSendCode = async () => {
   if (!fields.phone || fields.phone.length < 8) return;
   setIsVerifying(true);
@@ -3261,17 +3226,10 @@ const DataRoomModal = ({ product, onBack }: any) => {
   const [step, setStep] = useState(1);
   const [origin, setOrigin] = useState<'BR' | 'INT' | 'PRIVATE' | null>(null);
   const [openMarketAccepted, setOpenMarketAccepted] = useState(false);
-  const { id } = useParams<{ id: string }>();
-  const [loadedProduct, setLoadedProduct] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  console.log(product)
   // Lógica de Ativo
 const isOpenMarket = useMemo(() => {
-  // Busca o valor na raiz ou dentro do objeto fazenda_data que injetamos acima
   const relevancia = product?.relevancia_anuncio || product?.fazenda_data?.relevancia_anuncio;
   const tipo = product?.tipo_anuncio || product?.fazenda_data?.tipo_anuncio;
-
   return relevancia === 'Open Market' || tipo === 'Open Market';
 }, [product]);
 
@@ -3280,41 +3238,6 @@ const isOpenMarket = useMemo(() => {
     if (origin === 'PRIVATE') return "Prylom Private Executive Protocol";
     return "Protocolo de Identificação do Investidor Nacional";
   };
-
-  useEffect(() => {
-    const fetchProduct = async () => {
-      if (!id) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        // --- OPÇÃO A: Se estiver usando API Fetch padrão ---
-        const response = await fetch(`https://sua-api.com/produtos/${id}`);
-        if (!response.ok) throw new Error("Produto não encontrado");
-        const data = await response.json();
-        
-        // --- OPÇÃO B: Se estiver usando Supabase ---
-        /*
-        const { data, error: sbError } = await supabase
-          .from('fazendas')
-          .select('*, fazenda_data(*)')
-          .eq('id', id)
-          .single();
-        if (sbError) throw sbError;
-        */
-
-        setLoadedProduct(data);
-      } catch (err: any) {
-        console.error("Erro ao carregar produto:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProduct();
-  }, [id]);
 
 const [subStep, setSubStep] = useState(1); // Novo estado no pai
 
@@ -3557,25 +3480,24 @@ const handleBack = () => {
                 <span className="text-[9px] font-black uppercase text-gray-300 tracking-widest">v2.6 SECURE</span>
               </div>
               {origin === 'BR' && (
-      <NationalProtocol 
-        product={loadedProduct} 
-        onComplete={() => {}} 
+      <NationalProtocol
+        product={product}
+        onComplete={() => {}}
         onBack={onBack}
-        subStep={subStep}        // Passa o valor
-        setSubStep={setSubStep}  // Passa a função de controle
+        subStep={subStep}
+        setSubStep={setSubStep}
       />
     )}
-              {origin === 'INT' && <InternationalProtocol         product={loadedProduct} 
-        onComplete={() => {}} 
+              {origin === 'INT' && <InternationalProtocol product={product}
+        onComplete={() => {}}
         onBack={onBack}
-        subStep={subStep}        // Passa o valor
-        setSubStep={setSubStep}  // Passa a função de controle
+        subStep={subStep}
+        setSubStep={setSubStep}
       />}
-              {origin === 'PRIVATE' && <PrivateProtocol          product={loadedProduct} 
-        onComplete={() => {}} 
+              {origin === 'PRIVATE' && <PrivateProtocol product={product}
         onBack={onBack}
-        subStep={subStep}        // Passa o valor
-        setSubStep={setSubStep}  // Passa a função de controle
+        subStep={subStep}
+        setSubStep={setSubStep}
       />}
             </div>
           )}
