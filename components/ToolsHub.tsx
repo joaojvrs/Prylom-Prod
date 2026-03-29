@@ -45,6 +45,10 @@ const ToolsHub: React.FC<Props> = ({ onBack, t, lang, currency }) => {
   const [region, setRegion] = useState('MT - Médio Norte');
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
+  const [stateCities, setStateCities] = useState<string[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [detectedLocation, setDetectedLocation] = useState('');
+  const [detectingLocation, setDetectingLocation] = useState(false);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [localInsight, setLocalInsight] = useState<{technical: string, simple: string, coords: string, locationName: string} | null>(null);
 
@@ -588,13 +592,19 @@ const fetchLocalInsight = async (specificLocation?: string) => {
 
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedState) return;
-    const stateObj = BR_STATES.find(s => s.sigla === selectedState)!;
-    // Envia só o nome da cidade ou a capital — a API de geocoding não aceita strings compostas
-    const locationQuery = selectedCity || stateObj.capital;
+    let locationQuery: string;
+    if (selectedState) {
+      const stateObj = BR_STATES.find(s => s.sigla === selectedState)!;
+      locationQuery = selectedCity || stateObj.capital;
+    } else if (detectedLocation) {
+      locationQuery = detectedLocation;
+    } else {
+      return;
+    }
     setAgroIndicators(null);
     setWeatherForecast(null);
     setLocalInsight(null);
+    setEscoamentoData(null);
     setLoadingAgro(true);
     fetchLocalInsight(locationQuery);
   };
@@ -602,11 +612,28 @@ const fetchLocalInsight = async (specificLocation?: string) => {
   const handleUseLocation = () => {
     setSelectedState('');
     setSelectedCity('');
-    setAgroIndicators(null);
-    setWeatherForecast(null);
-    setLocalInsight(null);
-    setLoadingAgro(true);
-    fetchLocalInsight();
+    setDetectedLocation('');
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const revRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=pt`
+          );
+          const revData = await revRes.json();
+          const cityName = revData.city || revData.locality || revData.principalSubdivision || 'Minha Localização';
+          setDetectedLocation(cityName);
+        } catch {
+          setDetectedLocation('Minha Localização');
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      () => {
+        setDetectedLocation('Minha Localização');
+        setDetectingLocation(false);
+      }
+    );
   };
 
 const fetchAgroIndicators = async (location: string) => {
@@ -1020,45 +1047,74 @@ const fetchAgroIndicators = async (location: string) => {
       </div>
 
       <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
-         <form onSubmit={handleManualSearch} className="w-full flex flex-col md:flex-row items-end gap-4">
-            {/* Estado */}
-            <div className="flex-1 w-full space-y-2">
-               <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Estado</label>
-               <select
-                 value={selectedState}
-                 onChange={e => { setSelectedState(e.target.value); setSelectedCity(''); }}
-                 className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all appearance-none cursor-pointer"
-               >
-                 <option value="">Selecione o estado...</option>
-                 {BR_STATES.map(s => (
-                   <option key={s.sigla} value={s.sigla}>{s.nome}</option>
-                 ))}
-               </select>
+         <form onSubmit={handleManualSearch} className="w-full flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row items-end gap-4">
+               {/* Estado */}
+               <div className="flex-1 w-full space-y-2">
+                  <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Estado</label>
+                  <select
+                    value={selectedState}
+                    onChange={async e => {
+                      const sig = e.target.value;
+                      setSelectedState(sig);
+                      setSelectedCity('');
+                      setStateCities([]);
+                      setDetectedLocation('');
+                      if (termometroMap[sig]) setVtEstado(sig);
+                      if (sig) {
+                        setLoadingCities(true);
+                        try {
+                          const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${sig}/municipios?orderBy=nome`);
+                          const data = await res.json();
+                          setStateCities(data.map((m: { nome: string }) => m.nome));
+                        } catch {
+                          setStateCities(BR_STATES.find(s => s.sigla === sig)?.cidades ?? []);
+                        } finally {
+                          setLoadingCities(false);
+                        }
+                      }
+                    }}
+                    className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">Selecione o estado...</option>
+                    {BR_STATES.map(s => (
+                      <option key={s.sigla} value={s.sigla}>{s.nome}</option>
+                    ))}
+                  </select>
+               </div>
+               {/* Cidade */}
+               <div className="flex-1 w-full space-y-2">
+                  <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Cidade</label>
+                  <select
+                    value={selectedCity}
+                    onChange={e => setSelectedCity(e.target.value)}
+                    disabled={!selectedState || loadingCities}
+                    className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <option value="">{loadingCities ? 'Carregando cidades...' : 'Analisar apenas o estado'}</option>
+                    {stateCities.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+               </div>
+               {/* Usar localização */}
+               <button type="button" onClick={handleUseLocation} disabled={detectingLocation} className="text-prylom-gold font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-prylom-gold/5 px-5 py-4 rounded-2xl transition-all whitespace-nowrap w-full md:w-auto justify-center border border-prylom-gold/30 disabled:opacity-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${detectingLocation ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+                  {detectingLocation ? 'Detectando...' : t.useAutoLocation}
+               </button>
+               {/* Analisar */}
+               <button type="submit" disabled={!selectedState && !detectedLocation} className="bg-prylom-dark text-white font-black px-8 py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-prylom-gold active:scale-95 transition-all w-full md:w-auto shadow-xl whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
+                  Analisar Região
+               </button>
             </div>
-            {/* Cidade */}
-            <div className="flex-1 w-full space-y-2">
-               <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block px-1">Cidade</label>
-               <select
-                 value={selectedCity}
-                 onChange={e => setSelectedCity(e.target.value)}
-                 disabled={!selectedState}
-                 className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-               >
-                 <option value="">Analisar apenas o estado</option>
-                 {selectedState && BR_STATES.find(s => s.sigla === selectedState)?.cidades.map(c => (
-                   <option key={c} value={c}>{c}</option>
-                 ))}
-               </select>
-            </div>
-            {/* Usar localização */}
-            <button type="button" onClick={handleUseLocation} className="text-prylom-gold font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-prylom-gold/5 px-5 py-4 rounded-2xl transition-all whitespace-nowrap w-full md:w-auto justify-center border border-prylom-gold/30">
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
-               {t.useAutoLocation}
-            </button>
-            {/* Analisar */}
-            <button type="submit" disabled={!selectedState} className="bg-prylom-dark text-white font-black px-8 py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-prylom-gold active:scale-95 transition-all w-full md:w-auto shadow-xl whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
-               Analisar Região
-            </button>
+            {/* Badge de localização detectada */}
+            {detectedLocation && !selectedState && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-prylom-gold/10 border border-prylom-gold/30 rounded-2xl w-fit">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-prylom-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+                <span className="text-[11px] font-black text-prylom-gold">{detectedLocation}</span>
+                <button type="button" onClick={() => setDetectedLocation('')} className="text-prylom-gold/60 hover:text-prylom-gold ml-1 text-xs font-bold">✕</button>
+              </div>
+            )}
          </form>
       </div>
                 
