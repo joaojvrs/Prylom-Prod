@@ -3039,7 +3039,7 @@ const handleDownloadPdfEn = async () => {
 </div>
 
 
-<div className="bg-prylom-dark text-white p-8 rounded-[3rem] shadow-2xl space-y-8 border border-white/5">
+<div className="bg-prylom-dark text-white p-3 rounded-[3rem] shadow-2xl space-y-6 border border-white/5">
   <div>
     <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.3em] block mb-2">Protocolo de Negociação</span>
     <h4 className="text-2xl font-black uppercase tracking-tighter">Fluxo Corporativo</h4>

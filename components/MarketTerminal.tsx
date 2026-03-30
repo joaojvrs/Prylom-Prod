@@ -27,7 +27,7 @@ const MarketTerminal: React.FC<Props> = ({ onBack, t, lang }) => {
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
             <span className="text-[10px] font-black text-prylom-gold uppercase tracking-[0.3em]">{t.liveFeed}</span>
           </div>
-          <h1 className="text-4xl font-black text-[#000080] tracking-tighter uppercase">{t.btnMarket}</h1>
+          <h1 className="text-4xl font-black text-[#2c5363] tracking-tighter uppercase">{t.btnMarket}</h1>
           <p className="text-gray-500 text-sm font-bold">{t.livePulse}</p>
         </div>
         <button onClick={onBack} className="bg-white text-prylom-dark border-2 border-gray-100 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg hover:border-prylom-gold transition-all">
@@ -48,7 +48,7 @@ const MarketTerminal: React.FC<Props> = ({ onBack, t, lang }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center px-2">
-            <h2 className="text-xl font-black text-[#000080] uppercase tracking-widest">{t.terminalMainEvents}</h2>
+            <h2 className="text-xl font-black text-[#2c5363] uppercase tracking-widest">{t.terminalMainEvents}</h2>
           </div>
 
           <div className="py-20 flex flex-col items-center justify-center gap-6 bg-white rounded-[2.5rem] border border-gray-100">
@@ -60,7 +60,7 @@ const MarketTerminal: React.FC<Props> = ({ onBack, t, lang }) => {
         </div>
 
         <div className="space-y-8">
-          <div className="bg-[#000080] p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
+          <div className="bg-[#2c5363] p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
             <div className="relative z-10">
               <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-4 block">{t.terminalDisclaimer}</span>
               <h4 className="text-xl font-black mb-4 tracking-tight">{t.terminalExecution}</h4>

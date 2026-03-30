@@ -246,10 +246,15 @@ const handleNext = () => {
   };
 
   const handleSubmit = async () => {
+  setIsVerifying(true);
   try {
-    // 1. Coleta o IP do usuário (opcional, mas excelente para auditoria do NDA)
-    const ipRes = await fetch('https://api.ipify.org?format=json');
-    const ipData = await ipRes.json();
+    // 1. Coleta o IP de forma não-bloqueante
+    let ipAddress = '';
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipRes.json();
+      ipAddress = ipData.ip || '';
+    } catch { /* ignora falha de IP, não bloqueia o envio */ }
 
     // 2. Monta o objeto de variáveis financeiras (JSONB)
     const detalhesFinanceiros = {
@@ -264,40 +269,37 @@ const handleNext = () => {
       .from('protocols_national')
       .insert([{
         nome: fields.nome,
-        documento: fields.doc.replace(/\D/g, ""), // Salva apenas números
+        documento: fields.doc.replace(/\D/g, ""),
         email: fields.email,
         telefone: fields.telefone.replace(/\D/g, ""),
         is_whatsapp_validated: isCodeValid,
         is_private: fields.scope === 'FULL_PORTFOLIO',
         perfil: fields.perfil,
-        capacidade_aporte: fields.capacidadeAporte, // Corrija para bater com o nome do estado
+        capacidade_aporte: fields.capacidadeAporte,
         hectares_atuais: fields.hectares,
         estados_atuacao: fields.estadosAtuacao,
         creci_oab: fields.creciOab,
         cliente_representado_nome: fields.clienteRepresentadoNome,
         cliente_representado_doc: fields.clienteRepresentadoDoc?.replace(/\D/g, ""),
         is_pep: fields.pep === 'Sim',
-        
-        // O campo JSONB
         detalhes_financeiros: detalhesFinanceiros,
-        
-        // Compliance e Auditoria
         nda_scope: fields.scope,
         nda_accepted: ndaAccepted,
         declaracao_origem_aceite: fields.declaracaoOrigem || false,
-        ip_address: ipData.ip,
+        ip_address: ipAddress,
         hash_autenticacao: `AUTH_${Math.random().toString(36).substring(2, 11).toUpperCase()}`,
         produto_origem_id: product?.id?.toString() || 'PORTFOLIO_GERAL'
       }]);
 
     if (error) throw error;
 
-    // 4. Se deu certo, avança para o Step de Sucesso (4)
     setSubStep(4);
 
   } catch (error) {
     console.error("Erro ao salvar protocolo:", error);
     alert("Erro ao enviar dados. Por favor, tente novamente.");
+  } finally {
+    setIsVerifying(false);
   }
 };
 
@@ -798,16 +800,21 @@ penalidades deste contrato.
     </div>
 
     {/* Botão de Envio */}
-<button 
-  onClick={handleSubmit} // Chamando a função de persistência em vez de apenas setSubStep
-  disabled={!ndaAccepted}
-  className={`w-full py-6 rounded-sm font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl
-    ${ndaAccepted 
-      ? 'bg-[#2c5363] text-white hover:bg-[#bba219] hover:-translate-y-1' 
+<button
+  onClick={handleSubmit}
+  disabled={!ndaAccepted || isVerifying}
+  className={`w-full py-6 rounded-sm font-black text-[12px] uppercase tracking-[0.4em] transition-all shadow-2xl flex items-center justify-center gap-3
+    ${(ndaAccepted && !isVerifying)
+      ? 'bg-[#2c5363] text-white hover:bg-[#bba219] hover:-translate-y-1'
       : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
   `}
 >
-  Assinar Digitalmente e Enviar
+  {isVerifying ? (
+    <>
+      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+      Processando...
+    </>
+  ) : "Assinar Digitalmente e Enviar"}
 </button>
   </div>
 )}
@@ -1909,19 +1916,11 @@ const handleFinalSubmit = async () => {
     };
 
     // 3. Insert no Supabase
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('private_protocols')
-      .insert([protocolData])
-      .select();
+      .insert([protocolData]);
 
     if (error) throw error;
-
-    // 4. Webhook de Notificação (Opcional, mas recomendado para o comercial)
-    await fetch("https://webhook.saveautomatik.shop/webhook/finalizaOnboarding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...protocolData, id: data[0]?.id }),
-    });
 
     setSubStep(4);
 
@@ -3368,7 +3367,7 @@ const handleBack = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 {/* Botão Nacional */}
 <button 
-  onClick={() => { setOrigin('BR'); setStep(3); }} 
+  onClick={() => { setOrigin('BR'); setStep(3); setSubStep(1); }}
   className="group p-8 border border-gray-200 hover:border-[#bba219] transition-all flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-white to-gray-50 shadow-sm rounded-lg hover:shadow-xl min-w-[200px] min-h-[220px]"
 >
   <div className="relative group-hover:scale-110 transition-transform duration-300">
@@ -3385,7 +3384,7 @@ const handleBack = () => {
 
 {/* Botão Internacional */}
 <button 
-  onClick={() => { setOrigin('INT'); setStep(3); }} 
+  onClick={() => { setOrigin('INT'); setStep(3); setSubStep(1); }}
   className="group p-8 border border-gray-200 hover:border-[#bba219] transition-all flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-white to-gray-50 shadow-sm rounded-lg hover:shadow-xl min-w-[200px] min-h-[220px]"
 >
   <div className="text-gray-400 group-hover:text-[#bba219] group-hover:scale-110 transition-all duration-300">
@@ -3412,7 +3411,7 @@ const handleBack = () => {
 
 
 <button 
-  onClick={() => { setOrigin('PRIVATE'); setStep(3); }} 
+  onClick={() => { setOrigin('PRIVATE'); setStep(3); setSubStep(1); }}
   className="group p-8 bg-black border border-black hover:border-[#bba219] transition-all flex flex-col items-center gap-4 shadow-2xl rounded-lg min-w-[240px]"
 >
   {/* Área de Logos Superiores */}

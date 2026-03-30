@@ -43,6 +43,38 @@ interface Props {
 }
 
 
+const GEO_CACHE_KEY = 'prylom_geo_cache_v1';
+
+const loadPersistedGeoCache = (): Record<string, [number, number]> => {
+  try { return JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}'); }
+  catch { return {}; }
+};
+
+const persistGeoCache = (cache: Record<string, [number, number]>) => {
+  try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache)); } catch {}
+};
+
+const geocodeWithRetry = async (searchTerm: string): Promise<[number, number] | null> => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const waitMs = attempt === 0 ? 1200 : 3000 * attempt;
+    await new Promise(r => setTimeout(r, waitMs));
+    try {
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTerm)}&limit=1`,
+        { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } }
+      );
+      if (resp.status === 429) {
+        await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
+        continue;
+      }
+      const data = await resp.json();
+      if (data?.[0]) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      return null;
+    } catch { return null; }
+  }
+  return null;
+};
+
 const getStatusLabel = (status: string) => {
   switch (status?.toLowerCase()) {
     case 'vendido': return 'Indisponível';
@@ -81,7 +113,7 @@ const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, cur
   offmarketing: false,
 });
 
-  const geoCache = useRef<Record<string, L.LatLng>>({});
+  const geoCache = useRef<Record<string, [number, number]>>(loadPersistedGeoCache());
 const navigate = useNavigate();
 
   const PAGE_SIZE = 10;
@@ -160,6 +192,7 @@ const navigate = useNavigate();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const mapLayersRef = useRef<{ markers: L.LayerGroup, heatmap: L.LayerGroup } | null>(null);
+  const renderTokenRef = useRef<{ cancelled: boolean }>({ cancelled: false });
 
   const rates = useMemo(() => ({
     [AppCurrency.BRL]: 1, [AppCurrency.USD]: 0.19, [AppCurrency.CNY]: 1.42, [AppCurrency.RUB]: 18.5
@@ -209,7 +242,7 @@ const navigate = useNavigate();
   }, [viewMode, loading]);
 
   useEffect(() => {
-    if (mapInstance.current && mapLayersRef.current) {
+    if (viewMode === 'map' && mapInstance.current && mapLayersRef.current) {
         renderMarkers();
     }
   }, [mapGrouping, mapHeatmap, mapOnlyFarms, mapOnlyLeases, products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, minAreaTotal, brandFilter, grainCulture, planeTypeFilter, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita]);
@@ -624,7 +657,12 @@ if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
 
   const renderMarkers = async () => {
     if (!mapInstance.current || !mapLayersRef.current) return;
-    
+
+    // Cancela qualquer renderização anterior em andamento
+    renderTokenRef.current.cancelled = true;
+    const token = { cancelled: false };
+    renderTokenRef.current = token;
+
     mapLayersRef.current.markers.clearLayers();
     mapLayersRef.current.heatmap.clearLayers();
 
@@ -636,27 +674,31 @@ if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
     }, {} as Record<string, Product[]>);
 
     const bounds = L.latLngBounds([]);
-    
+    let cacheUpdated = false;
+
     for (const key in grouped) {
+      if (token.cancelled) return;
+
       const items = grouped[key];
       const firstItem = items[0];
       const searchTerm = `${firstItem.cidade}, ${firstItem.estado}, Brasil`;
 
-      let pos: L.LatLng | null = null;
-      if (geoCache.current[searchTerm]) {
-          pos = geoCache.current[searchTerm];
-      } else {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 1100));
-          const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTerm)}&limit=1`);
-          const data = await resp.json();
-          if (data?.[0]) {
-            pos = new L.LatLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
-            geoCache.current[searchTerm] = pos;
-          }
-        } catch (e) { console.warn("Geocoding failed for:", key); }
+      let rawCoords: [number, number] | null = geoCache.current[searchTerm] || null;
+
+      if (!rawCoords) {
+        const result = await geocodeWithRetry(searchTerm);
+        if (token.cancelled) return;
+        if (result) {
+          rawCoords = result;
+          geoCache.current[searchTerm] = result;
+          cacheUpdated = true;
+        } else {
+          console.warn("Geocoding failed for:", key);
+        }
       }
-      
+
+      const pos = rawCoords ? new L.LatLng(rawCoords[0], rawCoords[1]) : null;
+
       if (pos) {
         bounds.extend(pos);
         const hasMultiple = items.length > 1;
@@ -717,6 +759,10 @@ ${items.map(p => {
         }
       }
     }
+
+    if (token.cancelled) return;
+
+    if (cacheUpdated) persistGeoCache(geoCache.current);
 
     if (bounds.isValid() && mapInstance.current) {
         mapInstance.current.fitBounds(bounds, { padding: [100, 100], maxZoom: 12 });
@@ -3526,7 +3572,7 @@ useEffect(() => {
 
           {activeCategory === 'maquinas' && (
             <div className="space-y-6 animate-fadeIn">
-              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
+              <h4 className="text-[11px] font-black text-[#2c5363] uppercase tracking-[0.3em] flex items-center gap-4">
                 🚜 {t.techFiltersMachine}
                 <div className="h-px flex-1 bg-gray-100"></div>
               </h4>
@@ -3557,7 +3603,7 @@ useEffect(() => {
 
           {activeCategory === 'avioes' && (
             <div className="space-y-6 animate-fadeIn">
-              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
+              <h4 className="text-[11px] font-black text-[#2c5363] uppercase tracking-[0.3em] flex items-center gap-4">
                 🛩️ {t.techFiltersPlane}
                 <div className="h-px flex-1 bg-gray-100"></div>
               </h4>
@@ -3592,7 +3638,7 @@ useEffect(() => {
 
           {activeCategory === 'graos' && (
             <div className="space-y-6 animate-fadeIn">
-              <h4 className="text-[11px] font-black text-[#000080] uppercase tracking-[0.3em] flex items-center gap-4">
+              <h4 className="text-[11px] font-black text-[#2c5363] uppercase tracking-[0.3em] flex items-center gap-4">
                 🌾 {t.techFiltersGrain}
                 <div className="h-px flex-1 bg-gray-100"></div>
               </h4>
@@ -3816,7 +3862,7 @@ useEffect(() => {
     
     {/* Coluna do Disclaimer */}
     <div className="md:col-span-8 space-y-4">
-      <h5 className="text-[10px] font-black text-[#000080] uppercase tracking-[0.2em]">
+      <h5 className="text-[10px] font-black text-[#2c5363] uppercase tracking-[0.2em]">
         Disclaimer Legal & Compliance
       </h5>
       <p className="text-[10px] leading-relaxed text-gray-400 font-medium text-justify uppercase tracking-tight">
@@ -3853,7 +3899,7 @@ atípicas ao COAF.
           <p className="text-[7px] font-black text-prylom-dark uppercase leading-none">Criptografia</p>
           <p className="text-[9px] font-bold text-prylom-dark">SSL 256-bit</p>
         </div>
-        <svg className="w-8 h-8 text-[#000080]" fill="currentColor" viewBox="0 0 24 24">
+        <svg className="w-8 h-8 text-[#2c5363]" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
         </svg>
       </div>
