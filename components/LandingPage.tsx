@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../supabaseClient';
 import { AppLanguage, AppCurrency } from '../types';
 import landingPrylom from "../assets/landingPrylom.jpeg";
-import professorHernandez from "../assets/professor-hernandez.jpg";
+import ativos_e_negocios from "../assets/ativos_e_negocios.jpeg";
+import acessoria_ia from "../assets/acessoria_ia_integrada.jpeg";
+import inteligencia_agro from "../assets/inteligencia_agro.jpeg";
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { 
@@ -113,17 +114,17 @@ const LandingPage: React.FC<Props> = ({
   }
 };
   const modules = [
-    { 
-      click: onSelectShopping, 
-      icon: "🛒", 
-      label: t.btnShopping, 
-      desc: "Ativos exclusivos e oportunidades off-market com curadoria técnica.",
-      color: "bg-white",
-      span: "md:col-span-2"
-    },
+{ 
+  click: onSelectShopping, 
+  icon: ativos_e_negocios, // Remova as aspas, use a variável importada
+  label: t.btnShopping, 
+  desc: "Ativos exclusivos e oportunidades off-market com curadoria técnica.",
+  color: "bg-white",
+  span: "md:col-span-2"
+},
         { 
       click: onSelectTools, 
-      icon: "🛠️", 
+      icon: inteligencia_agro, 
       label: t.btnTools, 
       desc: "Cálculos de barter, logística e viabilidade econômica.",
       color: "bg-white",
@@ -131,7 +132,7 @@ const LandingPage: React.FC<Props> = ({
     },
         { 
       click: onSelectLegal, 
-      icon: "📑", 
+      icon: acessoria_ia, 
       label: t.btnLegal, 
       desc: "Suporte técnico por IA em agronomia, zootecnia e jurídico.",
       color: "bg-gray-50",
@@ -223,9 +224,19 @@ const LandingPage: React.FC<Props> = ({
             {modules.map((m, idx) => (
               <div key={idx} onClick={m.click} className={`${m.span} ${m.color} ${m.text || 'text-prylom-dark'} p-12 rounded-[3.5rem] border border-gray-100 shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer group flex flex-col justify-between overflow-hidden relative`}>
                 <div className="relative z-10">
-                  <div className={`${m.iconBg || 'bg-gray-100'} w-20 h-20 rounded-[2rem] flex items-center justify-center text-4xl mb-10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500`}>
-                    {m.icon}
-                  </div>
+{/* Removemos o padding e itens-center/justify-center do container para a imagem ocupar tudo */}
+<div className={`${m.iconBg || 'bg-gray-100'} w-20 h-20 rounded-[2rem] flex items-center justify-center mb-10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 overflow-hidden`}>
+  {/* Verifica se o ícone é um emoji (texto curto) ou uma imagem importada */}
+  {typeof m.icon === 'string' && m.icon.length <= 4 ? (
+    <span className="text-4xl">{m.icon}</span>
+  ) : (
+    <img 
+      src={m.icon} 
+      alt={m.label}       
+      className="w-full h-full object-cover" 
+    />
+  )}
+</div>
                   <h3 className="text-3xl font-black uppercase tracking-tighter mb-4">{m.label}</h3>
                   <p className={`text-base font-medium opacity-60 leading-relaxed max-w-xs mb-8`}>{m.desc}</p>
                 </div>
