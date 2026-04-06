@@ -51,7 +51,7 @@ interface Props {
 
 const AdminDashboard: React.FC<Props> = ({ onLogout, t, lang, currency }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'listings' | 'crm' | 'corretores' | 'cadastrados' | 'offmarket'>('crm');
+  const [activeTab, setActiveTab] = useState<'listings' | 'crm' | 'corretores' | 'cadastrados' | 'offmarket' | 'venda-car'>('crm');
   const [offMarketProductId, setOffMarketProductId] = useState<string | null>(null);
 
   // Share tokens
@@ -81,6 +81,51 @@ const [selectedDocuments, setSelectedDocuments] = useState<FarmDocument[]>([]);
 const [autorizacaoVenda, setAutorizacaoVenda] = useState<FarmDocument | null>(null); // Slot único
 const documentsFileInputRef = useRef<HTMLInputElement>(null);
 const authFileInputRef = useRef<HTMLInputElement>(null); // Ref para o input da autorização
+
+const [vendaCarLeads, setVendaCarLeads] = useState<any[]>([]);
+const [vendaCarLoading, setVendaCarLoading] = useState(false);
+const [vendaCarFiltro, setVendaCarFiltro] = useState<string>('todos');
+
+const STATUS_NEGOCIACAO = [
+  { value: 'pendente',   label: 'Não chamado',      dot: 'bg-gray-400',    badge: 'bg-gray-100 text-gray-600 border-gray-200' },
+  { value: 'chamado',    label: 'Chamado',           dot: 'bg-blue-500',    badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { value: 'negociando', label: 'Negociando',        dot: 'bg-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { value: 'anunciado',  label: 'Anunciada Prylom',  dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { value: 'descartado', label: 'Descartado',        dot: 'bg-red-400',     badge: 'bg-red-50 text-red-400 border-red-200' },
+] as const;
+
+const fetchVendaCarLeads = async () => {
+  setVendaCarLoading(true);
+  try {
+    const { data, error } = await supabase
+      .from('rural_consultas_historico')
+      .select('*')
+      .eq('intencao', 'vender')
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error('[VendaCAR] fetch error:', error.message); return; }
+    if (!data || data.length === 0) { setVendaCarLeads([]); return; }
+
+    const userIds = [...new Set(data.filter(r => r.user_id).map((r: any) => r.user_id as string))];
+    const { data: profiles } = userIds.length > 0
+      ? await supabase.from('profiles').select('id, full_name, phone, cpf_cnpj').in('id', userIds)
+      : { data: [] };
+
+    const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+    setVendaCarLeads(data.map((row: any) => ({ ...row, profiles: profileMap.get(row.user_id) ?? null })));
+  } finally {
+    setVendaCarLoading(false);
+  }
+};
+
+const updateLeadStatus = async (leadId: string, status: string) => {
+  setVendaCarLeads(prev => prev.map(l => l.id === leadId ? { ...l, status_negociacao: status } : l));
+  const { error } = await supabase
+    .from('rural_consultas_historico')
+    .update({ status_negociacao: status })
+    .eq('id', leadId);
+  if (error) { console.error('[VendaCAR] update status error:', error.message); fetchVendaCarLeads(); }
+};
 
 const [produtosCadastrados, setProdutosCadastrados] = useState<any[]>([]);
 const fetchProdutosCadastrados = async () => {
@@ -993,7 +1038,7 @@ const togglePortalParceiro = (portal: string) => {
     : [];
     
   const updatedPortals = currentPortals.includes(portal)
-    ? currentPortals.filter(p => p !== portal) // Remove se já existe
+    ? currentPortals.filter((p: string) => p !== portal) // Remove se já existe
     : [...currentPortals, portal];            // Adiciona se não existe
 
   setDadosEspecificos({
@@ -1335,10 +1380,15 @@ const handleImproveDescription = async () => {
             { tab: 'listings', label: 'Gestão de Anúncios' },
             { tab: 'cadastrados', label: 'Produtos Cadastrados' },
             { tab: 'offmarket', label: 'Off Market' },
+            { tab: 'venda-car', label: 'Consulta CAR Venda' },
           ] as const).map(({ tab, label }) => (
             <button
               key={tab}
-              onClick={() => { if (tab === 'offmarket') setOffMarketProductId(null); setActiveTab(tab); }}
+              onClick={() => {
+                if (tab === 'offmarket') setOffMarketProductId(null);
+                if (tab === 'venda-car') fetchVendaCarLeads();
+                setActiveTab(tab);
+              }}
               className={`w-full text-left px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                 activeTab === tab
                   ? 'bg-[#bba219] text-white shadow-lg'
@@ -1674,6 +1724,181 @@ const handleImproveDescription = async () => {
       )}
     </div>
 
+  ) : activeTab === 'venda-car' ? (
+    <div className="animate-fadeIn">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-10">
+        <div>
+          <span className="text-prylom-gold text-[10px] font-black uppercase tracking-[0.4em] mb-2 block">CRM · Módulo Rural</span>
+          <h2 className="text-5xl font-black text-[#2c5363] tracking-tighter uppercase mb-2">Consulta CAR Venda</h2>
+          <p className="text-gray-400 text-sm font-medium tracking-wide">Leads que consultaram propriedades com intenção de venda</p>
+        </div>
+        <div className="flex items-center gap-4">
+          {STATUS_NEGOCIACAO.map(s => (
+            <div key={s.value} className="bg-white rounded-2xl px-5 py-3 shadow-sm border border-gray-100 text-center">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">{s.label}</p>
+              <p className="text-xl font-black text-[#2c5363]">
+                {vendaCarLeads.filter(l => (l.status_negociacao ?? 'pendente') === s.value).length}
+              </p>
+            </div>
+          ))}
+          <button
+            onClick={fetchVendaCarLeads}
+            disabled={vendaCarLoading}
+            className="bg-[#2c5363] hover:bg-[#1e3d4d] text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+          >
+            {vendaCarLoading ? 'Carregando...' : 'Atualizar'}
+          </button>
+        </div>
+      </header>
+
+      {/* Filtros de status */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        <button
+          onClick={() => setVendaCarFiltro('todos')}
+          className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+            vendaCarFiltro === 'todos' ? 'bg-[#2c5363] text-white border-[#2c5363]' : 'bg-white text-gray-400 border-gray-200 hover:border-[#2c5363] hover:text-[#2c5363]'
+          }`}
+        >
+          Todos ({vendaCarLeads.length})
+        </button>
+        {STATUS_NEGOCIACAO.map(s => {
+          const count = vendaCarLeads.filter(l => (l.status_negociacao ?? 'pendente') === s.value).length;
+          return (
+            <button
+              key={s.value}
+              onClick={() => setVendaCarFiltro(s.value)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                vendaCarFiltro === s.value ? 'bg-[#2c5363] text-white border-[#2c5363]' : 'bg-white text-gray-400 border-gray-200 hover:border-[#2c5363] hover:text-[#2c5363]'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${vendaCarFiltro === s.value ? 'bg-white' : s.dot}`} />
+              {s.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Lista */}
+      {vendaCarLoading ? (
+        <div className="flex items-center justify-center py-24">
+          <div className="w-2 h-2 rounded-full bg-[#2c5363] animate-ping" />
+        </div>
+      ) : (() => {
+        const leads = vendaCarFiltro === 'todos'
+          ? vendaCarLeads
+          : vendaCarLeads.filter(l => (l.status_negociacao ?? 'pendente') === vendaCarFiltro);
+        if (leads.length === 0) return (
+          <div className="bg-white border border-gray-200 rounded-3xl py-20 flex flex-col items-center gap-3">
+            <div className="w-12 h-12 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-gray-300" />
+            </div>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">
+              {vendaCarFiltro === 'todos' ? 'Nenhum lead de venda ainda' : 'Nenhum lead neste status'}
+            </p>
+          </div>
+        );
+        return (
+          <div className="space-y-4">
+            {leads.map((lead: any) => {
+              const profile = lead.profiles ?? {};
+              const temEmbargo = (lead.qtd_embargos ?? 0) > 0;
+              const statusAtual = lead.status_negociacao ?? 'pendente';
+              const statusInfo = STATUS_NEGOCIACAO.find(s => s.value === statusAtual) ?? STATUS_NEGOCIACAO[0];
+              return (
+                <div key={lead.id} className={`bg-white border rounded-3xl overflow-hidden shadow-sm transition-shadow hover:shadow-md ${statusAtual === 'descartado' ? 'opacity-60' : ''}`}>
+
+                  {/* Card header */}
+                  <div className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusInfo.dot}`} />
+                      <span className="text-[10px] font-black text-[#2c5363] uppercase tracking-widest">
+                        {lead.nome_imovel ?? lead.codigo_car ?? lead.input_original ?? '—'}
+                      </span>
+                      {temEmbargo && (
+                        <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-[9px] font-black uppercase tracking-wider">
+                          {lead.qtd_embargos} embargo{lead.qtd_embargos > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 border rounded-lg text-[9px] font-black uppercase tracking-wider ${statusInfo.badge}`}>
+                        {statusInfo.label}
+                      </span>
+                      <span className="text-[9px] text-gray-300 font-mono">
+                        {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Dados */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                    <div className="px-8 py-5 space-y-2.5">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.35em] mb-3">Propriedade</p>
+                      {[
+                        { label: 'Código CAR',    value: lead.codigo_car },
+                        { label: 'Área Total',    value: lead.area_total ? `${Number(lead.area_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ha` : null },
+                        { label: 'Município/UF',  value: lead.municipio && lead.estado ? `${lead.municipio} — ${lead.estado}` : null },
+                        { label: 'Situação CAR',  value: lead.situacao_car },
+                        { label: 'CCIR',          value: lead.ccir },
+                        { label: 'SIGEF',         value: lead.situacao_sigef },
+                        { label: 'Área Certif.',  value: lead.area_certificada ? `${Number(lead.area_certificada).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ha` : null },
+                        { label: 'Embargos',      value: temEmbargo ? `${lead.qtd_embargos} ativo(s)` : 'Nenhum' },
+                      ].map(({ label, value }) => value ? (
+                        <div key={label} className="flex items-start gap-4">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-28 flex-shrink-0 mt-0.5">{label}</p>
+                          <p className={`text-xs font-semibold break-all ${label === 'Embargos' && temEmbargo ? 'text-red-600' : 'text-[#2c5363]'}`}>{value}</p>
+                        </div>
+                      ) : null)}
+                    </div>
+
+                    <div className="px-8 py-5 flex flex-col gap-4">
+                      <div className="space-y-2.5">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.35em] mb-3">Consultor (Lead)</p>
+                        {[
+                          { label: 'Nome',          value: profile.full_name },
+                          { label: 'E-mail',        value: lead.user_email },
+                          { label: 'CPF / CNPJ',    value: profile.cpf_cnpj },
+                          { label: 'Telefone',      value: profile.phone },
+                          { label: 'Identificador', value: lead.input_original },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="flex items-start gap-4">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 w-28 flex-shrink-0 mt-0.5">{label}</p>
+                            <p className={`text-xs font-semibold break-all ${value ? 'text-[#2c5363]' : 'text-gray-300'}`}>{value ?? '—'}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Ações de status */}
+                      <div className="mt-auto pt-4 border-t border-gray-100">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.35em] mb-2">Status da Negociação</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {STATUS_NEGOCIACAO.map(s => (
+                            <button
+                              key={s.value}
+                              onClick={() => updateLeadStatus(lead.id, s.value)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all ${
+                                statusAtual === s.value
+                                  ? `${s.badge} shadow-sm`
+                                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusAtual === s.value ? '' : s.dot}`} />
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+    </div>
+
   ) : (
           <div className="animate-fadeIn">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
@@ -1963,7 +2188,7 @@ const handleImproveDescription = async () => {
       onClick={() =>
         handleToggleVendidoPrylom(
           asset.id,
-          asset.vendido_prylom
+          asset.vendido_prylom ?? false
         )
       }
       className={`
