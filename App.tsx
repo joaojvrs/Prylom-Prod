@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'; // Adicione isso
 import { AppLanguage, AppCurrency } from './types';
 import { User } from '@supabase/supabase-js';
@@ -16,12 +16,21 @@ import ValuationCenter from './components/ValuationCenter';
 import MarketTerminal from './components/MarketTerminal';
 import ShoppingCenter from './components/ShoppingCenter';
 import ProductDetails from './components/ProductDetails';
-import AdminDashboard from './components/AdminDashboard';
 import LegalAgro from './components/LegalAgro';
 import { translations } from './translations';
 import DataRoomModal from './components/DataRoomModal';
 import SharePage from './components/SharePage';
 import UserProfile from './components/UserProfile';
+
+// AdminDashboard carregado apenas quando a rota /admin é acessada,
+// mantendo o código admin fora do bundle público.
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+
+const AdminFallback = () => (
+  <div className="flex-1 flex items-center justify-center p-20 bg-prylom-dark min-h-screen">
+    <div className="text-prylom-gold font-black animate-pulse tracking-[0.5em] uppercase text-xs">Carregando Terminal Admin...</div>
+  </div>
+);
 
 
 const App: React.FC = () => {
@@ -440,19 +449,21 @@ const channel = supabase
     <Route path="/product/:id" element={<ProductWrapper t={t} lang={lang} currency={currency} navigateTo={navigateTo} />} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/favorites" element={<Favorites onSelectProduct={openProduct} onBack={() => navigateTo('/shopping')} t={t} currency={currency} />} />
-<Route 
-  path="/admin/dashboard" 
+<Route
+  path="/admin/dashboard"
   element={
     <ProtectedRoute isAdmin={true}>
-      <AdminDashboard 
-        onLogout={async () => {
-          await supabase.auth.signOut();
-          navigateTo('/');
-        }} 
-        t={t} lang={lang} currency={currency} 
-      />
+      <Suspense fallback={<AdminFallback />}>
+        <AdminDashboard
+          onLogout={async () => {
+            await supabase.auth.signOut();
+            navigateTo('/');
+          }}
+          t={t} lang={lang} currency={currency}
+        />
+      </Suspense>
     </ProtectedRoute>
-  } 
+  }
 />
     
     <Route path="/map" element={<SmartMapReport onBack={() => navigateTo('/owner')} t={t} lang={lang} currency={currency} />} />

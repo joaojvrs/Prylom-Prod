@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { AppCurrency } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
   onSelectProduct?: (id: string) => void;
@@ -29,6 +30,7 @@ const getStatusTextColor = (status: string) => {
 
 const Favorites: React.FC<Props> = ({ onBack, t, currency }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,8 +63,6 @@ const Favorites: React.FC<Props> = ({ onBack, t, currency }) => {
 
   const fetchFavorites = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-
     if (user) {
       const { data, error } = await supabase
         .from('favorites')
@@ -121,7 +121,6 @@ const Favorites: React.FC<Props> = ({ onBack, t, currency }) => {
 
   const removeFavorite = async (e: React.MouseEvent, assetId: string) => {
     e.stopPropagation();
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { error } = await supabase

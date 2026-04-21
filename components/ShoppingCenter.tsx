@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -101,13 +102,14 @@ const getStatusTextColor = (status: string) => {
 
 
 const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, currency }) => {
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [transactionType, setTransactionType] = useState<'all' | 'venda' | 'arrendamento'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'map' | 'equipe'| 'global'| 'off'>('grid');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const [activeFilterTab, setActiveFilterTab] = useState({
+  const [activeFilterTab, setActiveFilterTab] = useState<{ financeiros: boolean; certificacao: boolean; offmarketing: boolean; [key: string]: boolean }>({
   financeiros: false,
   certificacao: false,
   offmarketing: false,
@@ -139,7 +141,7 @@ const navigate = useNavigate();
   const [minAreaTotal, setMinAreaTotal] = useState<string>('');
   const [maxAreaTotal, setMaxAreaTotal] = useState<string>('');
   const [minAreaLavoura, setMinAreaLavoura] = useState<string>('');
-  const [selectedTipoAnuncio, setSelectedTipoAnuncio] = useState(null);
+  const [selectedTipoAnuncio, setSelectedTipoAnuncio] = useState<string | null>(null);
   // Filtros Inteligentes (Fazendas) - ADICIONE ESTES:
   const [minAreaProdutiva, setMinAreaProdutiva] = useState<string>('');
   const [maxAreaProdutiva, setMaxAreaProdutiva] = useState<string>('');
@@ -271,7 +273,8 @@ const navigate = useNavigate();
           arrendamentos (*),
           produtos_imagens (image_url, ordem)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
       
       if (error) throw error;
       if (data) {
@@ -306,24 +309,18 @@ const [favorites, setFavorites] = useState<string[]>([]);
 
 // Efeito para carregar os favoritos do usuário ao abrir a página
 useEffect(() => {
-  const loadFavorites = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from('favorites')
-        .select('asset_id')
-        .eq('user_id', user.id);
-      
+  if (!user) return;
+  supabase
+    .from('favorites')
+    .select('asset_id')
+    .eq('user_id', user.id)
+    .then(({ data }) => {
       if (data) setFavorites(data.map(f => f.asset_id));
-    }
-  };
-  loadFavorites();
-}, []);
+    });
+}, [user]);
 
 const toggleFavorite = async (e: React.MouseEvent, assetId: string) => {
-  e.stopPropagation(); // Impede que o clique abra os detalhes do produto
-  
-  const { data: { user } } = await supabase.auth.getUser();
+  e.stopPropagation();
   if (!user) {
     alert("Você precisa estar logado para curtir!");
     return;
@@ -780,7 +777,7 @@ ${items.map(p => {
   const availableStates = useMemo(() => Array.from(new Set(products.map(p => p.estado))).sort(), [products]);
   const availableCities = useMemo(() => Array.from(new Set(products.filter(p => !filterState || p.estado === filterState).map(p => p.cidade))).sort(), [products, filterState]);
 
-const ESTADOS_COORDINATES = {
+const ESTADOS_COORDINATES: Record<string, [number, number]> = {
   'AC': [-9.02, -70.81], 'AL': [-9.57, -36.78], 'AP': [1.41, -51.77], 'AM': [-3.41, -64.59],
   'BA': [-12.97, -38.50], 'CE': [-5.45, -39.32], 'DF': [-15.79, -47.88], 'ES': [-19.19, -40.34],
   'GO': [-15.82, -49.83], 'MA': [-5.42, -45.44], 'MT': [-12.64, -55.42], 'MS': [-20.51, -54.54],
@@ -806,13 +803,13 @@ const validarCPF = (cpf: string) => {
   return true;
 };
 
-const EquipeView = ({ t }) => {
-  const [corretores, setCorretores] = useState([]);
-  const mapContainerRef = useRef(null);
-  const mapInstance = useRef(null);
+const EquipeView = ({ t }: { t: any }) => {
+  const [corretores, setCorretores] = useState<any[]>([]);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstance = useRef<L.Map | null>(null);
   const [selectedHead, setSelectedHead] = useState<HeadOperacaoItem | null>(null);
   const [showHeadModal, setShowHeadModal]   = useState(false);
-  const [selectedCorretor, setSelectedCorretor] = useState(null);
+  const [selectedCorretor, setSelectedCorretor] = useState<any>(null);
 const [showModal, setShowModal] = useState(false);
 const [showRegisterModal, setShowRegisterModal] = useState(false);
 const [selectedGlobalMember, setSelectedGlobalMember] = useState<any>(null);
@@ -892,7 +889,7 @@ const isRegFormValid = useMemo(() => (
   regIsCodeValid &&
   regFields.termos
 ), [regFields, regDocStatus, regIsCodeValid]);
-const handleOpenDetails = (corretor) => {
+const handleOpenDetails = (corretor: any) => {
   setSelectedCorretor(corretor);
   setShowModal(true);
 };
@@ -1072,11 +1069,11 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
     }
   };
 }, [corretores]);
-  const renderStaticMarkers = (map) => {
+  const renderStaticMarkers = (map: L.Map) => {
     const bounds = L.latLngBounds([]);
-    
+
     // Agrupa corretores por estado
-    const grouped = corretores.reduce((acc, c) => {
+    const grouped = corretores.reduce((acc: Record<string, any[]>, c: any) => {
       const uf = c.estado?.toUpperCase().trim();
       if (!acc[uf]) acc[uf] = [];
       acc[uf].push(c);
@@ -1099,7 +1096,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
                 </div>
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-prylom-dark text-white p-2 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-[1000] invisible group-hover:visible min-w-[100px] border border-prylom-gold/30">
                   <p class="text-[7px] font-black text-prylom-gold uppercase mb-1">Polo ${uf}</p>
-                  ${lista.map(c => `<p class="text-[8px] truncate border-t border-white/10 pt-1">${c.nome}</p>`).join('')}
+                  ${lista.map((c: any) => `<p class="text-[8px] truncate border-t border-white/10 pt-1">${c.nome}</p>`).join('')}
                 </div>
               </div>
             `,
@@ -1261,7 +1258,7 @@ const HeadOperacaoCard: React.FC<{
 };
 <style> </style>
 
-const BANDEIRA_URL = (uf) =>
+const BANDEIRA_URL = (uf: string) =>
   `https://cdn.jsdelivr.net/gh/akagabi/bandeira-dos-estados-do-brasil@master/${uf.toLowerCase()}.svg`;
 const [showAcademyModal, setShowAcademyModal] = useState(false);
 
@@ -1503,7 +1500,7 @@ const HeadModal: React.FC<{
             {/* BIO TEXTO em Colunas */}
             <div className="text-gray-500 text-base lg:text-lg leading-relaxed lg:columns-2 gap-12 border-t border-gray-50 pt-10">
               {selectedCorretor.descricao ? (
-                selectedCorretor.descricao.split('\n').map((p, i) => (
+                selectedCorretor.descricao.split('\n').map((p: string, i: number) => (
                   <p key={i} className="mb-4 text-justify whitespace-pre-line font-medium">
                     {p}
                   </p>
@@ -2607,7 +2604,7 @@ const HeadModal: React.FC<{
   );
 };
 
-const GlobalView = ({ t }) => {
+const GlobalView = ({ t }: { t: any }) => {
   return (
     <>
       {/* SECTION: PRYLOM GLOBAL REAL ASSETS - FIDELIDADE TOTAL AO LAYOUT */}
@@ -2724,7 +2721,7 @@ analítica e alinhamento aos mais altos padrões de compliance transacional
   );
 };
 
-  const OffMarketView = ({ t }) => (
+  const OffMarketView = ({ t }: { t: any }) => (
   <div className="w-full py-16 px-6 bg-[#F4F5F7] min-h-screen flex items-center justify-center animate-fadeIn font-sans">
     <div className="max-w-5xl mx-auto bg-white rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.06)] border border-white relative overflow-hidden">
       

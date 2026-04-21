@@ -219,18 +219,43 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
  
 // ─── Cache ────────────────────────────────────────────────────────────────────
  
-const cache = new Map<string, { data: PropertyResult; ts: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
- 
+const CACHE_LS_KEY = 'prylom_rural_cache_v2';
+
+function loadCache(): Map<string, { data: PropertyResult; ts: number }> {
+  try {
+    const raw = localStorage.getItem(CACHE_LS_KEY);
+    if (!raw) return new Map();
+    const obj: Record<string, { data: PropertyResult; ts: number }> = JSON.parse(raw);
+    const now = Date.now();
+    const m = new Map<string, { data: PropertyResult; ts: number }>();
+    for (const [k, v] of Object.entries(obj)) {
+      if (now - v.ts <= CACHE_TTL) m.set(k, v);
+    }
+    return m;
+  } catch { return new Map(); }
+}
+
+function persistCache(m: Map<string, { data: PropertyResult; ts: number }>) {
+  try {
+    const obj: Record<string, { data: PropertyResult; ts: number }> = {};
+    for (const [k, v] of m.entries()) obj[k] = v;
+    localStorage.setItem(CACHE_LS_KEY, JSON.stringify(obj));
+  } catch {}
+}
+
+const cache = loadCache();
+
 function getCached(key: string): PropertyResult | null {
   const entry = cache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL) { cache.delete(key); return null; }
+  if (Date.now() - entry.ts > CACHE_TTL) { cache.delete(key); persistCache(cache); return null; }
   return entry.data;
 }
- 
+
 function setCached(key: string, data: PropertyResult) {
   cache.set(key, { data, ts: Date.now() });
+  persistCache(cache);
 }
  
 // ─── Fetch helper ─────────────────────────────────────────────────────────────

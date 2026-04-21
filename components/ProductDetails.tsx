@@ -2,21 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
 import { createPortal } from 'react-dom';
-import DataRoomModal from './DataRoomModal'; // Certifique-se de que o caminho está correto
+import DataRoomModal from './DataRoomModal';
 import PropertyRegistrationForm from './PropertyRegistrationForm';
 import logoPrylom from "../assets/logo-prylom.png";
 import qrcode from "../assets/qrcode.png";
 import { useParams, useNavigate } from 'react-router-dom';
 
-// No topo do arquivo ProductDetails.tsx
-import { 
-  ArrowLeft, 
-  Share2, 
-  MapPin, 
-  Shield, 
-  FileText, 
-  Download, Lock // <--- ADICIONE ESTE AQUI
-} from 'lucide-react';
+import { Download, Lock } from 'lucide-react';
+import { useWeather } from '../hooks/useWeather';
 
 interface Props {
   productId: string | null;
@@ -31,29 +24,107 @@ const getFullImage = (url: string) => {
   return `${url}?width=1280&quality=85&resize=contain`;
 };
 
+const sanitizeHtml = (val: unknown): string => {
+  if (val === null || val === undefined) return "";
+  return String(val)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+};
 
+const CHARS_PER_DESC_PAGE = 1_850;
+
+const splitTextIntoChunks = (text: string, maxChars: number): string[] => {
+  if (!text || text.length <= maxChars) return text ? [text] : [];
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > maxChars) {
+    let cutAt = maxChars;
+    const lastSpace = remaining.lastIndexOf(" ", maxChars);
+    const lastNewline = remaining.lastIndexOf("\n", maxChars);
+    const bestCut = Math.max(lastSpace, lastNewline);
+    if (bestCut > maxChars * 0.7) cutAt = bestCut;
+    chunks.push(remaining.slice(0, cutAt).trimEnd());
+    remaining = remaining.slice(cutAt).trimStart();
+  }
+  if (remaining.length > 0) chunks.push(remaining);
+  return chunks;
+};
+
+const buildDescriptionPages = (
+  text: string | null | undefined,
+  continuationHeader: string,
+  labels: { title: string; continued: string; note: string }
+): string => {
+  if (!text) return "";
+  const chunks = splitTextIntoChunks(text, CHARS_PER_DESC_PAGE);
+  const totalPages = chunks.length;
+  return chunks.map((chunk, index) => {
+    const isFirst = index === 0;
+    const pageLabel = totalPages > 1
+      ? ` <span class="desc-page-counter">${index + 1}/${totalPages}</span>`
+      : "";
+    return `
+      <div class="page-break">
+        ${continuationHeader}
+        <div class="desc-header">
+          <span class="desc-header-title">
+            📄 ${isFirst ? labels.title : labels.continued}
+            ${pageLabel}
+          </span>
+          <span class="desc-header-note">${labels.note}</span>
+        </div>
+        <div class="desc-box ${isFirst ? "desc-box--first" : "desc-box--continuation"}">
+          ${isFirst ? `<span class="desc-open-quote">"</span>` : ""}
+          <p class="desc-text">${sanitizeHtml(chunk)}</p>
+          ${index === totalPages - 1 ? `<span class="desc-close-quote">"</span>` : ""}
+        </div>
+      </div>`;
+  }).join("\n");
+};
+
+const FARM_AREA_FATOR         = 0.68;
+const FARM_PROD_SOJA_SC_HA    = 59.8;
+const FARM_PROD_MILHO_SC_HA   = 87.4;
+const FARM_PRECO_SOJA_SC      = 135;
+const FARM_PRECO_MILHO_SC     = 72;
+const FARM_CUSTO_OP_SOJA_HA   = 5800;
+const FARM_CUSTO_OP_MILHO_HA  = 4400;
+const FARM_CUSTO_LEASE_OP_HA  = 8000;
+const PEC_LOTACAO_UA_HA       = 2.5;
+const PEC_PRODUCAO_ARROBA_HA  = 12.5;
+const PEC_VALOR_ARROBA_BRL    = 315;
 
 const ProductDetails: React.FC<Props> = ({ productId, onSelectProduct, onBack, fromFavorites, t, lang, currency }) => {
   const [product, setProduct] = useState<any>(null);
   const [spec, setSpec] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
-  // PASSO 3: Estado sem cache busting - URL Limpa é obrigatória
   const [activeImage, setActiveImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [availableAudios, setAvailableAudios] = useState<any[]>([]);
-  const prylomScore = 8.2;
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
-  const [copyFeedback, setCopyFeedback] = useState(false);
-  const [showSelectionModal, setShowSelectionModal] = useState(false);
-  // Adicione junto aos outros estados no topo do componente ProductDetails
-const [showDataRoomView, setShowDataRoomView] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [cityAverageHa, setCityAverageHa] = useState<number | null>(null);
+  const [stateAverageHa, setStateAverageHa] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isGeneratingPdfEn, setIsGeneratingPdfEn] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const { weather, forecastDays, setForecastDays, fetchWeather, getWeatherIcon } = useWeather();
+  const [showSelectionModal, setShowSelectionModal] = useState(false);
+  const [showDataRoomView, setShowDataRoomView] = useState(false);
+  const [showDataRoomModal, setShowDataRoomModal] = useState(false);
+  const [showFraudModal, setShowFraudModal] = useState(false);
+  const [showFraudForm, setShowFraudForm] = useState(false);
+  const [selectedFormType, setSelectedFormType] = useState<'open' | 'offmarket' | 'selected' | null>(null);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+  const [economicsMode, setEconomicsMode] = useState<'agricola' | 'pecuaria'>('agricola');
+  const [fraudData, setFraudData] = useState({ nome: '', documento: '', email: '', telefone: '', relacao: '', motivo: '', aceite: false });
+  const prylomScore = 8.2;
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  // Adicione este novo estado
-const [selectedFormType, setSelectedFormType] = useState<'open' | 'offmarket' | 'selected' | null>(null);
-  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
-  const [economicsMode, setEconomicsMode] = useState<'agricola' | 'pecuaria'>('agricola');
   const rates = useMemo(() => ({
     [AppCurrency.BRL]: 1, [AppCurrency.USD]: 0.19, [AppCurrency.CNY]: 1.42, [AppCurrency.RUB]: 18.5
   }), []);
@@ -77,10 +148,7 @@ const [selectedFormType, setSelectedFormType] = useState<'open' | 'offmarket' | 
 
   window.addEventListener('keydown', handleKeyDown);
   return () => window.removeEventListener('keydown', handleKeyDown);
-}, [isLightboxOpen, activeImage, images]); // Adicionado activeImage e images aqui
-
-// Dentro do componente ProductDetails
-const [user, setUser] = useState<any>(null);
+}, [isLightboxOpen, activeImage, images]);
 
 useEffect(() => {
   const getUser = async () => {
@@ -89,9 +157,6 @@ useEffect(() => {
   };
   getUser();
 }, []);
-
-const [showFraudModal, setShowFraudModal] = useState(false);
-
 
   const formatNumber = (val: number, decimals = 2) => {
     if (val === undefined || val === null || isNaN(val)) return '0,00';
@@ -158,11 +223,6 @@ const text = `Confira este ativo em ${product.cidade} no ecossistema Prylom.`;
     }
   };
 
-  const handleDownloadPDF = () => {
-    window.print();
-  };
-
-
 useEffect(() => {
   if (images.length > 0) {
     images.forEach((img) => {
@@ -172,7 +232,6 @@ useEffect(() => {
       link.href = getFullImage(img.image_url);
       document.head.appendChild(link);
       
-      // Fallback para navegadores antigos
       const i = new Image();
       i.src = getFullImage(img.image_url);
     });
@@ -181,17 +240,14 @@ useEffect(() => {
 }, [images]);
 
 
-// Trava o scroll da tela de fundo quando o formulário abre
 useEffect(() => {
   if (selectedFormType) {
-    // Salva a posição atual do scroll e trava o body
     const scrollY = window.scrollY;
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = '100%';
     document.body.style.overflowY = 'hidden';
   } else {
-    // Quando fechar, remove as travas e volta para a posição onde estava
     const scrollY = document.body.style.top;
     document.body.style.position = '';
     document.body.style.top = '';
@@ -200,14 +256,12 @@ useEffect(() => {
     window.scrollTo(0, parseInt(scrollY || '0') * -1);
   }
 
-  // Cleanup para garantir que não trave o site se o componente for desmontado
   return () => {
     document.body.style.position = '';
     document.body.style.overflowY = '';
   };
 }, [selectedFormType]);
 
-  // PASSO 4: Navegação limpa (SEM ?v=)
   const handleNextImage = () => {
     if (images.length <= 1) return;
     const currentIndex = images.findIndex(
@@ -228,8 +282,6 @@ useEffect(() => {
 
   };
 
-  const [cityAverageHa, setCityAverageHa] = useState<number | null>(null);
-  const [stateAverageHa, setStateAverageHa] = useState<number | null>(null);
 const fetchRegionalAverages = async (cidade: string, estado: string, categoria: string) => {
   try {
     // 1. Busca todos os ativos do MESMO ESTADO
@@ -258,34 +310,12 @@ const fetchRegionalAverages = async (cidade: string, estado: string, categoria: 
     console.error("Erro ao calcular médias regionais:", err);
   }
 };
-const [showDataRoomModal, setShowDataRoomModal] = useState(false);
-
-const [showFraudForm, setShowFraudForm] = useState(false);
-const [fraudData, setFraudData] = 
-useState
-({ nome: '', 
-documento: '', 
-email: '', 
-telefone: '', 
-relacao: '', 
-motivo: '', 
-aceite: false });
-
 const farmEconomics = useMemo(() => {
   if (!product || product.categoria !== 'fazendas') return null;
-  
+
   const isLease = product.tipo_transacao === 'arrendamento';
   const areaTotal = spec?.area_total_ha || 1000;
-  const fatorAproveitamento = 0.68;
-  const areaUtil = spec?.area_lavoura_ha || (areaTotal * fatorAproveitamento);
-  const prodSoja = 59.8; 
-  const prodMilho = 87.4;
-
-// VARIÁVEIS PECUÁRIAS (Ajustadas para os novos campos)
-  const lotacaoUA = 2.5; // UA/ha
-  const producaoArrobaHaAno = 12.5;
-  const diasAno = 365;
-  const valorArrobaBoi = 315.00;
+  const areaUtil = spec?.area_lavoura_ha || (areaTotal * FARM_AREA_FATOR);
 
   // 1. DADOS DE ÍNDICES (SEMPRE RETORNADOS)
   const indicesData = {
@@ -295,61 +325,56 @@ const farmEconomics = useMemo(() => {
     relevo: { atual: spec?.topografia || '---', mediaEstado: spec?.media_relevo_estado || 'Plano/Ondulado' }
   };
 
-  // 2. SE FOR ARRENDAMENTO (LEASE)
   if (isLease) {
     const valorArrendamentoHa = product.valor || 1800;
     const custoTotalAnual = areaUtil * valorArrendamentoHa;
-    
     let receitaEstimada, ebitdaEstimado;
 
     if (economicsMode === 'agricola') {
-      receitaEstimada = (areaUtil * prodSoja * 135) + (areaUtil * prodMilho * 72);
-      ebitdaEstimado = receitaEstimada - custoTotalAnual - (areaUtil * 8000);
-    }else {
-receitaEstimada = (areaUtil * producaoArrobaHaAno) * valorArrobaBoi;
+      receitaEstimada = (areaUtil * FARM_PROD_SOJA_SC_HA * FARM_PRECO_SOJA_SC) + (areaUtil * FARM_PROD_MILHO_SC_HA * FARM_PRECO_MILHO_SC);
+      ebitdaEstimado = receitaEstimada - custoTotalAnual - (areaUtil * FARM_CUSTO_LEASE_OP_HA);
+    } else {
+      receitaEstimada = (areaUtil * PEC_PRODUCAO_ARROBA_HA) * PEC_VALOR_ARROBA_BRL;
       ebitdaEstimado = receitaEstimada - custoTotalAnual - (receitaEstimada * 0.35);
     }
 
-return { 
+    return {
       isLease: true, mode: economicsMode, areaAgri: areaUtil, receitaBruta: receitaEstimada, ebitda: ebitdaEstimado,
       lucroLiquido: ebitdaEstimado * 0.85, roiRange: { pessimista: 12, base: 18, otimista: 25 },
-      prodSoja, prodMilho, producaoCarne: producaoArrobaHaAno,
-      lotacao: lotacaoUA, indices: indicesData
+      prodSoja: FARM_PROD_SOJA_SC_HA, prodMilho: FARM_PROD_MILHO_SC_HA, producaoCarne: PEC_PRODUCAO_ARROBA_HA,
+      lotacao: PEC_LOTACAO_UA_HA, indices: indicesData
     };
-  } 
-  
-  // 3. SE FOR VENDA (PROPRIEDADE)
-  else {
+  } else {
     const valorAtivo = product.valor || 1;
     let receitaBruta, ebitda, lucroLiquido;
 
     if (economicsMode === 'agricola') {
-      const custoTotalOp = (areaUtil * 5800) + (areaUtil * 4400); 
-      receitaBruta = (areaUtil * prodSoja * 135) + (areaUtil * prodMilho * 72);
+      const custoTotalOp = areaUtil * (FARM_CUSTO_OP_SOJA_HA + FARM_CUSTO_OP_MILHO_HA);
+      receitaBruta = (areaUtil * FARM_PROD_SOJA_SC_HA * FARM_PRECO_SOJA_SC) + (areaUtil * FARM_PROD_MILHO_SC_HA * FARM_PRECO_MILHO_SC);
       ebitda = receitaBruta - custoTotalOp;
       lucroLiquido = ebitda - (receitaBruta * 0.07) - (ebitda * 0.10);
     } else {
-receitaBruta = (areaUtil * producaoArrobaHaAno) * valorArrobaBoi;
-      ebitda = receitaBruta * 0.42; 
+      receitaBruta = (areaUtil * PEC_PRODUCAO_ARROBA_HA) * PEC_VALOR_ARROBA_BRL;
+      ebitda = receitaBruta * 0.42;
       lucroLiquido = ebitda * 0.88;
     }
 
     const roiReal = (lucroLiquido / valorAtivo) * 100;
 
-    return { 
+    return {
       isLease: false,
       mode: economicsMode,
-      areaAgri: areaUtil, 
-      receitaBruta, 
+      areaAgri: areaUtil,
+      receitaBruta,
       ebitda,
-      lucroLiquido, 
+      lucroLiquido,
       roiReal,
       roiRange: { pessimista: roiReal * 0.9, base: roiReal, otimista: roiReal * 1.15 },
-      paybackReal: valorAtivo / (lucroLiquido || 1), 
+      paybackReal: valorAtivo / (lucroLiquido || 1),
       precoHa: valorAtivo / (areaTotal || 1),
-      prodSoja, prodMilho,
-producaoCarne: producaoArrobaHaAno,
-      lotacao: lotacaoUA,
+      prodSoja: FARM_PROD_SOJA_SC_HA, prodMilho: FARM_PROD_MILHO_SC_HA,
+      producaoCarne: PEC_PRODUCAO_ARROBA_HA,
+      lotacao: PEC_LOTACAO_UA_HA,
       indices: indicesData
     };
   }
@@ -398,41 +423,6 @@ producaoCarne: producaoArrobaHaAno,
     }
   }, [productId, lang]);
 
-const fetchWeather = async (cidade: string) => {
-  setLoading(true);
-  try {
-    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt&format=json`);
-    const geoData = await geoRes.json();
-
-    if (geoData.results && geoData.results.length > 0) {
-      const { latitude, longitude } = geoData.results[0];
-      
-      // ALTERAÇÃO: forecast_days=16 (Limite da API gratuita)
-      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=16`);      
-      
-      if (!weatherRes.ok) throw new Error("Erro na API de Clima");
-      
-      const weatherData = await weatherRes.json();
-      setWeather(weatherData);
-    }
-  } catch (error) {
-    console.error("Erro ao carregar clima:", error);
-  } finally {
-    setLoading(false);
-  }
-};
-  const [weather, setWeather] = useState<any>(null);
-  const [forecastDays, setForecastDays] = useState(7);
-  const getWeatherIcon = (code: number) => {
-  if (code === 0) return '☀️'; // Céu limpo
-  if (code <= 3) return '🌤️';  // Parcialmente nublado
-  if (code <= 48) return '☁️'; // Nevoeiro
-  if (code <= 67) return '🌧️'; // Chuva
-  if (code <= 77) return '❄️'; // Neve
-  if (code <= 82) return '🌦️'; // Pancadas de chuva
-  if (code <= 99) return '⛈️'; // Tempestade
-  return '☁️';
-};
 
 const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -449,32 +439,28 @@ const scroll = (direction: 'left' | 'right') => {
     try {
       const { data: baseData } = await supabase.from('produtos').select('*').eq('id', productId).single();
       if (!baseData) return;
-      const { data: specData } = await supabase.from(baseData.categoria).select('*, corretor:corretores(creci, nome)').eq('produto_id', productId).maybeSingle();
-      const { data: imgData } = await supabase.from('produtos_imagens').select('*').eq('produto_id', productId).order('ordem', { ascending: true });
-      const { data: audioData } = await supabase.from('produtos_audios').select('*').eq('produto_id', productId);
-      
+
+      // spec, imagens e audios são independentes — buscar em paralelo
+      const [specResult, imgResult, audioResult] = await Promise.all([
+        supabase.from(baseData.categoria).select('*, corretor:corretores(creci, nome)').eq('produto_id', productId).maybeSingle(),
+        supabase.from('produtos_imagens').select('*').eq('produto_id', productId).order('ordem', { ascending: true }),
+        supabase.from('produtos_audios').select('*').eq('produto_id', productId),
+      ]);
+
       setProduct(baseData);
-      setSpec(specData);
+      setSpec(specResult.data);
 
-      if (baseData.cidade) {
-      fetchWeather(baseData.cidade);
-    }
-
-    if (baseData.categoria === 'fazendas') {
-       fetchRegionalAverages(baseData.cidade, baseData.estado, baseData.categoria);
-    }
+      if (baseData.cidade) fetchWeather(baseData.cidade);
 
       if (baseData.categoria === 'fazendas') {
         fetchRegionalAverages(baseData.cidade, baseData.estado, baseData.categoria);
-}
-      if (imgData) {
-        setImages(imgData);
-        // Inicialização correta sem cache busting
-        if (imgData.length > 0) {
-          setActiveImage(imgData[0].image_url);
-        }
       }
-      if (audioData) setAvailableAudios(audioData);
+
+      if (imgResult.data) {
+        setImages(imgResult.data);
+        if (imgResult.data.length > 0) setActiveImage(imgResult.data[0].image_url);
+      }
+      if (audioResult.data) setAvailableAudios(audioResult.data);
       fetchRelatedProducts(baseData);
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
@@ -527,69 +513,36 @@ const fetchRelatedProducts = async (currentProd: any) => {
 
 
 
-const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
- 
 const handleDownloadPdf = async () => {
   try {
     setIsGeneratingPdf(true);
  
-    // ── PASSO 1 · IP público do usuário via ipify ─────────────────────────
-    let userIp = "Indisponível";
-    try {
-      const ipRes  = await fetch("https://api.ipify.org?format=json");
-      const ipData = await ipRes.json();
-      userIp = ipData.ip ?? "Indisponível";
-    } catch {
-      // IP não crítico — não bloqueia o download
-    }
- 
-    // ── PASSO 2 · Data e hora exata do download ───────────────────────────
+        // Data/hora do download
     const now         = new Date();
     const dateStr     = now.toLocaleDateString("pt-BR");
-    const timeStr     = now.toLocaleTimeString("pt-BR", {
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-    });
+    const timeStr     = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const dateTimeStr = `${dateStr} às ${timeStr}`;
- 
-    // ── PASSO 3 · Nome do usuário logado ──────────────────────────────────
-    const userName = user?.user_metadata?.full_name ?? user?.email ?? "Usuário Desconhecido";
- 
-    // ── PASSO 4 · CPF/CNPJ de profiles.cpf_cnpj ──────────────────────────
-    //  Join: profiles.id = auth.users.id (Supabase padrão)
+
+    // Hash único para rastreabilidade do dossiê
+    const dossieHash = crypto.randomUUID().toUpperCase();
+
+    // Registra via RPC atômica (busca cpf_cnpj + insere em dossie_logs server-side)
     let userCpfCnpj = "CPF/CNPJ não cadastrado";
     try {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("cpf_cnpj")
-        .eq("id", user?.id)
-        .single();
- 
-      if (!error && profile?.cpf_cnpj) {
-        userCpfCnpj = profile.cpf_cnpj;
-      }
-    } catch {
-      // Continua com fallback — não bloqueia
-    }
- 
-    // ── PASSO 5 · Hash UUID único para este dossiê ────────────────────────
-    const dossieHash = crypto.randomUUID().toUpperCase();
- 
-    // ── PASSO 6 · Registra em dossie_logs ────────────────────────────────
-    //  Se o PDF vazar: busque o hash na tabela e saberá quem, quando e de onde
-    try {
-      await supabase.from("dossie_logs").insert({
-        hash:        dossieHash,
-        user_id:     user?.id,
-        user_name:   userName,
-        cpf_cnpj:    userCpfCnpj,
-        ip:          userIp,
-        produto_id:  String(product?.id ?? ""),
-        produto_cod: product?.codigo ?? "",
+      const { data: logData } = await supabase.rpc("log_dossier_download", {
+        p_produto_id:  String(product?.id ?? ""),
+        p_produto_cod: product?.codigo ?? "",
+        p_dossie_hash: dossieHash,
       });
+      if (logData) userCpfCnpj = logData;
     } catch (logError) {
       console.warn("dossie_logs: falha ao registrar.", logError);
     }
- 
+
+    const userName = user?.user_metadata?.full_name || user?.email || 'Não identificado';
+    let userIp = 'N/D';
+    try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipJson = await ipRes.json(); userIp = ipJson.ip ?? 'N/D'; } catch { /* sem IP */ }
+
     // ── PASSO 7 · Imagens e URLs ──────────────────────────────────────────
     const primaryImageObj = images.find((img) => img.ordem === 1) || images[0];
     const imageUrl = primaryImageObj?.image_url
@@ -611,7 +564,7 @@ const handleDownloadPdf = async () => {
         style: "currency", currency: "BRL", maximumFractionDigits: 0,
       }).format(val || 0);
  
-    const fmtN = (val: number, dec = 1) =>
+    const fmtN = (val: number | undefined, dec = 1) =>
       new Intl.NumberFormat("pt-BR", { maximumFractionDigits: dec }).format(val || 0);
  
     const valorScHa: string | number =
@@ -690,60 +643,54 @@ const handleDownloadPdf = async () => {
           <div class="idx-card">
             <p class="idx-label">${item.label}</p>
             <div class="idx-row">
-              <span class="idx-city">${product.cidade ?? "--"}:</span>
+              <span class="idx-city">${sanitizeHtml(product.cidade) || "--"}:</span>
               <span class="idx-val">${item.val ?? "--"}</span>
             </div>
             <div class="idx-row idx-row--faded">
-              <span class="idx-city">Média ${product.estado ?? "--"}:</span>
+              <span class="idx-city">Média ${sanitizeHtml(product.estado) || "--"}:</span>
               <span class="idx-val">${item.media ?? "--"}</span>
             </div>
           </div>`).join("")}
       </div>` : "";
  
-    // ─────────────────────────────────────────────────────────────────────
-    // ── PASSO 11 · Paginação da descrição ────────────────────────────────
-    //
-    //  CORREÇÃO: limite reduzido de 2.800 → 1.850 caracteres por página
-    //  para evitar sobreposição do rodapé fixo com o conteúdo.
-    // ─────────────────────────────────────────────────────────────────────
- 
-    // [CORRIGIDO] Limite de 2800 → 1850 caracteres por página
-    const CHARS_PER_DESC_PAGE = 1_850;
- 
-    // Helper: ícone e tipo do ativo para o cabeçalho de continuação
+    const sUserName   = sanitizeHtml(userName);
+    const sUserIp     = sanitizeHtml(userIp);
+    const sCpfCnpj    = sanitizeHtml(userCpfCnpj);
+    const sCidade     = sanitizeHtml(product.cidade);
+    const sEstado     = sanitizeHtml(product.estado);
+    const sCodigo     = sanitizeHtml(product.codigo);
+    const sTitulo     = sanitizeHtml(product.titulo);
+    const sCultura    = sanitizeHtml(spec?.cultura);
+    const sSafra      = sanitizeHtml(spec?.safra);
+    const sFabricante = sanitizeHtml(spec?.fabricante);
+    const sModelo     = sanitizeHtml(spec?.modelo);
+    const sAptidao    = sanitizeHtml(spec?.aptidao);
+    const sArgila     = sanitizeHtml(spec?.teor_argila);
+    const sTopografia = sanitizeHtml(spec?.topografia);
+    const sPluvio     = sanitizeHtml(spec?.precipitacao_mm);
+    const sAltitude   = sanitizeHtml(spec?.altitude_m);
+    const sKmAsfalto  = spec?.km_asfalto ? sanitizeHtml(spec.km_asfalto) + " km" : "--";
+    const sReserva    = sanitizeHtml(spec?.reserva_legal);
+    const sPermuta    = sanitizeHtml(spec?.permuta);
+    const sQualidade  = sanitizeHtml(spec?.qualidade);
+    const sAno        = sanitizeHtml(spec?.ano);
+    const sHorasVoo   = sanitizeHtml(spec?.horas_voo);
+    const sRelevancia = sanitizeHtml(spec?.relevancia_anuncio);
+    const sCreci      = spec?.corretor?.creci ? sanitizeHtml(spec.corretor.creci) : null;
+
     const assetTitleContinuation = isGrain
-      ? `${spec?.cultura ?? "Soja"} – Grão Físico | Safra ${spec?.safra ?? "24/25"}`
-      : isPlane && spec?.fabricante
-      ? `${spec.fabricante} ${spec.modelo ?? ""}`
-      : product.titulo ?? "Dossiê do Ativo";
- 
+      ? `${sCultura || "Soja"} – Grão Físico | Safra ${sSafra || "24/25"}`
+      : isPlane && sFabricante
+      ? `${sFabricante} ${sModelo}`
+      : sTitulo || "Dossiê do Ativo";
+
     const assetTypeContinuation = isFarm
       ? (isLease ? "Arrendamento Agrícola" : "Fazenda à Venda")
       : isPlane   ? "Aeronave"
       : isMachine ? "Maquinário"
       : isGrain   ? "Grão Físico"
       : "Ativo Rural";
- 
-    // Função que divide o texto respeitando palavras inteiras
-    const splitTextIntoChunks = (text: string, maxChars: number): string[] => {
-      if (!text || text.length <= maxChars) return text ? [text] : [];
-      const chunks: string[] = [];
-      let remaining = text;
-      while (remaining.length > maxChars) {
-        // Tenta quebrar no último espaço/newline antes do limite
-        let cutAt = maxChars;
-        const lastSpace = remaining.lastIndexOf(" ", maxChars);
-        const lastNewline = remaining.lastIndexOf("\n", maxChars);
-        const bestCut = Math.max(lastSpace, lastNewline);
-        if (bestCut > maxChars * 0.7) cutAt = bestCut; // só usa se não for muito cedo
-        chunks.push(remaining.slice(0, cutAt).trimEnd());
-        remaining = remaining.slice(cutAt).trimStart();
-      }
-      if (remaining.length > 0) chunks.push(remaining);
-      return chunks;
-    };
- 
-    // Template reutilizável do cabeçalho de continuação
+
     const continuationHeaderHtml = `
       <div class="continuation-header">
         <div class="continuation-header__left">
@@ -752,56 +699,23 @@ const handleDownloadPdf = async () => {
           <div class="continuation-header__titles">
             <span class="continuation-header__asset">${assetTitleContinuation}</span>
             <span class="continuation-header__sub">
-              📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}
+              📍 ${sCidade || "--"} — ${sEstado || "--"}
               &nbsp;·&nbsp; ${assetTypeContinuation}
             </span>
           </div>
         </div>
         <div class="continuation-header__right">
           <span class="continuation-header__badge">📄 Continuação</span>
-          <span class="continuation-header__code">CÓD: ${product.codigo ?? "--"}</span>
+          <span class="continuation-header__code">CÓD: ${sCodigo || "--"}</span>
         </div>
       </div>`;
+
+    const descricaoPaginadaHtml = buildDescriptionPages(product.descricao, continuationHeaderHtml, {
+      title: "Descrição Comercial e Observações",
+      continued: "Descrição (continuação)",
+      note: "Informações declaratórias, fornecidas pelo originador.",
+    });
  
-    // Gera o HTML completo de todas as páginas de descrição
-    const descricaoPaginadaHtml = (() => {
-      if (!product.descricao) return "";
- 
-      const chunks = splitTextIntoChunks(product.descricao, CHARS_PER_DESC_PAGE);
-      const totalPages = chunks.length;
- 
-      return chunks.map((chunk, index) => {
-        const isFirst      = index === 0;
-        const pageLabel    = totalPages > 1
-          ? ` <span class="desc-page-counter">${index + 1}/${totalPages}</span>`
-          : "";
- 
-        // Primeira página da descrição: sempre força quebra de página
-        // Páginas seguintes: também forçam quebra + repetem cabeçalho
-        return `
-          <div class="page-break">
-            ${continuationHeaderHtml}
- 
-            <div class="desc-header">
-              <span class="desc-header-title">
-                📄 ${isFirst ? "Descrição Comercial e Observações" : "Descrição (continuação)"}
-                ${pageLabel}
-              </span>
-              <span class="desc-header-note">Informações declaratórias, fornecidas pelo originador.</span>
-            </div>
- 
-            <div class="desc-box ${isFirst ? "desc-box--first" : "desc-box--continuation"}">
-              ${isFirst ? `<span class="desc-open-quote">"</span>` : ""}
-              <p class="desc-text">${chunk}</p>
-              ${index === totalPages - 1 ? `<span class="desc-close-quote">"</span>` : ""}
-            </div>
-          </div>`;
-      }).join("\n");
-    })();
- 
-    // ─────────────────────────────────────────────────────────────────────
-    // ── HTML FINAL ────────────────────────────────────────────────────────
-    // ─────────────────────────────────────────────────────────────────────
     const htmlContent = `<!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -1232,12 +1146,12 @@ const handleDownloadPdf = async () => {
   -->
   <div class="watermark-security">
     <div class="watermark-security__inner">
-      <span class="wm-line">PRYLOM · CONFIDENCIAL</span><span class="wm-sep">·</span><span class="wm-line">DESTINATÁRIO: ${userName}</span><span class="wm-sep">·</span><span class="wm-line">CPF/CNPJ: ${userCpfCnpj}</span><span class="wm-sep">·</span><span class="wm-line">IP: ${userIp}</span><span class="wm-sep">·</span><span class="wm-line">${dateTimeStr}</span><span class="wm-sep">·</span><span class="wm-line">HASH: ${dossieHash}</span><span class="wm-sep">·</span><span class="wm-line">USO EXCLUSIVO DO DESTINATÁRIO</span>
+      <span class="wm-line">PRYLOM · CONFIDENCIAL</span><span class="wm-sep">·</span><span class="wm-line">DESTINATÁRIO: ${sUserName}</span><span class="wm-sep">·</span><span class="wm-line">CPF/CNPJ: ${sCpfCnpj}</span><span class="wm-sep">·</span><span class="wm-line">IP: ${sUserIp}</span><span class="wm-sep">·</span><span class="wm-line">${dateTimeStr}</span><span class="wm-sep">·</span><span class="wm-line">HASH: ${dossieHash}</span><span class="wm-sep">·</span><span class="wm-line">USO EXCLUSIVO DO DESTINATÁRIO</span>
     </div>
   </div>
- 
+
   <div class="sidebar">
-    Dossiê gerado para: ${userName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Protocolo de Segurança Prylom Asset Management © 2026
+    Dossiê gerado para: ${sUserName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Protocolo de Segurança Prylom Asset Management © 2026
   </div>
  
   <div class="page-header">
@@ -1257,14 +1171,14 @@ const handleDownloadPdf = async () => {
     <div class="page-footer__hash">
       <strong>RASTREIO:</strong> ${dossieHash}
       &nbsp;·&nbsp; ${dateTimeStr}
-      &nbsp;·&nbsp; IP: ${userIp}
-      &nbsp;·&nbsp; ${userName} · ${userCpfCnpj}
+      &nbsp;·&nbsp; IP: ${sUserIp}
+      &nbsp;·&nbsp; ${sUserName} · ${sCpfCnpj}
     </div>
- 
+
     <div class="page-footer__bottom">
       <div class="page-footer__meta">
-        Emitido exclusivamente para: <strong>${userName}</strong>
-        &nbsp;·&nbsp; CPF/CNPJ: <strong>${userCpfCnpj}</strong>
+        Emitido exclusivamente para: <strong>${sUserName}</strong>
+        &nbsp;·&nbsp; CPF/CNPJ: <strong>${sCpfCnpj}</strong>
         &nbsp;·&nbsp; ${dateTimeStr}
         &nbsp;·&nbsp; © 2026 Prylom Asset Management
       </div>
@@ -1291,7 +1205,7 @@ const handleDownloadPdf = async () => {
               : isGrain   ? "🌾 Grão Físico"
               : "Ativo Rural"}
           </span>
-          ${spec?.relevancia_anuncio ? `
+          ${sRelevancia ? `
             <span class="badge ${
               spec.relevancia_anuncio === "Prylom Selected" ? "badge-selected"
               : spec.relevancia_anuncio === "Prylom Verified" ? "badge-verified"
@@ -1299,22 +1213,22 @@ const handleDownloadPdf = async () => {
             }">
               ${spec.relevancia_anuncio === "Prylom Selected" ? "✦ "
                 : spec.relevancia_anuncio === "Prylom Verified" ? "✓ "
-                : ""}${spec.relevancia_anuncio}
+                : ""}${sRelevancia}
             </span>` : ""}
-          ${spec?.corretor?.creci
-            ? `<span class="badge badge-creci">🛡 Supervisão: CRECI ${spec.corretor.creci}</span>`
+          ${sCreci
+            ? `<span class="badge badge-creci">🛡 Supervisão: CRECI ${sCreci}</span>`
             : ""}
         </div>
-        <div class="location">📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}</div>
+        <div class="location">📍 ${sCidade || "--"} — ${sEstado || "--"}</div>
         <h1>${
           isGrain
-            ? `${spec?.cultura ?? "Soja"} – Grão Físico | Safra ${spec?.safra ?? "24/25"}`
-            : isPlane && spec?.fabricante
-            ? `${spec.fabricante} ${spec.modelo ?? ""}`
-            : product.titulo ?? "Dossiê do Ativo"
+            ? `${sCultura || "Soja"} – Grão Físico | Safra ${sSafra || "24/25"}`
+            : isPlane && sFabricante
+            ? `${sFabricante} ${sModelo}`
+            : sTitulo || "Dossiê do Ativo"
         }</h1>
         <div class="meta-row">
-          <span class="codigo-tag">Código: ${product.codigo ?? "--"}</span>
+          <span class="codigo-tag">Código: ${sCodigo || "--"}</span>
           <div class="status-row">
             <div class="dot ${product.status === "vendido" ? "dot-red" : "dot-green"}"></div>
             <span class="status-label">${
@@ -1350,7 +1264,7 @@ const handleDownloadPdf = async () => {
       </div>
     </div>
  
-    <img class="asset-img" src="${imageUrl}" alt="${product.titulo ?? "Ativo"}">
+    <img class="asset-img" src="${imageUrl}" alt="${sTitulo || "Ativo"}">
  
     ${economicsHtml}
     ${leaseTechHtml}
@@ -1365,31 +1279,32 @@ const handleDownloadPdf = async () => {
       ${isFarm ? `
         <div class="spec-box"><span class="s-lab">Área Total</span><span class="s-val">${fmtN(spec?.area_total_ha ?? 0, 2)} ha</span></div>
         <div class="spec-box"><span class="s-lab">Área Produtiva</span><span class="s-val">${fmtN(spec?.area_produtiva ?? 0, 2)} ha</span></div>
-        <div class="spec-box"><span class="s-lab">Aptidão</span><span class="s-val">${spec?.aptidao ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Argila</span><span class="s-val">${spec?.teor_argila ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Topografia</span><span class="s-val">${spec?.topografia ?? "Plana"}</span></div>
-        <div class="spec-box"><span class="s-lab">Pluviometria</span><span class="s-val">${spec?.precipitacao_mm ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Altitude</span><span class="s-val">${spec?.altitude_m ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Asfalto / Cidade</span><span class="s-val">${spec?.km_asfalto ? spec.km_asfalto + " km" : "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Reserva Legal</span><span class="s-val">${spec?.reserva_legal ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Estuda Permuta</span><span class="s-val">${spec?.permuta ?? "Não"}</span></div>`
+        <div class="spec-box"><span class="s-lab">Aptidão</span><span class="s-val">${sAptidao || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Argila</span><span class="s-val">${sArgila || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Topografia</span><span class="s-val">${sTopografia || "Plana"}</span></div>
+        <div class="spec-box"><span class="s-lab">Pluviometria</span><span class="s-val">${sPluvio || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Altitude</span><span class="s-val">${sAltitude || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Asfalto / Cidade</span><span class="s-val">${sKmAsfalto}</span></div>
+        <div class="spec-box"><span class="s-lab">Reserva Legal</span><span class="s-val">${sReserva || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Estuda Permuta</span><span class="s-val">${sPermuta || "Não"}</span></div>`
       : isPlane ? `
-        <div class="spec-box"><span class="s-lab">Fabricante</span><span class="s-val">${spec?.fabricante ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Modelo</span><span class="s-val">${spec?.modelo ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Ano</span><span class="s-val">${spec?.ano ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">TTAF</span><span class="s-val">${spec?.horas_voo ?? "--"} h</span></div>
+        <div class="spec-box"><span class="s-lab">Fabricante</span><span class="s-val">${sFabricante || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Modelo</span><span class="s-val">${sModelo || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Ano</span><span class="s-val">${sAno || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">TTAF</span><span class="s-val">${sHorasVoo || "--"} h</span></div>
         <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
       : isGrain ? `
-        <div class="spec-box"><span class="s-lab">Cultura</span><span class="s-val">${spec?.cultura ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Safra</span><span class="s-val">${spec?.safra ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Cultura</span><span class="s-val">${sCultura || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Safra</span><span class="s-val">${sSafra || "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Volume</span><span class="s-val">${fmtN(spec?.estoque_toneladas ?? 0, 0)} t</span></div>
-        <div class="spec-box"><span class="s-lab">Qualidade</span><span class="s-val">${spec?.qualidade ?? "Exportação"}</span></div>
+        <div class="spec-box"><span class="s-lab">Qualidade</span><span class="s-val">${sQualidade || "Exportação"}</span></div>
         <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
       : `<div class="spec-box"><span class="s-val" style="opacity:.4">Dados sob consulta.</span></div>`}
     </div>
- 
+
     ${descricaoPaginadaHtml}
- 
+
+
   </div>
 </body>
 </html>`;
@@ -1428,69 +1343,36 @@ const handleDownloadPdf = async () => {
   }
 };
 
-const [isGeneratingPdfEn, setIsGeneratingPdfEn] = useState(false);
- 
 const handleDownloadPdfEn = async () => {
   try {
     setIsGeneratingPdfEn(true);
  
-    // ── STEP 1 · User public IP via ipify ────────────────────────────────
-    let userIp = "Unavailable";
-    try {
-      const ipRes  = await fetch("https://api.ipify.org?format=json");
-      const ipData = await ipRes.json();
-      userIp = ipData.ip ?? "Unavailable";
-    } catch {
-      // Non-critical — does not block download
-    }
- 
-    // ── STEP 2 · Exact download timestamp (en-US) ────────────────────────
+        // Data/hora do download
     const now         = new Date();
-    const dateStr     = now.toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
-    });
-    const timeStr     = now.toLocaleTimeString("en-US", {
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-    });
+    const dateStr     = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const timeStr     = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const dateTimeStr = `${dateStr} at ${timeStr}`;
- 
-    // ── STEP 3 · Logged-in user name ─────────────────────────────────────
-    const userName = user?.user_metadata?.full_name ?? user?.email ?? "Unknown User";
- 
-    // ── STEP 4 · CPF/CNPJ from profiles ─────────────────────────────────
-    let userCpfCnpj = "Tax ID not registered";
-    try {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("cpf_cnpj")
-        .eq("id", user?.id)
-        .single();
-      if (!error && profile?.cpf_cnpj) {
-        userCpfCnpj = profile.cpf_cnpj;
-      }
-    } catch {
-      // Continues with fallback — does not block
-    }
- 
-    // ── STEP 5 · Unique UUID hash for this dossier ───────────────────────
+
+    // Unique hash for dossier traceability
     const dossieHash = crypto.randomUUID().toUpperCase();
- 
-    // ── STEP 6 · Log in dossie_logs ──────────────────────────────────────
+
+    // Log download via atomic RPC (fetches cpf_cnpj + inserts into dossie_logs server-side)
+    let userCpfCnpj = "CPF/CNPJ not registered";
     try {
-      await supabase.from("dossie_logs").insert({
-        hash:        dossieHash,
-        user_id:     user?.id,
-        user_name:   userName,
-        cpf_cnpj:    userCpfCnpj,
-        ip:          userIp,
-        produto_id:  String(product?.id ?? ""),
-        produto_cod: product?.codigo ?? "",
-        lang:        "en",
+      const { data: logData } = await supabase.rpc("log_dossier_download", {
+        p_produto_id:  String(product?.id ?? ""),
+        p_produto_cod: product?.codigo ?? "",
+        p_dossie_hash: dossieHash,
       });
+      if (logData) userCpfCnpj = logData;
     } catch (logError) {
       console.warn("dossie_logs: failed to register.", logError);
     }
- 
+
+    const userName = user?.user_metadata?.full_name || user?.email || 'Not identified';
+    let userIp = 'N/A';
+    try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipJson = await ipRes.json(); userIp = ipJson.ip ?? 'N/A'; } catch { /* no IP */ }
+
     // ── STEP 7 · Images & URLs ───────────────────────────────────────────
     const primaryImageObj = images.find((img) => img.ordem === 1) || images[0];
     const imageUrl = primaryImageObj?.image_url
@@ -1529,7 +1411,7 @@ const handleDownloadPdfEn = async () => {
         style: "currency", currency: "BRL", maximumFractionDigits: 0,
       }).format(val || 0);
  
-    const fmtN = (val: number, dec = 1) =>
+    const fmtN = (val: number | undefined, dec = 1) =>
       new Intl.NumberFormat("en-US", { maximumFractionDigits: dec }).format(val || 0);
  
     const valorScHa: string | number =
@@ -1612,49 +1494,55 @@ const handleDownloadPdfEn = async () => {
           <div class="idx-card">
             <p class="idx-label">${item.label}</p>
             <div class="idx-row">
-              <span class="idx-city">${product.cidade ?? "--"}:</span>
+              <span class="idx-city">${sanitizeHtml(product.cidade) || "--"}:</span>
               <span class="idx-val">${item.val ?? "--"}</span>
             </div>
             <div class="idx-row idx-row--faded">
-              <span class="idx-city">State avg. (${product.estado ?? "--"}):</span>
+              <span class="idx-city">State avg. (${sanitizeHtml(product.estado) || "--"}):</span>
               <span class="idx-val">${item.media ?? "--"}</span>
             </div>
           </div>`).join("")}
       </div>` : "";
  
-    // ── STEP 13 · Description pagination ─────────────────────────────────
-    const CHARS_PER_DESC_PAGE = 1_850;
- 
+    const sUserName   = sanitizeHtml(userName);
+    const sUserIp     = sanitizeHtml(userIp);
+    const sCpfCnpj    = sanitizeHtml(userCpfCnpj);
+    const sCidade     = sanitizeHtml(product.cidade);
+    const sEstado     = sanitizeHtml(product.estado);
+    const sCodigo     = sanitizeHtml(product.codigo);
+    const sTitulo     = sanitizeHtml(product.titulo);
+    const sTitleEn    = sanitizeHtml(titleEn);
+    const sCultura    = sanitizeHtml(spec?.cultura);
+    const sSafra      = sanitizeHtml(spec?.safra);
+    const sFabricante = sanitizeHtml(spec?.fabricante);
+    const sModelo     = sanitizeHtml(spec?.modelo);
+    const sAptidao    = sanitizeHtml(spec?.aptidao);
+    const sArgila     = sanitizeHtml(spec?.teor_argila);
+    const sTopografia = sanitizeHtml(spec?.topografia);
+    const sPluvio     = sanitizeHtml(spec?.precipitacao_mm);
+    const sAltitude   = sanitizeHtml(spec?.altitude_m);
+    const sKmAsfalto  = spec?.km_asfalto ? sanitizeHtml(spec.km_asfalto) + " km" : "--";
+    const sReserva    = sanitizeHtml(spec?.reserva_legal);
+    const sPermuta    = sanitizeHtml(spec?.permuta);
+    const sQualidade  = sanitizeHtml(spec?.qualidade);
+    const sAno        = sanitizeHtml(spec?.ano);
+    const sHorasVoo   = sanitizeHtml(spec?.horas_voo);
+    const sRelevancia = sanitizeHtml(spec?.relevancia_anuncio);
+    const sCreci      = spec?.corretor?.creci ? sanitizeHtml(spec.corretor.creci) : null;
+
     const assetTitleContinuation = isGrain
-      ? `${spec?.cultura ?? "Soybean"} – Physical Grain | Crop ${spec?.safra ?? "24/25"}`
-      : isPlane && spec?.fabricante
-      ? `${spec.fabricante} ${spec.modelo ?? ""}`
-      : titleEn;
- 
+      ? `${sCultura || "Soybean"} – Physical Grain | Crop ${sSafra || "24/25"}`
+      : isPlane && sFabricante
+      ? `${sFabricante} ${sModelo}`
+      : sTitleEn;
+
     const assetTypeContinuation = isFarm
       ? (isLease ? "Agricultural Lease" : "Farm for Sale")
       : isPlane   ? "Aircraft"
       : isMachine ? "Machinery"
       : isGrain   ? "Physical Grain"
       : "Rural Asset";
- 
-    const splitTextIntoChunks = (text: string, maxChars: number): string[] => {
-      if (!text || text.length <= maxChars) return text ? [text] : [];
-      const chunks: string[] = [];
-      let remaining = text;
-      while (remaining.length > maxChars) {
-        let cutAt = maxChars;
-        const lastSpace   = remaining.lastIndexOf(" ", maxChars);
-        const lastNewline = remaining.lastIndexOf("\n", maxChars);
-        const bestCut     = Math.max(lastSpace, lastNewline);
-        if (bestCut > maxChars * 0.7) cutAt = bestCut;
-        chunks.push(remaining.slice(0, cutAt).trimEnd());
-        remaining = remaining.slice(cutAt).trimStart();
-      }
-      if (remaining.length > 0) chunks.push(remaining);
-      return chunks;
-    };
- 
+
     const continuationHeaderHtml = `
       <div class="continuation-header">
         <div class="continuation-header__left">
@@ -1663,46 +1551,22 @@ const handleDownloadPdfEn = async () => {
           <div class="continuation-header__titles">
             <span class="continuation-header__asset">${assetTitleContinuation}</span>
             <span class="continuation-header__sub">
-              📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}
+              📍 ${sCidade || "--"} — ${sEstado || "--"}
               &nbsp;·&nbsp; ${assetTypeContinuation}
             </span>
           </div>
         </div>
         <div class="continuation-header__right">
           <span class="continuation-header__badge">📄 Continued</span>
-          <span class="continuation-header__code">CODE: ${product.codigo ?? "--"}</span>
+          <span class="continuation-header__code">CODE: ${sCodigo || "--"}</span>
         </div>
       </div>`;
- 
-    const descricaoPaginadaHtml = (() => {
-      if (!descricaoEn) return "";
-      const chunks     = splitTextIntoChunks(descricaoEn, CHARS_PER_DESC_PAGE);
-      const totalPages = chunks.length;
- 
-      return chunks.map((chunk, index) => {
-        const isFirst   = index === 0;
-        const pageLabel = totalPages > 1
-          ? ` <span class="desc-page-counter">${index + 1}/${totalPages}</span>`
-          : "";
- 
-        return `
-          <div class="page-break">
-            ${continuationHeaderHtml}
-            <div class="desc-header">
-              <span class="desc-header-title">
-                📄 ${isFirst ? "Commercial Description & Remarks" : "Description (continued)"}
-                ${pageLabel}
-              </span>
-              <span class="desc-header-note">Declaratory information provided by the originator.</span>
-            </div>
-            <div class="desc-box ${isFirst ? "desc-box--first" : "desc-box--continuation"}">
-              ${isFirst ? `<span class="desc-open-quote">"</span>` : ""}
-              <p class="desc-text">${chunk}</p>
-              ${index === totalPages - 1 ? `<span class="desc-close-quote">"</span>` : ""}
-            </div>
-          </div>`;
-      }).join("\n");
-    })();
+
+    const descricaoPaginadaHtml = buildDescriptionPages(descricaoEn, continuationHeaderHtml, {
+      title: "Commercial Description & Remarks",
+      continued: "Description (continued)",
+      note: "Declaratory information provided by the originator.",
+    });
  
     // ── STEP 14 · Final HTML ──────────────────────────────────────────────
     const htmlContent = `<!DOCTYPE html>
@@ -2070,12 +1934,12 @@ const handleDownloadPdfEn = async () => {
  
   <div class="watermark-security">
     <div class="watermark-security__inner">
-      <span class="wm-line">PRYLOM · CONFIDENTIAL</span><span class="wm-sep">·</span><span class="wm-line">RECIPIENT: ${userName}</span><span class="wm-sep">·</span><span class="wm-line">TAX ID: ${userCpfCnpj}</span><span class="wm-sep">·</span><span class="wm-line">IP: ${userIp}</span><span class="wm-sep">·</span><span class="wm-line">${dateTimeStr}</span><span class="wm-sep">·</span><span class="wm-line">HASH: ${dossieHash}</span><span class="wm-sep">·</span><span class="wm-line">FOR RECIPIENT USE ONLY</span>
+      <span class="wm-line">PRYLOM · CONFIDENTIAL</span><span class="wm-sep">·</span><span class="wm-line">RECIPIENT: ${sUserName}</span><span class="wm-sep">·</span><span class="wm-line">TAX ID: ${sCpfCnpj}</span><span class="wm-sep">·</span><span class="wm-line">IP: ${sUserIp}</span><span class="wm-sep">·</span><span class="wm-line">${dateTimeStr}</span><span class="wm-sep">·</span><span class="wm-line">HASH: ${dossieHash}</span><span class="wm-sep">·</span><span class="wm-line">FOR RECIPIENT USE ONLY</span>
     </div>
   </div>
- 
+
   <div class="sidebar">
-    Dossier issued to: ${userName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Prylom Asset Management Security Protocol © 2026
+    Dossier issued to: ${sUserName} &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; Prylom Asset Management Security Protocol © 2026
   </div>
  
   <div class="page-header">
@@ -2095,14 +1959,14 @@ const handleDownloadPdfEn = async () => {
     <div class="page-footer__hash">
       <strong>TRACKING:</strong> ${dossieHash}
       &nbsp;·&nbsp; ${dateTimeStr}
-      &nbsp;·&nbsp; IP: ${userIp}
-      &nbsp;·&nbsp; ${userName} · ${userCpfCnpj}
+      &nbsp;·&nbsp; IP: ${sUserIp}
+      &nbsp;·&nbsp; ${sUserName} · ${sCpfCnpj}
     </div>
- 
+
     <div class="page-footer__bottom">
       <div class="page-footer__meta">
-        Issued exclusively to: <strong>${userName}</strong>
-        &nbsp;·&nbsp; Tax ID: <strong>${userCpfCnpj}</strong>
+        Issued exclusively to: <strong>${sUserName}</strong>
+        &nbsp;·&nbsp; Tax ID: <strong>${sCpfCnpj}</strong>
         &nbsp;·&nbsp; ${dateTimeStr}
         &nbsp;·&nbsp; © 2026 Prylom Asset Management
       </div>
@@ -2129,7 +1993,7 @@ const handleDownloadPdfEn = async () => {
               : isGrain   ? "🌾 Physical Grain"
               : "Rural Asset"}
           </span>
-          ${spec?.relevancia_anuncio ? `
+          ${sRelevancia ? `
             <span class="badge ${
               spec.relevancia_anuncio === "Prylom Selected" ? "badge-selected"
               : spec.relevancia_anuncio === "Prylom Verified" ? "badge-verified"
@@ -2137,22 +2001,22 @@ const handleDownloadPdfEn = async () => {
             }">
               ${spec.relevancia_anuncio === "Prylom Selected" ? "✦ "
                 : spec.relevancia_anuncio === "Prylom Verified" ? "✓ "
-                : ""}${spec.relevancia_anuncio}
+                : ""}${sRelevancia}
             </span>` : ""}
-          ${spec?.corretor?.creci
-            ? `<span class="badge badge-creci">🛡 Oversight: CRECI ${spec.corretor.creci}</span>`
+          ${sCreci
+            ? `<span class="badge badge-creci">🛡 Oversight: CRECI ${sCreci}</span>`
             : ""}
         </div>
-        <div class="location">📍 ${product.cidade ?? "--"} — ${product.estado ?? "--"}, Brazil</div>
+        <div class="location">📍 ${sCidade || "--"} — ${sEstado || "--"}, Brazil</div>
         <h1>${
           isGrain
-            ? `${spec?.cultura ?? "Soybean"} – Physical Grain | Crop ${spec?.safra ?? "24/25"}`
-            : isPlane && spec?.fabricante
-            ? `${spec.fabricante} ${spec.modelo ?? ""}`
-            : titleEn
+            ? `${sCultura || "Soybean"} – Physical Grain | Crop ${sSafra || "24/25"}`
+            : isPlane && sFabricante
+            ? `${sFabricante} ${sModelo}`
+            : sTitleEn
         }</h1>
         <div class="meta-row">
-          <span class="codigo-tag">Code: ${product.codigo ?? "--"}</span>
+          <span class="codigo-tag">Code: ${sCodigo || "--"}</span>
           <div class="status-row">
             <div class="dot ${product.status === "vendido" ? "dot-red" : "dot-green"}"></div>
             <span class="status-label">${
@@ -2188,7 +2052,7 @@ const handleDownloadPdfEn = async () => {
       </div>
     </div>
  
-    <img class="asset-img" src="${imageUrl}" alt="${titleEn}">
+    <img class="asset-img" src="${imageUrl}" alt="${sTitleEn}">
  
     ${economicsHtml}
     ${leaseTechHtml}
@@ -2203,25 +2067,25 @@ const handleDownloadPdfEn = async () => {
       ${isFarm ? `
         <div class="spec-box"><span class="s-lab">Total Area</span><span class="s-val">${fmtN(spec?.area_total_ha ?? 0, 2)} ha</span></div>
         <div class="spec-box"><span class="s-lab">Productive Area</span><span class="s-val">${fmtN(spec?.area_produtiva ?? 0, 2)} ha</span></div>
-        <div class="spec-box"><span class="s-lab">Land Use</span><span class="s-val">${spec?.aptidao ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Clay Content</span><span class="s-val">${spec?.teor_argila ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Topography</span><span class="s-val">${spec?.topografia ?? "Flat"}</span></div>
-        <div class="spec-box"><span class="s-lab">Rainfall</span><span class="s-val">${spec?.precipitacao_mm ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Altitude</span><span class="s-val">${spec?.altitude_m ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Paved Road / City</span><span class="s-val">${spec?.km_asfalto ? spec.km_asfalto + " km" : "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Legal Reserve</span><span class="s-val">${spec?.reserva_legal ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Open to Exchange</span><span class="s-val">${spec?.permuta === "Sim" ? "Yes" : spec?.permuta === "Não" ? "No" : spec?.permuta ?? "No"}</span></div>`
+        <div class="spec-box"><span class="s-lab">Land Use</span><span class="s-val">${sAptidao || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Clay Content</span><span class="s-val">${sArgila || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Topography</span><span class="s-val">${sTopografia || "Flat"}</span></div>
+        <div class="spec-box"><span class="s-lab">Rainfall</span><span class="s-val">${sPluvio || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Altitude</span><span class="s-val">${sAltitude || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Paved Road / City</span><span class="s-val">${sKmAsfalto}</span></div>
+        <div class="spec-box"><span class="s-lab">Legal Reserve</span><span class="s-val">${sReserva || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Open to Exchange</span><span class="s-val">${spec?.permuta === "Sim" ? "Yes" : spec?.permuta === "Não" ? "No" : sPermuta || "No"}</span></div>`
       : isPlane ? `
-        <div class="spec-box"><span class="s-lab">Manufacturer</span><span class="s-val">${spec?.fabricante ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Model</span><span class="s-val">${spec?.modelo ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Year</span><span class="s-val">${spec?.ano ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">TTAF</span><span class="s-val">${spec?.horas_voo ?? "--"} h</span></div>
+        <div class="spec-box"><span class="s-lab">Manufacturer</span><span class="s-val">${sFabricante || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Model</span><span class="s-val">${sModelo || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Year</span><span class="s-val">${sAno || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">TTAF</span><span class="s-val">${sHorasVoo || "--"} h</span></div>
         <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
       : isGrain ? `
-        <div class="spec-box"><span class="s-lab">Crop</span><span class="s-val">${spec?.cultura ?? "--"}</span></div>
-        <div class="spec-box"><span class="s-lab">Season</span><span class="s-val">${spec?.safra ?? "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Crop</span><span class="s-val">${sCultura || "--"}</span></div>
+        <div class="spec-box"><span class="s-lab">Season</span><span class="s-val">${sSafra || "--"}</span></div>
         <div class="spec-box"><span class="s-lab">Volume</span><span class="s-val">${fmtN(spec?.estoque_toneladas ?? 0, 0)} t</span></div>
-        <div class="spec-box"><span class="s-lab">Quality</span><span class="s-val">${spec?.qualidade ?? "Export Grade"}</span></div>
+        <div class="spec-box"><span class="s-lab">Quality</span><span class="s-val">${sQualidade || "Export Grade"}</span></div>
         <div class="spec-box"><span class="s-lab">—</span><span class="s-val">—</span></div>`
       : `<div class="spec-box"><span class="s-val" style="opacity:.4">Data available upon request.</span></div>`}
     </div>
@@ -3415,7 +3279,7 @@ const handleDownloadPdfEn = async () => {
   </div>
   
   <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-2 no-scrollbar scroll-smooth snap-x"> {/* Reduzido pb-4 para pb-2 */}
-    {weather.daily?.time.slice(1, forecastDays + 1).map((date, index) => {
+    {weather.daily?.time.slice(1, forecastDays + 1).map((date: string, index: number) => {
       const dataObj = new Date(date + 'T00:00:00');
       return (
         <div key={date} className="min-w-[130px] snap-start bg-gray-50/50 p-3 rounded-lg border border-gray-100 flex flex-col items-start hover:border-[#bba219] transition-all"> {/* Reduzido p-4 para p-3 */}
@@ -3481,7 +3345,7 @@ const handleDownloadPdfEn = async () => {
     <button 
       onClick={() => {
         setSelectedFormType('open');
-        setShowSelectionModal(false); // <--- FECHA O MODAL DE SELEÇÃO
+        setShowSelectionModal(false);
       }}
       className="w-full bg-[#607D8B] hover:bg-[#2c5363] text-white py-5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all mt-auto shadow-lg"
     >
@@ -3501,7 +3365,7 @@ const handleDownloadPdfEn = async () => {
     <button 
       onClick={() => {
         setSelectedFormType('offmarket');
-        setShowSelectionModal(false); // <--- FECHA O MODAL DE SELEÇÃO
+        setShowSelectionModal(false);
       }}
       className="w-full bg-[#607D8B] hover:bg-[#2c5363] text-white py-5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all mt-auto shadow-lg"
     >
@@ -3520,7 +3384,7 @@ const handleDownloadPdfEn = async () => {
     <button 
       onClick={() => {
         setSelectedFormType('selected');
-        setShowSelectionModal(false); // <--- FECHA O MODAL DE SELEÇÃO
+        setShowSelectionModal(false);
       }}
       className="w-full bg-[#2c5363] hover:bg-prylom-dark text-prylom-gold py-5 rounded-full text-[11px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all mt-auto shadow-xl"
     >

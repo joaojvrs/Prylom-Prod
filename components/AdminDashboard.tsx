@@ -101,7 +101,8 @@ const fetchVendaCarLeads = async () => {
       .from('rural_consultas_historico')
       .select('*')
       .eq('intencao', 'vender')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (error) { console.error('[VendaCAR] fetch error:', error.message); return; }
     if (!data || data.length === 0) { setVendaCarLeads([]); return; }
@@ -155,11 +156,12 @@ const fetchProdutosCadastrados = async () => {
   }
 };
 
-// Chame no useEffect inicial
+// Único useEffect de inicialização — consolida todas as cargas iniciais
 useEffect(() => {
   fetchAssets();
   fetchCorretores();
-  fetchProdutosCadastrados(); // Nova chamada
+  fetchCorretoresList();
+  fetchProdutosCadastrados();
 }, []);
 
 const [showViewCadastrado, setShowViewCadastrado] = useState(false);
@@ -347,26 +349,23 @@ const argila = asset.fazendas?.teor_argila ? Number(asset.fazendas.teor_argila) 
     return `${getSymbol()} ${converted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  useEffect(() => {
-    fetchAssets();
-  }, []);
-
 const fetchAssets = async () => {
   setLoading(true);
   try {
     const { data, error } = await supabase
       .from('produtos')
       .select(`
-        *, 
-        arrendamentos(*), 
-        produtos_imagens(image_url, ordem), 
+        *,
+        arrendamentos(*),
+        produtos_imagens(image_url, ordem),
         fazendas(
           *,
-          corretores(*) 
+          corretores(*)
         ),
         documentos_fazenda(*)
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     // DEBUG: Se der erro, vamos ver o objeto de erro completo
     if (error) {
@@ -422,6 +421,14 @@ const generateShareLink = async () => {
   setShareLoadingId(shareTargetProduct.id);
   const option = expiryOptions.find(o => o.value === shareExpiry)!;
   const expiresAt = new Date(Date.now() + option.minutes * 60 * 1000).toISOString();
+  // Revoga tokens anteriores para o mesmo email/produto antes de criar novo
+  await supabase
+    .from('share_tokens')
+    .update({ revogado: true })
+    .eq('produto_id', shareTargetProduct.id)
+    .eq('email', shareRecipientEmail.trim())
+    .eq('revogado', false);
+
   const { error } = await supabase
     .from('share_tokens')
     .insert({
@@ -430,7 +437,9 @@ const generateShareLink = async () => {
       recipient_name: shareRecipientName.trim(),
       phone: shareRecipientPhone.trim(),
       email: shareRecipientEmail.trim(),
-    });
+    })
+    .select('id')
+    .single();
   if (!error) {
     await fetchShareLinks(shareTargetProduct.id);
     setShareRecipientName('');
@@ -441,7 +450,13 @@ const generateShareLink = async () => {
 };
 
 const revokeShareLink = async (tokenId: string, produtoId: string) => {
-  await supabase.from('share_tokens').update({ revogado: true }).eq('id', tokenId);
+  const { error: rErr } = await supabase
+    .from('share_tokens')
+    .update({ revogado: true })
+    .eq('id', tokenId)
+    .select('id')
+    .single();
+  if (rErr) console.error('[revokeShareLink] falha:', rErr.message);
   await fetchShareLinks(produtoId);
 };
 
@@ -488,14 +503,20 @@ const handleEdit = async (asset: Product) => {
   });
 
   try {
-    // 1. DADOS TÉCNICOS
-    const { data: specData, error: specError } = await supabase
-      .from(asset.categoria as string)
-      .select('*')
-      .eq('produto_id', asset.id)
-      .maybeSingle();
+    const CATEGORY_TABLES: Record<string, boolean> = {
+      fazendas: true, maquinas: true, avioes: true, graos: true, arrendamentos: true
+    };
+    if (!CATEGORY_TABLES[asset.categoria as string]) {
+      throw new Error('Categoria invalida: ' + asset.categoria);
+    }
 
-    if (specData) {
+    const [specResult, imgResult] = await Promise.all([
+      supabase.from(asset.categoria as string).select('*').eq('produto_id', asset.id).maybeSingle(),
+      supabase.from('produtos_imagens').select('image_url').eq('produto_id', asset.id).order('ordem', { ascending: true }),
+    ]);
+
+    if (specResult.data) {
+      const specData = specResult.data;
       if (specData.portal_parceiro && typeof specData.portal_parceiro === 'string') {
         specData.portal_parceiro = JSON.parse(specData.portal_parceiro);
       }
@@ -503,18 +524,10 @@ const handleEdit = async (asset: Product) => {
       setDadosEspecificos(onlyFields);
     }
 
-    // 2. IMAGENS
-    const { data: imgData } = await supabase
-      .from('produtos_imagens')
-      .select('image_url')
-      .eq('produto_id', asset.id)
-      .order('ordem', { ascending: true });
-    
-    if (imgData) {
-      setSelectedImages(imgData.map(img => ({ url: img.image_url, isExisting: true })));
+    if (imgResult.data) {
+      setSelectedImages(imgResult.data.map((img: any) => ({ url: img.image_url, isExisting: true })));
     }
 
-    // 3. DOCUMENTOS (FAZENDAS) - CORREÇÃO AQUI
     if (asset.categoria === 'fazendas') {
       const { data: docData } = await supabase
         .from('documentos_fazenda')
@@ -674,16 +687,12 @@ if (error) throw error;
         }
       }
 
-      // Salvar imagens na tabela produtos_imagens
-      await supabase.from('produtos_imagens').delete().eq('produto_id', produtoId);
-      if (imageUrlsToSave.length > 0) {
-        const validImages = imageUrlsToSave.map((url, idx) => ({
-          produto_id: produtoId,
-          image_url: url,
-          ordem: idx + 1
-        }));
-        await supabase.from('produtos_imagens').insert(validImages);
-      }
+      // Salvar imagens atomicamente via RPC (delete+insert em uma única transação)
+      const { error: imgError } = await supabase.rpc('upsert_produto_imagens', {
+        p_produto_id: produtoId,
+        p_urls: imageUrlsToSave
+      });
+      if (imgError) throw imgError;
 
       // ✅ 3. NOVO: Upload de DOCUMENTOS DA FAZENDA
 // ✅ 3. Upload de DOCUMENTOS (Consolidado: Autorização + Gerais)
@@ -716,17 +725,17 @@ if (newAsset.categoria === 'fazendas') {
     }
   }
 
-  // C. Salvar tudo na tabela documentos_fazenda
-  await supabase.from('documentos_fazenda').delete().eq('produto_id', produtoId);
-  if (allDocsToSave.length > 0) {
-    const finalPayload = allDocsToSave.map((d, idx) => ({
-      produto_id: produtoId,
-      documento_url: d.url,
-      ordem: idx + 1,
-      autorizacao: d.isAuth // Grava 1 para autorização, 0 para o resto
-    }));
-    await supabase.from('documentos_fazenda').insert(finalPayload);
-  }
+  // C. Salvar tudo atomicamente via RPC (delete+insert em uma única transação)
+  const docsPayload = allDocsToSave.map((d, idx) => ({
+    url: d.url,
+    autorizacao: d.isAuth,
+    ordem: idx + 1
+  }));
+  const { error: docError } = await supabase.rpc('upsert_produto_documentos', {
+    p_produto_id: produtoId,
+    p_docs: docsPayload
+  });
+  if (docError) throw docError;
 }
     }
 
@@ -1062,12 +1071,6 @@ const [newCorretor, setNewCorretor] = useState({
   cargo: '',
   descricao:''
 });
-// Adicione dentro do useEffect que já existe ou crie um novo
-useEffect(() => {
-  fetchAssets();
-  fetchCorretores();
-  fetchCorretoresList();
-}, []);
 
 const fetchCorretores = async () => {
   const { data, error } = await supabase
