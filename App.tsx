@@ -21,6 +21,7 @@ import { translations } from './translations';
 import DataRoomModal from './components/DataRoomModal';
 import SharePage from './components/SharePage';
 import UserProfile from './components/UserProfile';
+import { AuthContext } from './contexts/AuthContext';
 
 // AdminDashboard carregado apenas quando a rota /admin é acessada,
 // mantendo o código admin fora do bundle público.
@@ -202,6 +203,7 @@ const channel = supabase
   };
 }, [user]);
   return (
+    <AuthContext.Provider value={{ user, loading }}>
     <div className={`min-h-screen flex flex-col transition-all duration-300 ${isInputFocused ? 'pb-[40vh]' : 'pb-0'} bg-[#FDFCFB]`}>
       
       {/* Terminal Hub Drawer */}
@@ -511,6 +513,7 @@ const channel = supabase
         </footer>
       )}
     </div>
+    </AuthContext.Provider>
   );
 };
 

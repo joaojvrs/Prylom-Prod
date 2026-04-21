@@ -169,20 +169,55 @@ const [viewingCadastrado, setViewingCadastrado] = useState<any>(null);
   // Campos técnicos essenciais para preencher as sub-tabelas do banco
   const camposPorCategoria: Record<string, { key: string; label: string; type: string; required?: boolean }[]> = useMemo(() => ({
 fazendas: [
-  // Campos existentes
+  // Área
   { key: 'area_total_ha', label: 'Área Total (ha)', type: 'number', required: true },
-  { key: 'area_lavoura_ha', label: 'Área de Lavoura (ha)', type: 'text' },
-  { key: 'aptidao', label: 'Aptidão', type: 'select' },
-  { key: 'teor_argila', label: 'Teor de Argila %', type: 'text' },
+  { key: 'area_lavoura_ha', label: 'Área de Lavoura (ha)', type: 'number' },
+  { key: 'area_produtiva', label: 'Área Produtiva Total (ha)', type: 'number' },
+
+  // Classificação
+  { key: 'aptidao', label: 'Aptidão (classificação geral)', type: 'select' },
+  { key: 'vocacao', label: 'Vocação / Cultura Principal', type: 'select' },
+  { key: 'tipo_de_negocio', label: 'Tipo de Negócio', type: 'select' },
+  { key: 'tipo_de_producao', label: 'Tipo de Produção', type: 'select' },
+  { key: 'tipo_de_area', label: 'Tipo de Área', type: 'select' },
+  { key: 'plantacao', label: 'Plantação Atual', type: 'text' },
+
+  // Solo e Clima
+  { key: 'tipo_solo', label: 'Tipo de Solo', type: 'text' },
+  { key: 'analise_solo', label: 'Análise de Solo', type: 'text' },
+  { key: 'teor_argila', label: 'Teor de Argila % (faixa)', type: 'text' },
+  { key: 'teor_argila_num', label: 'Teor de Argila % (número exato)', type: 'number' },
   { key: 'topografia', label: 'Topografia', type: 'select' },
-  { key: 'precipitacao_mm', label: 'Precipitação Anual (mm)', type: 'number' },
+  { key: 'precipitacao_mm', label: 'Precipitação (mm)', type: 'number' },
+  { key: 'pluviometria_mm_ano', label: 'Pluviometria (mm/ano)', type: 'number' },
   { key: 'altitude_m', label: 'Altitude (m)', type: 'number' },
-  { key: 'km_asfalto', label: 'Asfalto/Cidade', type: 'text' },
+
+  // Infraestrutura
+  { key: 'km_asfalto', label: 'Distância ao Asfalto (km)', type: 'text' },
   { key: 'reserva_legal', label: 'Reserva Legal (%)', type: 'select' },
   { key: 'permuta', label: 'Aceita Permuta?', type: 'select' },
   { key: 'comissao', label: 'Comissão', type: 'select' },
-{ key: 'sit_doc', label: 'Situação Documentação', type: 'select' },
 
+  // Documentação
+  { key: 'sit_doc', label: 'Situação Documentação', type: 'select' },
+  { key: 'documentacao_ok', label: 'Documentação OK?', type: 'select' },
+  { key: 'car_ok', label: 'CAR OK?', type: 'select' },
+  { key: 'ambiental_ok', label: 'Licença Ambiental OK?', type: 'select' },
+  { key: 'auditado_prylom', label: 'Auditado Prylom?', type: 'select' },
+
+  // Indicadores Financeiros
+  { key: 'produtividade_saca_ha', label: 'Produtividade (sc/ha)', type: 'number' },
+  { key: 'roi_anual_pct', label: 'ROI Anual Produção (%)', type: 'number' },
+  { key: 'roi_imobiliario', label: 'ROI Imobiliário', type: 'text' },
+  { key: 'valorizacao_anual_pct', label: 'Valorização Anual da Terra (%)', type: 'number' },
+  { key: 'payback_anos', label: 'Payback Real (anos)', type: 'number' },
+  { key: 'faturamento_estimado', label: 'Faturamento Estimado (R$)', type: 'number' },
+
+  // Condições e Observações
+  { key: 'condicoes_negocio', label: 'Condições de Negócio', type: 'text' },
+  { key: 'observacoes', label: 'Observações', type: 'text' },
+
+  // Proprietário e Corretor
   { key: 'proprietario', label: 'Proprietário', type: 'text' },
   { key: 'telefone_proprietario', label: 'Telefone Proprietário', type: 'text' },
   { key: 'email_proprietario', label: 'Email Proprietário', type: 'email' },
@@ -191,11 +226,11 @@ fazendas: [
   { key: 'telefone_corretor', label: 'Telefone Corretor', type: 'text' },
   { key: 'email_corretor', label: 'Email Corretor', type: 'email' },
   { key: 'estado_corretor', label: 'Estado Corretor', type: 'text' },
-{ key: 'tipo_anuncio', label: 'Tipo de Anúncio', type: 'select' },
-{ key: 'relevancia_anuncio', label: 'Relevância do Anúncio', type: 'select' },
-{ key: 'portal_parceiro', label: 'Portais Parceiros', type: 'select' },
 
-
+  // Anúncio
+  { key: 'tipo_anuncio', label: 'Tipo de Anúncio', type: 'select' },
+  { key: 'relevancia_anuncio', label: 'Relevância do Anúncio', type: 'select' },
+  { key: 'portal_parceiro', label: 'Portais Parceiros', type: 'select' },
 ],
 
     maquinas: [
@@ -575,16 +610,16 @@ const handleEdit = async (asset: Product) => {
     }
   };
 
+const BOOLEAN_FIELDS = new Set(['car_ok', 'ambiental_ok', 'auditado_prylom']);
+
 function normalizarDados(obj: Record<string, any>) {
   const normalizado: Record<string, any> = {};
 
   Object.entries(obj).forEach(([key, value]) => {
-    if (
-      value === '' ||
-      value === undefined ||
-      value === 'null'
-    ) {
-      normalizado[key] = null; // ✅ NULL REAL
+    if (value === '' || value === undefined || value === 'null') {
+      normalizado[key] = null;
+    } else if (BOOLEAN_FIELDS.has(key)) {
+      normalizado[key] = value === 'Sim' ? true : value === 'Não' ? false : null;
     } else {
       normalizado[key] = value;
     }
@@ -904,16 +939,44 @@ const RESERVALEGAL_OPTIONS = [
   '20%'
 ];
 
+const VOCACAO_OPTIONS = [
+  'Soja',
+  'Milho',
+  'Cana',
+  'Café',
+  'Pecuária',
+  'Algodão',
+  'Arroz',
+  'Sorgo',
+  'Eucalipto',
+  'Mista'
+];
+
+const DOC_OK_OPTIONS = ['Sim', 'Não', 'Parcial'];
+const SIM_NAO_OPTIONS = ['Sim', 'Não'];
+
+const TIPO_NEGOCIO_OPTIONS = ['Venda', 'Arrendamento', 'Parceria', 'Permuta'];
+const TIPO_PRODUCAO_OPTIONS = ['Grãos', 'Pecuária', 'Mista', 'Cana', 'Café', 'Fruticultura', 'Silvicultura', 'Aquicultura'];
+const TIPO_AREA_OPTIONS = ['Lavoura', 'Pasto', 'Reflorestamento', 'Preservação', 'Mista'];
+
 const SELECT_FIELDS = {
   aptidao: APTIDAO_OPTIONS,
+  vocacao: VOCACAO_OPTIONS,
   topografia: TOPOGRAFIA_OPTIONS,
   comissao: COMISSAO_OPTIONS,
   permuta: PERMUTA_OPTIONS,
   sit_doc: SITUACAO_DOC_OPTIONS,
+  documentacao_ok: DOC_OK_OPTIONS,
+  car_ok: SIM_NAO_OPTIONS,
+  ambiental_ok: SIM_NAO_OPTIONS,
+  auditado_prylom: SIM_NAO_OPTIONS,
   tipo_anuncio: TIPO_ANUNCIO_OPTIONS,
   relevancia_anuncio: RELEVANCIA_OPTIONS,
   reserva_legal: RESERVALEGAL_OPTIONS,
-  portal_parceiro: PORTAIS_OPTIONS
+  portal_parceiro: PORTAIS_OPTIONS,
+  tipo_de_negocio: TIPO_NEGOCIO_OPTIONS,
+  tipo_de_producao: TIPO_PRODUCAO_OPTIONS,
+  tipo_de_area: TIPO_AREA_OPTIONS,
 };
 
 
@@ -2623,11 +2686,17 @@ const handleImproveDescription = async () => {
     return (
       <React.Fragment key={campo.key}>
         {/* INSERÇÃO DE LINHAS DIVISORAS PRETAS */}
-        {['proprietario', 'corretor', 'tipo_anuncio'].includes(campo.key) && (
+        {['aptidao', 'tipo_solo', 'km_asfalto', 'sit_doc', 'produtividade_saca_ha', 'condicoes_negocio', 'proprietario', 'corretor', 'tipo_anuncio'].includes(campo.key) && (
           <div className="col-span-full mt-8 mb-4">
             <div className="flex items-center gap-4">
               <div className="h-[2px] flex-1 bg-prylom-dark"></div>
               <span className="text-[10px] font-black text-prylom-dark uppercase tracking-[0.3em]">
+                {campo.key === 'aptidao' && "Classificação e Vocação"}
+                {campo.key === 'tipo_solo' && "Solo e Clima"}
+                {campo.key === 'km_asfalto' && "Infraestrutura"}
+                {campo.key === 'sit_doc' && "Documentação"}
+                {campo.key === 'produtividade_saca_ha' && "Indicadores Financeiros"}
+                {campo.key === 'condicoes_negocio' && "Condições e Observações"}
                 {campo.key === 'proprietario' && "Dados de Origem / Proprietário"}
                 {campo.key === 'corretor' && "Gestão de Parceria / Corretor"}
                 {campo.key === 'tipo_anuncio' && "Configurações de Publicidade"}

@@ -8,7 +8,9 @@
       "Read(//c/Users/Pc/Documents/Site Prylom/Prylom/**)",
       "Bash(done)",
       "Bash(find 'c:/Users/Pc/Documents/Site Prylom/Prylom' -name *.css -not -path */node_modules/*)",
-      "Bash(find 'c:/Users/Pc/Documents/Site Prylom/Prylom' -name tailwind.config* -not -path */node_modules/*)"
+      "Bash(find 'c:/Users/Pc/Documents/Site Prylom/Prylom' -name tailwind.config* -not -path */node_modules/*)",
+      "Bash(xxd)",
+      "Bash(python3 -)"
     ]
   }
 }

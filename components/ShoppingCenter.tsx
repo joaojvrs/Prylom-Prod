@@ -104,7 +104,7 @@ const getStatusTextColor = (status: string) => {
 const ShoppingCenter: React.FC<Props> = ({ onBack, onSelectProduct, t, lang, currency }) => {
   const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [transactionType, setTransactionType] = useState<'all' | 'venda' | 'arrendamento'>('all');
+  const [transactionType, setTransactionType] = useState<'all' | 'venda' | 'arrendamento' | 'parceria'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'map' | 'equipe'| 'global'| 'off'>('grid');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,6 +151,23 @@ const navigate = useNavigate();
   const [clayContent, setClayContent] = useState<string>('');
   const [topography, setTopography] = useState<string>('');
   const [docOnlyOk, setDocOnlyOk] = useState<boolean>(false);
+  const [filterCodigo, setFilterCodigo] = useState<string>('');
+  const [filterAptidao, setFilterAptidao] = useState<string>('');
+  const [minPriceHa, setMinPriceHa] = useState<string>('');
+  const [maxPriceHa, setMaxPriceHa] = useState<string>('');
+  const [minArgila, setMinArgila] = useState<string>('');
+  const [maxArgila, setMaxArgila] = useState<string>('');
+  // Filtros Financeiros (Fazendas)
+  const [minProdutividade, setMinProdutividade] = useState<string>('');
+  const [maxProdutividade, setMaxProdutividade] = useState<string>('');
+  const [minRoi, setMinRoi] = useState<string>('');
+  const [maxRoi, setMaxRoi] = useState<string>('');
+  const [minValorizacao, setMinValorizacao] = useState<string>('');
+  const [maxValorizacao, setMaxValorizacao] = useState<string>('');
+  const [minPayback, setMinPayback] = useState<string>('');
+  const [maxPayback, setMaxPayback] = useState<string>('');
+  const [minFaturamento, setMinFaturamento] = useState<string>('');
+  const [maxFaturamento, setMaxFaturamento] = useState<string>('');
 
   // Filtros Inteligentes (Máquinas)
   const [brandFilter, setBrandFilter] = useState<string>('');
@@ -366,7 +383,8 @@ const toggleFavorite = async (e: React.MouseEvent, assetId: string) => {
     }
 
     if (filterState) filtered = filtered.filter(p => p.estado === filterState);
-    if (filterCity) filtered = filtered.filter(p => p.cidade === filterCity);
+    if (filterCity) filtered = filtered.filter(p => p.cidade?.toLowerCase().includes(filterCity.toLowerCase()));
+    if (filterCodigo) filtered = filtered.filter(p => p.codigo?.toLowerCase().includes(filterCodigo.toLowerCase()));
 
     if (filterStatus !== 'all') {
       if (filterStatus === 'verified') filtered = filtered.filter(p => p.certificacao);
@@ -425,25 +443,27 @@ if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
   // Só entra se houver número digitado e maior que zero
   if ((minAreaTotal && Number(minAreaTotal) > 0) || (maxAreaTotal && Number(maxAreaTotal) > 0)) {
     filtered = filtered.filter(p => {
-      const area = parseFloat(String(p.area_total_ha || "").replace(",", "."));
+      // area_total_ha pode vir de produtos ou de fazenda_data
+      const raw = p.area_total_ha || p.fazenda_data?.area_total_ha;
+      const area = parseFloat(String(raw || "").replace(",", "."));
       const min = minAreaTotal ? Number(minAreaTotal) : 0;
       const max = (maxAreaTotal && Number(maxAreaTotal) > 0) ? Number(maxAreaTotal) : Infinity;
       return !isNaN(area) && area >= min && area <= max;
     });
   }
 
-  // --- PLUVIOMETRIA ---
+  // --- PLUVIOMETRIA (usa precipitacao_mm; pluviometria_mm_ano é campo alternativo no banco) ---
   if (minPluviometria && Number(minPluviometria) > 0) {
     filtered = filtered.filter(p => {
-      const mm = Number(p.fazenda_data?.precipitacao_mm || 0);
+      const mm = Number(p.fazenda_data?.precipitacao_mm || p.fazenda_data?.pluviometria_mm_ano || 0);
       return mm >= Number(minPluviometria);
     });
   }
 
-  // --- ÁREA PRODUTIVA ---
+  // --- ÁREA PRODUTIVA (coluna area_produtiva no banco) ---
   if ((minAreaProdutiva && Number(minAreaProdutiva) > 0) || (maxAreaProdutiva && Number(maxAreaProdutiva) > 0)) {
     filtered = filtered.filter(p => {
-      const areaProd = parseFloat(String(p.fazenda_data?.area_lavoura_ha || "").replace(",", "."));
+      const areaProd = parseFloat(String(p.fazenda_data?.area_produtiva || "").replace(",", "."));
       const min = minAreaProdutiva ? Number(minAreaProdutiva) : 0;
       const max = (maxAreaProdutiva && Number(maxAreaProdutiva) > 0) ? Number(maxAreaProdutiva) : Infinity;
       return !isNaN(areaProd) && areaProd >= min && areaProd <= max;
@@ -481,6 +501,43 @@ if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
       return doc.includes('sim') || doc.includes('ok');
     });
   }
+
+  if (filterAptidao) {
+    filtered = filtered.filter(p => p.fazenda_data?.vocacao?.toLowerCase().includes(filterAptidao.toLowerCase()));
+  }
+
+  if ((minPriceHa && Number(minPriceHa) > 0) || (maxPriceHa && Number(maxPriceHa) > 0)) {
+    filtered = filtered.filter(p => {
+      if (!p.valor || !p.area_total_ha) return false;
+      const areaRaw = parseFloat(String(p.area_total_ha).replace(',', '.'));
+      if (isNaN(areaRaw) || areaRaw <= 0) return false;
+      const pricePerHa = Number(p.valor) / areaRaw;
+      const min = minPriceHa ? Number(minPriceHa) : 0;
+      const max = maxPriceHa && Number(maxPriceHa) > 0 ? Number(maxPriceHa) : Infinity;
+      return pricePerHa >= min && pricePerHa <= max;
+    });
+  }
+
+  if ((minArgila && Number(minArgila) > 0) || (maxArgila && Number(maxArgila) > 0)) {
+    filtered = filtered.filter(p => {
+      const arg = Number(p.fazenda_data?.teor_argila_num || 0);
+      const min = minArgila ? Number(minArgila) : 0;
+      const max = maxArgila && Number(maxArgila) > 0 ? Number(maxArgila) : Infinity;
+      return arg >= min && arg <= max;
+    });
+  }
+
+  // Filtros Financeiros
+  if (minProdutividade && Number(minProdutividade) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.produtividade_saca_ha || 0) >= Number(minProdutividade));
+  if (maxProdutividade && Number(maxProdutividade) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.produtividade_saca_ha || 0) <= Number(maxProdutividade));
+  if (minRoi && Number(minRoi) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.roi_anual_pct || 0) >= Number(minRoi));
+  if (maxRoi && Number(maxRoi) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.roi_anual_pct || 0) <= Number(maxRoi));
+  if (minValorizacao && Number(minValorizacao) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.valorizacao_anual_pct || 0) >= Number(minValorizacao));
+  if (maxValorizacao && Number(maxValorizacao) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.valorizacao_anual_pct || 0) <= Number(maxValorizacao));
+  if (minPayback && Number(minPayback) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.payback_anos || 0) >= Number(minPayback));
+  if (maxPayback && Number(maxPayback) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.payback_anos || 0) <= Number(maxPayback));
+  if (minFaturamento && Number(minFaturamento) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.faturamento_estimado || 0) >= Number(minFaturamento));
+  if (maxFaturamento && Number(maxFaturamento) > 0) filtered = filtered.filter(p => Number(p.fazenda_data?.faturamento_estimado || 0) <= Number(maxFaturamento));
 }
 
     // Filtros Técnicos Máquinas
@@ -525,18 +582,21 @@ if (selectedTipoAnuncio && selectedTipoAnuncio !== "") {
     }
     
     return filtered;
-  }, [products, activeCategory, transactionType, filterState, filterCity, filterStatus, minPrice, maxPrice, priceMode, minAreaTotal, selectedTipoAnuncio, maxAreaTotal, minAreaLavoura, soilType, clayContent, topography, docOnlyOk, brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType, planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter, grainCulture, grainHarvest, grainQuality, minVolume, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita, viewMode]);
+  }, [products, activeCategory, transactionType, filterState, filterCity, filterCodigo, filterStatus, minPrice, maxPrice, priceMode, minAreaTotal, selectedTipoAnuncio, maxAreaTotal, minAreaLavoura, soilType, clayContent, topography, docOnlyOk, filterAptidao, minPriceHa, maxPriceHa, minArgila, maxArgila, brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType, planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter, grainCulture, grainHarvest, grainQuality, minVolume, arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita, viewMode, minAreaProdutiva, maxAreaProdutiva, minPluviometria, minAltitude, minProdutividade, maxProdutividade, minRoi, maxRoi, minValorizacao, maxValorizacao, minPayback, maxPayback, minFaturamento, maxFaturamento]);
 
   // Chave que muda sempre que qualquer filtro muda — usada para resetar a janela virtual
   const filterKey = [
-    activeCategory, transactionType, filterState, filterCity, filterStatus,
+    activeCategory, transactionType, filterState, filterCity, filterCodigo, filterStatus,
     minPrice, maxPrice, priceMode, selectedTipoAnuncio,
     minAreaTotal, maxAreaTotal, minAreaLavoura, minAreaProdutiva, maxAreaProdutiva,
     minPluviometria, minAltitude, soilType, clayContent, topography, String(docOnlyOk),
+    filterAptidao, minPriceHa, maxPriceHa, minArgila, maxArgila,
     brandFilter, machineModelFilter, minYear, maxYear, maxHours, conservationState, precisionAgFilter, minPower, fuelType,
     planeTypeFilter, manufacturerFilter, minYearPlane, maxHoursPlane, anacHomologFilter,
     grainCulture, grainHarvest, grainQuality, minVolume,
     arrModalidade, arrAptidao, minArrArea, maxArrArea, arrCulturaBase, arrQtdSafras, arrMesInicioColheita,
+    minProdutividade, maxProdutividade, minRoi, maxRoi, minValorizacao, maxValorizacao,
+    minPayback, maxPayback, minFaturamento, maxFaturamento,
   ].join('|');
 
   // Reseta janela virtual ao trocar filtros
@@ -3177,18 +3237,18 @@ useEffect(() => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Código</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input placeholder="Código" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
+              <input placeholder="Código" value={filterCodigo} onChange={e => setFilterCodigo(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Transação</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
-                <option value="">Todas</option>
-                <option>Venda</option>
-                <option>Arrendamento</option>
-                <option>Parceria</option>
+              <select value={transactionType} onChange={e => setTransactionType(e.target.value as any)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+                <option value="all">Todas</option>
+                <option value="venda">Venda</option>
+                <option value="arrendamento">Arrendamento</option>
+                <option value="parceria">Parceria</option>
               </select>
             </div>
           </div>
@@ -3196,9 +3256,9 @@ useEffect(() => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Estado</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+              <select value={filterState} onChange={e => setFilterState(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
                 <option value="">Todos</option>
-                {['GO','MT','MS','MG','SP','BA','PR','RS','SC','TO','PA','MA','PI','RO'].map(uf => <option key={uf}>{uf}</option>)}
+                {['GO','MT','MS','MG','SP','BA','PR','RS','SC','TO','PA','MA','PI','RO'].map(uf => <option key={uf} value={uf}>{uf}</option>)}
               </select>
             </div>
           </div>
@@ -3206,17 +3266,17 @@ useEffect(() => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Município</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input placeholder="Município" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
+              <input placeholder="Município" value={filterCity} onChange={e => setFilterCity(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 8px', height: '100%' }} />
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Aptidão</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <select style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
+              <select value={filterAptidao} onChange={e => setFilterAptidao(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', appearance: 'none', width: '100%', padding: '0 8px', height: '100%' }}>
                 <option value="">Todas</option>
-                <option>Soja</option><option>Milho</option><option>Cana</option>
-                <option>Café</option><option>Pecuária</option><option>Algodão</option>
+                <option value="soja">Soja</option><option value="milho">Milho</option><option value="cana">Cana</option>
+                <option value="café">Café</option><option value="pecuária">Pecuária</option><option value="algodão">Algodão</option>
               </select>
             </div>
           </div>
@@ -3227,9 +3287,9 @@ useEffect(() => {
               <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 5px', borderRadius: 3, background: '#bba219', color: '#fff' }}>Prod.</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="mín total" value={minAreaTotal} onChange={e => setMinAreaTotal(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
               <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="mín prod." value={minAreaProdutiva} onChange={e => setMinAreaProdutiva(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
               <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
             </div>
           </div>
@@ -3237,27 +3297,27 @@ useEffect(() => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço por ha.</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="mín" value={minPriceHa} onChange={e => setMinPriceHa(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
               <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="máx" value={maxPriceHa} onChange={e => setMaxPriceHa(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Preço área total</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="mín" value={minPrice} onChange={e => setMinPrice(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
               <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="máx" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Teor de Argila</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="mín %" value={minArgila} onChange={e => setMinArgila(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
               <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="máx %" value={maxArgila} onChange={e => setMaxArgila(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 6px', height: '100%' }} />
             </div>
           </div>
 
@@ -3269,9 +3329,9 @@ useEffect(() => {
           <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Total</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="mín" value={minAreaTotal} onChange={e => setMinAreaTotal(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
               <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-              <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="máx" value={maxAreaTotal} onChange={e => setMaxAreaTotal(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '45%', padding: '0 6px', height: '100%' }} />
               <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 700, color: '#94a3b8', padding: '0 4px', flexShrink: 0 }}>ha</span>
             </div>
           </div>
@@ -3279,7 +3339,7 @@ useEffect(() => {
           <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Área Prod.</span>
             <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-              <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 6px', height: '100%' }} />
+              <input type="text" inputMode="numeric" placeholder="mín" value={minAreaProdutiva} onChange={e => setMinAreaProdutiva(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '0 6px', height: '100%' }} />
             </div>
           </div>
 
@@ -3336,11 +3396,14 @@ useEffect(() => {
           <button
             onClick={() => {
               setDocOnlyOk(false);
-              setClayContent("");
-              setSoilType("");
-              setMinPluviometria("");
-              setMinAltitude("");
+              setClayContent(""); setSoilType("");
+              setMinPluviometria(""); setMinAltitude("");
               setTopography("");
+              setFilterCodigo(""); setFilterState(""); setFilterCity("");
+              setTransactionType("all"); setFilterAptidao("");
+              setMinAreaTotal(""); setMaxAreaTotal(""); setMinAreaProdutiva(""); setMaxAreaProdutiva("");
+              setMinPrice(""); setMaxPrice(""); setMinPriceHa(""); setMaxPriceHa("");
+              setMinArgila(""); setMaxArgila("");
             }}
             style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
             onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
@@ -3367,30 +3430,52 @@ useEffect(() => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 10, padding: '8px 20px 10px' }}>
-            {[
-              { lbl: 'Produtiv. saca/ha', span: 2 },
-              { lbl: 'ROI anual produção', span: 2 },
-              { lbl: 'Valorização da Terra', span: 2 },
-              { lbl: 'Payback real', span: 2 },
-              { lbl: 'Faturamento estimado', span: 1 },
-            ].map(({ lbl, span }) => (
-              <div key={lbl} style={{ gridColumn: `span ${span}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                  {lbl}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
-                  <input type="text" inputMode="numeric" placeholder="mín" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
-                  <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
-                  <input type="text" inputMode="numeric" placeholder="máx" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
-                </div>
+            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Produtiv. saca/ha</span>
+              <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+                <input type="text" inputMode="numeric" placeholder="mín" value={minProdutividade} onChange={e => setMinProdutividade(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+                <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+                <input type="text" inputMode="numeric" placeholder="máx" value={maxProdutividade} onChange={e => setMaxProdutividade(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
               </div>
-            ))}
+            </div>
+            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>ROI anual produção</span>
+              <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+                <input type="text" inputMode="numeric" placeholder="mín %" value={minRoi} onChange={e => setMinRoi(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+                <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+                <input type="text" inputMode="numeric" placeholder="máx %" value={maxRoi} onChange={e => setMaxRoi(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+              </div>
+            </div>
+            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Valorização da Terra</span>
+              <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+                <input type="text" inputMode="numeric" placeholder="mín %" value={minValorizacao} onChange={e => setMinValorizacao(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+                <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+                <input type="text" inputMode="numeric" placeholder="máx %" value={maxValorizacao} onChange={e => setMaxValorizacao(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+              </div>
+            </div>
+            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Payback real</span>
+              <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+                <input type="text" inputMode="numeric" placeholder="mín anos" value={minPayback} onChange={e => setMinPayback(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+                <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+                <input type="text" inputMode="numeric" placeholder="máx anos" value={maxPayback} onChange={e => setMaxPayback(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+              </div>
+            </div>
+            <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#7a8fa0', textAlign: 'center', height: 18, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>Faturamento est.</span>
+              <div style={{ display: 'flex', alignItems: 'center', height: 34, background: '#f0f4f7', border: '1.5px solid #dce5ec', borderRadius: 9, overflow: 'hidden', width: '100%' }}>
+                <input type="text" inputMode="numeric" placeholder="mín" value={minFaturamento} onChange={e => setMinFaturamento(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+                <div style={{ width: 1, height: 16, background: '#dce5ec', flexShrink: 0 }} />
+                <input type="text" inputMode="numeric" placeholder="máx" value={maxFaturamento} onChange={e => setMaxFaturamento(e.target.value)} style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: '#9eafc0', background: 'transparent', border: 'none', outline: 'none', width: '50%', padding: '0 8px', height: '100%' }} />
+              </div>
+            </div>
           </div>
 
           {/* Limpar financeiro */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 20px 10px' }}>
             <button
-              onClick={() => {/* limpar estados financeiros quando criados */}}
+              onClick={() => { setMinProdutividade(''); setMaxProdutividade(''); setMinRoi(''); setMaxRoi(''); setMinValorizacao(''); setMaxValorizacao(''); setMinPayback(''); setMaxPayback(''); setMinFaturamento(''); setMaxFaturamento(''); }}
               style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
               onMouseOver={e => (e.currentTarget.style.color = '#e25757')}
               onMouseOut={e => (e.currentTarget.style.color = '#94a3b8')}
@@ -3697,13 +3782,18 @@ useEffect(() => {
 
           <div className="pt-6 flex justify-end">
              <button onClick={() => {
-                // Reset de todos os filtros
-                setFilterState(''); setFilterCity(''); setMinPrice(''); setMaxPrice(''); setFilterStatus('all');
+                setFilterState(''); setFilterCity(''); setFilterCodigo(''); setMinPrice(''); setMaxPrice(''); setFilterStatus('all');
+                setTransactionType('all'); setFilterAptidao('');
                 setMinAreaTotal(''); setMaxAreaTotal(''); setMinAreaLavoura(''); setSoilType(''); setClayContent(''); setTopography(''); setDocOnlyOk(false);
+                setMinAreaProdutiva(''); setMaxAreaProdutiva(''); setMinPluviometria(''); setMinAltitude('');
+                setMinPriceHa(''); setMaxPriceHa(''); setMinArgila(''); setMaxArgila('');
+                setMinProdutividade(''); setMaxProdutividade(''); setMinRoi(''); setMaxRoi('');
+                setMinValorizacao(''); setMaxValorizacao(''); setMinPayback(''); setMaxPayback('');
+                setMinFaturamento(''); setMaxFaturamento('');
                 setBrandFilter(''); setMachineModelFilter(''); setMinYear(''); setMaxYear(''); setMaxHours(''); setConservationState(''); setPrecisionAgFilter(''); setMinPower(''); setFuelType('');
                 setPlaneTypeFilter(''); setManufacturerFilter(''); setMinYearPlane(''); setMaxHoursPlane(''); setAnacHomologFilter('');
                 setGrainCulture(''); setGrainHarvest(''); setGrainQuality(''); setMinVolume('');
-                setArrModalidade(''); setArrAptidao(''); setMinArrArea(''); setMaxArrArea(''); setArrCulturaBase(''); setArrQtdSafras(''); setArrMesInicioColheita('');setSelectedTipoAnuncio('');
+                setArrModalidade(''); setArrAptidao(''); setMinArrArea(''); setMaxArrArea(''); setArrCulturaBase(''); setArrQtdSafras(''); setArrMesInicioColheita(''); setSelectedTipoAnuncio('');
              }} className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] hover:text-red-500 transition-colors">Limpar Todos os Filtros</button>
           </div>
         </div>
