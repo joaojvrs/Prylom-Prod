@@ -1426,7 +1426,7 @@ const handleImproveDescription = async () => {
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-[#f4f6f8]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       {/* SIDEBAR */}
-      <aside className="w-full md:w-72 bg-[#2c5363] flex flex-col text-white z-50 shadow-2xl">
+      <aside className="w-full md:w-72 md:sticky md:top-0 md:h-screen bg-[#2c5363] flex flex-col text-white z-50 shadow-2xl">
         {/* Logo */}
         <div className="px-8 pt-10 pb-8 border-b border-white/10">
           <div className="flex items-center gap-3 mb-1">
@@ -1439,7 +1439,7 @@ const handleImproveDescription = async () => {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-4 py-6 flex flex-col gap-1">
+        <nav className="flex-1 px-4 py-6 flex flex-col gap-1 overflow-y-auto no-scrollbar">
           {([
             { tab: 'crm', label: 'Administração de Ativos' },
             { tab: 'corretores', label: 'Gestão de Corretores' },
