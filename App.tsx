@@ -21,7 +21,30 @@ import { translations } from './translations';
 import DataRoomModal from './components/DataRoomModal';
 import SharePage from './components/SharePage';
 import UserProfile from './components/UserProfile';
-import { AuthContext } from './contexts/AuthContext';
+import { AuthContext, useAuth } from './contexts/AuthContext';
+
+const ProtectedRoute = ({ children, isAdmin = false }: { children: React.ReactNode, isAdmin?: boolean }) => {
+  const location = useLocation();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-20 bg-prylom-dark min-h-screen">
+        <div className="text-prylom-gold font-black animate-pulse tracking-[0.5em] uppercase text-xs">Acessando Terminal...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (isAdmin && user.app_metadata?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 // AdminDashboard carregado apenas quando a rota /admin é acessada,
 // mantendo o código admin fora do bundle público.
@@ -132,29 +155,6 @@ useEffect(() => {
   return () => subscription.unsubscribe();
 }, []);
 
-const ProtectedRoute = ({ children, isAdmin = false }: { children: React.ReactNode, isAdmin?: boolean }) => {
-  const location = useLocation();
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-20 bg-prylom-dark min-h-screen">
-        <div className="text-prylom-gold font-black animate-pulse tracking-[0.5em] uppercase text-xs">Acessando Terminal...</div>
-      </div>
-    );
-  }
-
-  // Se não estiver logado, vai para o login geral
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // Se for rota de admin, mas o app_metadata não tiver role: "admin"
-  if (isAdmin && user.app_metadata?.role !== 'admin') {
-    return <Navigate to="/" replace />;
-  }
-
-  return <>{children}</>;
-};
 
 const [favCount, setFavCount] = useState(0);
 

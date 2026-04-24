@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { pdf } from '@react-pdf/renderer';
 import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
+import SmartFazendaPDF from './SmartFazendaPDF';
+import { gerarDadosRelatorio } from '../services/smartFazendaReport';
  
 interface Props {
   onBack: () => void;
@@ -776,9 +779,11 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, v
 const ResultCard: React.FC<{
   result: PropertyResult;
   onDownloadKml?: () => Promise<void>;
-}> = ({ result, onDownloadKml }) => {
+  user?: { email: string };
+}> = ({ result, onDownloadKml, user }) => {
   const [kmlLoading, setKmlLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const { car, sigef, embargos, vinculados } = result;
  
   const handleKml = async () => {
@@ -793,7 +798,26 @@ const ResultCard: React.FC<{
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
- 
+
+  const handleExportPDF = async () => {
+    if (!result.car) return;
+    setPdfLoading(true);
+    try {
+      const reportData = await gerarDadosRelatorio(result, { email: user?.email ?? '' });
+      const blob = await pdf(<SmartFazendaPDF data={reportData} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Prylom-SmartFazendas-${reportData.numeroPDF}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[PDF] erro ao gerar relatório:', err);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4 animate-fadeIn">
       {vinculados && vinculados.length > 0 && (
@@ -901,6 +925,18 @@ const ResultCard: React.FC<{
             {kmlLoading ? 'Baixando...' : 'Exportar KML'}
           </button>
         )}
+
+        <button
+          onClick={handleExportPDF}
+          disabled={pdfLoading || !result.car}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-3 font-black text-[10px] uppercase tracking-widest transition-all ${
+            pdfLoading || !result.car
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+              : 'bg-[#bba219] hover:bg-[#a08f16] text-white'
+          }`}
+        >
+          {pdfLoading ? 'Gerando PDF...' : 'Smart Fazendas PDF'}
+        </button>
       </div>
     </div>
   );
@@ -1432,7 +1468,7 @@ const MarketTerminal: React.FC<Props> = ({ onBack }) => {
                   + Adicionar ao Monitoramento
                 </button>
               </div>
-              <ResultCard result={result} onDownloadKml={handleDownloadKml} />
+              <ResultCard result={result} onDownloadKml={handleDownloadKml} user={{ email: userEmail ?? '' }} />
             </div>
           )}
         </div>

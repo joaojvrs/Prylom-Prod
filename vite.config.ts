@@ -14,5 +14,14 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    test: {
+      environment: 'node',
+      globals: true,
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'html'],
+        include: ['services/smartFazendaReport.ts'],
+      },
+    },
   }
 })

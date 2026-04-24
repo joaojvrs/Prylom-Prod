@@ -6,6 +6,18 @@ import { supabase } from '../supabaseClient';
 import AssetCRM from './AssetCRM';
 import ProductDetails from './ProductDetails';
 
+// Constantes de benchmark agroeconômico (espelham ProductDetails)
+const FARM_AREA_FATOR         = 0.68;
+const FARM_PROD_SOJA_SC_HA    = 59.8;
+const FARM_PROD_MILHO_SC_HA   = 87.4;
+const FARM_PRECO_SOJA_SC      = 135;
+const FARM_PRECO_MILHO_SC     = 72;
+const FARM_CUSTO_OP_SOJA_HA   = 5800;
+const FARM_CUSTO_OP_MILHO_HA  = 4400;
+const FARM_CUSTO_LEASE_OP_HA  = 8000;
+const PEC_PRODUCAO_ARROBA_HA  = 12.5;
+const PEC_VALOR_ARROBA_BRL    = 315;
+
 interface Product {
   id: string;
   codigo: string;
@@ -1261,31 +1273,94 @@ const payload = {
   }
 };
 
-// Cálculo automático de Valor por Hectare
+// Cálculo automático de Valor/ha e Indicadores Financeiros (fazendas)
 useEffect(() => {
-  if (newAsset.categoria === 'fazendas') {
-    const valorTotal = Number(newAsset.valor);
-    const areaTotal = Number(dadosEspecificos.area_total_ha);
+  if (newAsset.categoria !== 'fazendas') return;
 
-    if (valorTotal > 0 && areaTotal > 0) {
-      const calculoHa = (valorTotal / areaTotal).toFixed(2);
-      
-      // Só atualiza se o valor for diferente para evitar loops infinitos
-      if (dadosEspecificos.valor_ha !== calculoHa) {
-        setDadosEspecificos((prev: any) => ({
-          ...prev,
-          valor_ha: calculoHa
-        }));
-      }
-// No seu useEffect de cálculo, ajuste esta parte:
-} else {
-  // Em vez de string vazia, use null para colunas numéricas do banco
-  if (dadosEspecificos.valor_ha !== null) {
-    setDadosEspecificos((prev: any) => ({ ...prev, valor_ha: null }));
+  const valorTotal   = Number(newAsset.valor);
+  const areaTotal    = Number(dadosEspecificos.area_total_ha);
+  const areaLavoura  = Number(dadosEspecificos.area_lavoura_ha);
+  const isPecuaria   = dadosEspecificos.vocacao === 'Pecuária';
+  const isLease      = newAsset.tipo_transacao === 'arrendamento';
+  const areaUtil     = areaLavoura > 0 ? areaLavoura : areaTotal * FARM_AREA_FATOR;
+
+  const updates: Record<string, any> = {};
+
+  // valor/ha
+  updates.valor_ha = (valorTotal > 0 && areaTotal > 0)
+    ? (valorTotal / areaTotal).toFixed(2)
+    : null;
+
+  // indicadores financeiros — exige área mínima
+  if (areaUtil > 0) {
+    let receitaBruta: number;
+    let lucroLiquido: number;
+
+    if (isPecuaria) {
+      receitaBruta  = areaUtil * PEC_PRODUCAO_ARROBA_HA * PEC_VALOR_ARROBA_BRL;
+      const ebitda  = receitaBruta * 0.42;
+      lucroLiquido  = ebitda * 0.88;
+    } else {
+      receitaBruta  = (areaUtil * FARM_PROD_SOJA_SC_HA * FARM_PRECO_SOJA_SC)
+                    + (areaUtil * FARM_PROD_MILHO_SC_HA * FARM_PRECO_MILHO_SC);
+      const custoOp = areaUtil * (FARM_CUSTO_OP_SOJA_HA + FARM_CUSTO_OP_MILHO_HA);
+      const ebitda  = receitaBruta - custoOp;
+      lucroLiquido  = ebitda - (receitaBruta * 0.07) - (ebitda * 0.10);
+      updates.produtividade_saca_ha = FARM_PROD_SOJA_SC_HA.toFixed(1);
+    }
+
+    updates.faturamento_estimado = Math.round(receitaBruta);
+
+    if (!isLease && valorTotal > 0) {
+      updates.roi_anual_pct  = ((lucroLiquido / valorTotal) * 100).toFixed(2);
+      updates.payback_anos   = (valorTotal / (lucroLiquido || 1)).toFixed(1);
+    }
   }
-}
+
+  setDadosEspecificos((prev: any) => {
+    const changed = Object.keys(updates).some(k => String(prev[k]) !== String(updates[k]));
+    return changed ? { ...prev, ...updates } : prev;
+  });
+}, [newAsset.valor, newAsset.tipo_transacao, dadosEspecificos.area_total_ha, dadosEspecificos.area_lavoura_ha, dadosEspecificos.vocacao]);
+
+// Preview visual dos indicadores calculados — não gera state, só leitura
+const farmEconomicsPreview = useMemo(() => {
+  if (newAsset.categoria !== 'fazendas') return null;
+  const areaTotal   = Number(dadosEspecificos.area_total_ha);
+  const areaLavoura = Number(dadosEspecificos.area_lavoura_ha);
+  if (areaTotal <= 0) return null;
+
+  const isPecuaria = dadosEspecificos.vocacao === 'Pecuária';
+  const isLease    = newAsset.tipo_transacao === 'arrendamento';
+  const valorTotal = Number(newAsset.valor);
+  const areaUtil   = areaLavoura > 0 ? areaLavoura : areaTotal * FARM_AREA_FATOR;
+
+  let receitaBruta: number, lucroLiquido: number;
+
+  if (isPecuaria) {
+    receitaBruta = areaUtil * PEC_PRODUCAO_ARROBA_HA * PEC_VALOR_ARROBA_BRL;
+    const ebitda = receitaBruta * 0.42;
+    lucroLiquido = ebitda * 0.88;
+  } else {
+    receitaBruta  = (areaUtil * FARM_PROD_SOJA_SC_HA * FARM_PRECO_SOJA_SC)
+                  + (areaUtil * FARM_PROD_MILHO_SC_HA * FARM_PRECO_MILHO_SC);
+    const custoOp = areaUtil * (FARM_CUSTO_OP_SOJA_HA + FARM_CUSTO_OP_MILHO_HA);
+    const ebitda  = receitaBruta - custoOp;
+    lucroLiquido  = ebitda - (receitaBruta * 0.07) - (ebitda * 0.10);
   }
-}, [newAsset.valor, dadosEspecificos.area_total_ha]);
+
+  const fmtV = (v: number) => `R$ ${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v)}`;
+
+  return {
+    mode: isPecuaria ? 'Pecuária' : 'Agrícola (Soja+Milho)',
+    areaUtil: areaUtil.toFixed(0),
+    receitaBruta: fmtV(receitaBruta),
+    lucroLiquido: fmtV(lucroLiquido),
+    roi: valorTotal > 0 && !isLease ? `${((lucroLiquido / valorTotal) * 100).toFixed(1)}%` : null,
+    payback: valorTotal > 0 && !isLease ? `${(valorTotal / (lucroLiquido || 1)).toFixed(1)} anos` : null,
+    prodSoja: isPecuaria ? null : `${FARM_PROD_SOJA_SC_HA} sc/ha`,
+  };
+}, [newAsset.categoria, newAsset.valor, newAsset.tipo_transacao, dadosEspecificos.area_total_ha, dadosEspecificos.area_lavoura_ha, dadosEspecificos.vocacao]);
 
 const [showViewModal, setShowViewModal] = useState(false);
 const [viewingAsset, setViewingAsset] = useState<any>(null);
@@ -2703,6 +2778,45 @@ const handleImproveDescription = async () => {
               </span>
               <div className="h-[2px] w-10 bg-prylom-dark"></div>
             </div>
+
+            {/* Preview de produtividade auto-calculada */}
+            {campo.key === 'produtividade_saca_ha' && farmEconomicsPreview && (
+              <div className="mt-4 p-4 bg-prylom-dark/5 border border-prylom-dark/10 rounded-2xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[9px] font-black text-prylom-gold uppercase tracking-widest">Projeção Auto · {farmEconomicsPreview.mode}</span>
+                  <span className="text-[8px] text-gray-400 font-bold">· Área útil: {farmEconomicsPreview.areaUtil} ha · Benchmark histórico</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-xl p-3 border border-gray-100">
+                    <div className="text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">Receita Bruta</div>
+                    <div className="text-[11px] font-black text-prylom-dark">{farmEconomicsPreview.receitaBruta}</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-gray-100">
+                    <div className="text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">Lucro Líquido</div>
+                    <div className="text-[11px] font-black text-emerald-600">{farmEconomicsPreview.lucroLiquido}</div>
+                  </div>
+                  {farmEconomicsPreview.roi && (
+                    <div className="bg-white rounded-xl p-3 border border-gray-100">
+                      <div className="text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">ROI Anual</div>
+                      <div className="text-[11px] font-black text-prylom-dark">{farmEconomicsPreview.roi}</div>
+                    </div>
+                  )}
+                  {farmEconomicsPreview.payback && (
+                    <div className="bg-white rounded-xl p-3 border border-gray-100">
+                      <div className="text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">Payback</div>
+                      <div className="text-[11px] font-black text-prylom-dark">{farmEconomicsPreview.payback}</div>
+                    </div>
+                  )}
+                  {farmEconomicsPreview.prodSoja && (
+                    <div className="bg-white rounded-xl p-3 border border-gray-100">
+                      <div className="text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">Produt. Soja</div>
+                      <div className="text-[11px] font-black text-prylom-dark">{farmEconomicsPreview.prodSoja}</div>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[8px] text-gray-400 mt-2">Os campos abaixo foram preenchidos automaticamente. Você pode ajustá-los manualmente.</p>
+              </div>
+            )}
           </div>
         )}
 

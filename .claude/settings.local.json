@@ -10,7 +10,14 @@
       "Bash(find 'c:/Users/Pc/Documents/Site Prylom/Prylom' -name *.css -not -path */node_modules/*)",
       "Bash(find 'c:/Users/Pc/Documents/Site Prylom/Prylom' -name tailwind.config* -not -path */node_modules/*)",
       "Bash(xxd)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(grep -n \"color\\\\|font\\\\|brand\\\\|primary\\\\|#[0-9a-fA-F]\\\\{3,6\\\\}\" /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/components/LandingPage.tsx)",
+      "Bash(npm install *)",
+      "Bash(npx vitest *)",
+      "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-Regular.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Regular.ttf)",
+      "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-SemiBold.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-SemiBold.ttf)",
+      "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-Bold.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf)",
+      "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-ExtraBold.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf)"
     ]
   }
 }
