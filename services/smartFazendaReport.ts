@@ -40,6 +40,8 @@ export interface ClimaData {
     vento_ms: number | null;
     radiacao_mj: number | null;
     et0_anual: number | null;
+    koppen: string;
+    meses_secos: number;
   };
   lat: number;
   lng: number;
@@ -74,6 +76,8 @@ export interface MeioFisicoData {
   tipo_solo: string | null;
   aptidao_agricola: string | null;
   rios: string[] | null;
+  rodovias: string[] | null;
+  cidades_proximas: Array<{ nome: string; km: number; tipo: string }> | null;
 }
 
 export type ClassificacaoScore =
@@ -104,6 +108,8 @@ export interface ReportData {
   horaEmissao: string;
   usuarioNome: string;
   usuarioEmail: string;
+  bioma: string;
+  rl_minima_pct: number;
   car: {
     codigo: string;
     nomeImovel: string;
@@ -165,6 +171,36 @@ const MESES = [
   { nome: 'Nov', chave: 'NOV', dias: 30 },
   { nome: 'Dez', chave: 'DEC', dias: 31 },
 ];
+
+const BIOMA_POR_ESTADO: Record<string, { nome: string; rl_pct: number }> = {
+  AC: { nome: 'Amazônia',                      rl_pct: 80 },
+  AL: { nome: 'Mata Atlântica',                rl_pct: 20 },
+  AM: { nome: 'Amazônia',                      rl_pct: 80 },
+  AP: { nome: 'Amazônia',                      rl_pct: 80 },
+  BA: { nome: 'Caatinga / Cerrado',            rl_pct: 20 },
+  CE: { nome: 'Caatinga',                      rl_pct: 20 },
+  DF: { nome: 'Cerrado',                       rl_pct: 20 },
+  ES: { nome: 'Mata Atlântica',                rl_pct: 20 },
+  GO: { nome: 'Cerrado',                       rl_pct: 20 },
+  MA: { nome: 'Amazônia / Cerrado',            rl_pct: 80 },
+  MG: { nome: 'Cerrado / Mata Atlântica',      rl_pct: 20 },
+  MS: { nome: 'Cerrado / Pantanal',            rl_pct: 20 },
+  MT: { nome: 'Amazônia / Cerrado',            rl_pct: 80 },
+  PA: { nome: 'Amazônia',                      rl_pct: 80 },
+  PB: { nome: 'Caatinga',                      rl_pct: 20 },
+  PE: { nome: 'Caatinga / Mata Atlântica',     rl_pct: 20 },
+  PI: { nome: 'Caatinga / Cerrado',            rl_pct: 20 },
+  PR: { nome: 'Mata Atlântica',                rl_pct: 20 },
+  RJ: { nome: 'Mata Atlântica',                rl_pct: 20 },
+  RN: { nome: 'Caatinga',                      rl_pct: 20 },
+  RO: { nome: 'Amazônia',                      rl_pct: 80 },
+  RR: { nome: 'Amazônia',                      rl_pct: 80 },
+  RS: { nome: 'Pampa / Mata Atlântica',        rl_pct: 20 },
+  SC: { nome: 'Mata Atlântica',                rl_pct: 20 },
+  SE: { nome: 'Mata Atlântica / Caatinga',     rl_pct: 20 },
+  SP: { nome: 'Mata Atlântica / Cerrado',      rl_pct: 20 },
+  TO: { nome: 'Cerrado (Amazônia Legal)',      rl_pct: 35 },
+};
 
 const APTIDAO_ESTADO: Record<string, string> = {
   AC: 'Restrita (Floresta Amazônica)',
@@ -634,6 +670,41 @@ export async function fetchVegetacaoNativa(carCodigo: string): Promise<Vegetacao
   }
 }
 
+// ─── Classificação Climática de Köppen (derivada dos dados NASA POWER) ────────
+
+function classificarKoppen(meses: { chuva_mm: number; temp_c: number }[]): string {
+  if (meses.length < 12) return 'Nao classificavel';
+  const totalAnual = meses.reduce((s, m) => s + m.chuva_mm, 0);
+  const tempMedia  = meses.reduce((s, m) => s + m.temp_c, 0) / 12;
+  const tempMinMes = Math.min(...meses.map(m => m.temp_c));
+  const tempMaxMes = Math.max(...meses.map(m => m.temp_c));
+  const chuvaMinMes = Math.min(...meses.map(m => m.chuva_mm));
+
+  // Tropical: mes mais frio >= 18 °C
+  if (tempMinMes >= 18) {
+    if (chuvaMinMes >= 60) return 'Af — Tropical Equatorial';
+    if (chuvaMinMes >= 100 - totalAnual / 25) return 'Am — Tropical de Monsao';
+    return 'Aw — Tropical de Savana';
+  }
+
+  // Limiar de aridez (Thornthwaite simplificado)
+  const chuvaVerao = [9, 10, 11, 0, 1, 2].reduce((s, i) => s + meses[i].chuva_mm, 0);
+  const pctVerao   = totalAnual > 0 ? chuvaVerao / totalAnual : 0;
+  const limiarArid = pctVerao >= 0.70 ? 20 * (tempMedia + 14)
+                   : pctVerao <= 0.30 ? 20 * tempMedia
+                   : 20 * (tempMedia + 7);
+  if (totalAnual < limiarArid / 2) return 'BWh — Arido Quente';
+  if (totalAnual < limiarArid)
+    return tempMedia >= 18 ? 'BSh — Semiarido Quente' : 'BSk — Semiarido Frio';
+
+  // Temperado (C): inverno = mai-ago (hemisfério sul), verao = out-mar
+  const invMin = Math.min(...[3, 4, 5, 6, 7, 8].map(i => meses[i].chuva_mm));
+  const verMax = Math.max(...[9, 10, 11, 0, 1, 2].map(i => meses[i].chuva_mm));
+  if (invMin < verMax / 10)
+    return tempMaxMes >= 22 ? 'Cwa — Subtropical de Monsao' : 'Cwb — Subtropical de Altitude';
+  return tempMaxMes >= 22 ? 'Cfa — Subtropical Umido' : 'Cfb — Oceanico Temperado';
+}
+
 // ─── NASA POWER — Climatologia Histórica ─────────────────────────────────────
 
 async function fetchClima(lat: number, lng: number): Promise<ClimaData | null> {
@@ -672,6 +743,8 @@ async function fetchClima(lat: number, lng: number): Promise<ClimaData | null> {
         vento_ms: p.WS10M?.ANN != null ? parseFloat(Number(p.WS10M.ANN).toFixed(2)) : null,
         radiacao_mj: p.ALLSKY_SFC_SW_DWN?.ANN != null ? parseFloat(Number(p.ALLSKY_SFC_SW_DWN.ANN).toFixed(1)) : null,
         et0_anual: et0Raw != null ? parseFloat((et0Raw * 365).toFixed(0)) : null,
+        koppen: classificarKoppen(meses),
+        meses_secos: meses.filter(m => m.chuva_mm < 60).length,
       },
       lat,
       lng,
@@ -710,6 +783,7 @@ async function fetchElevacao(lat: number, lng: number): Promise<number | null> {
   try {
     const res = await fetch(
       `https://api.opentopodata.org/v1/srtm30m?locations=${lat.toFixed(5)},${lng.toFixed(5)}`,
+      { signal: AbortSignal.timeout(18000) },
     );
     if (!res.ok) return null;
     const json = await res.json();
@@ -727,6 +801,7 @@ async function fetchTipoSolo(lat: number, lng: number): Promise<string | null> {
     const res = await fetch(
       `https://rest.soilgrids.org/soilgrids/v2.0/classification/query` +
       `?lon=${lng.toFixed(5)}&lat=${lat.toFixed(5)}&number_classes=1`,
+      { signal: AbortSignal.timeout(25000) },
     );
     if (!res.ok) return null;
     const json = await res.json();
@@ -747,6 +822,7 @@ async function fetchAptidaoAgricola(lat: number, lng: number, estado?: string): 
       `&typeName=aptidao:aptidao_agricola_br` +
       `&outputFormat=application/json&maxFeatures=1` +
       `&CQL_FILTER=INTERSECTS(the_geom,POINT(${lng.toFixed(5)}+${lat.toFixed(5)}))`,
+      { signal: AbortSignal.timeout(18000) },
     );
     if (res.ok) {
       const json = await res.json();
@@ -772,13 +848,14 @@ async function fetchAptidaoAgricola(lat: number, lng: number, estado?: string): 
 async function fetchRios(lat: number, lng: number): Promise<string[] | null> {
   try {
     const query =
-      `[out:json][timeout:25];` +
+      `[out:json][timeout:30];` +
       `(way["waterway"="river"](around:50000,${lat.toFixed(5)},${lng.toFixed(5)}););` +
       `out tags;`;
     const res = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
       body: `data=${encodeURIComponent(query)}`,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      signal: AbortSignal.timeout(35000),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -793,21 +870,105 @@ async function fetchRios(lat: number, lng: number): Promise<string[] | null> {
   }
 }
 
+// ─── Distância haversine (km) ─────────────────────────────────────────────────
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+// ─── Overpass API — Rodovias próximas (100km) ─────────────────────────────────
+
+async function fetchRodovias(lat: number, lng: number): Promise<string[] | null> {
+  try {
+    const query =
+      `[out:json][timeout:20];` +
+      `(way["highway"~"motorway|trunk|primary"](around:100000,${lat.toFixed(5)},${lng.toFixed(5)}););` +
+      `out tags;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const vias = new Set<string>();
+    for (const el of json?.elements ?? []) {
+      const ref  = el?.tags?.ref;
+      const name = el?.tags?.name;
+      if (ref) vias.add(name ? `${ref} — ${name}` : ref);
+    }
+    return vias.size > 0 ? [...vias].slice(0, 8) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Overpass API — Cidades/municípios próximos (200km) ──────────────────────
+
+async function fetchCidadesProximas(
+  lat: number,
+  lng: number,
+): Promise<Array<{ nome: string; km: number; tipo: string }> | null> {
+  try {
+    const query =
+      `[out:json][timeout:20];` +
+      `(node["place"~"city|town"](around:200000,${lat.toFixed(5)},${lng.toFixed(5)}););` +
+      `out body;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const cidades: Array<{ nome: string; km: number; tipo: string }> = [];
+    for (const el of json?.elements ?? []) {
+      const nome = el?.tags?.name ?? el?.tags?.['name:pt'];
+      if (!nome || el.lat == null || el.lon == null) continue;
+      const tipo = el?.tags?.place === 'city' ? 'Cidade' : 'Municipio';
+      const km   = haversineKm(lat, lng, el.lat, el.lon);
+      cidades.push({ nome, km, tipo });
+    }
+    cidades.sort((a, b) => a.km - b.km);
+    return cidades.length > 0 ? cidades.slice(0, 6) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Compositor Meio Físico ───────────────────────────────────────────────────
 
 async function fetchMeioFisico(lat: number, lng: number, estado?: string): Promise<MeioFisicoData> {
-  const [elevacao_m, tipo_solo, aptidao_agricola, rios] = await Promise.all([
+  const [rElev, rSolo, rApt, rRios, rRodov, rCidades] = await Promise.allSettled([
     fetchElevacao(lat, lng),
     fetchTipoSolo(lat, lng),
     fetchAptidaoAgricola(lat, lng, estado),
     fetchRios(lat, lng),
+    fetchRodovias(lat, lng),
+    fetchCidadesProximas(lat, lng),
   ]);
+  const elevacao_m       = rElev.status   === 'fulfilled' ? rElev.value   : null;
+  const tipo_solo        = rSolo.status   === 'fulfilled' ? rSolo.value   : null;
+  const aptidao_agricola = rApt.status    === 'fulfilled' ? rApt.value    : null;
+  const rios             = rRios.status   === 'fulfilled' ? rRios.value   : null;
+  const rodovias         = rRodov.status  === 'fulfilled' ? rRodov.value  : null;
+  const cidades_proximas = rCidades.status === 'fulfilled' ? rCidades.value : null;
+
   const relevo =
     elevacao_m === null ? null :
     elevacao_m < 200    ? 'Plano' :
     elevacao_m < 400    ? 'Suave Ondulado' :
     elevacao_m < 700    ? 'Ondulado' : 'Forte Ondulado';
-  return { elevacao_m, relevo, tipo_solo, aptidao_agricola, rios };
+  return { elevacao_m, relevo, tipo_solo, aptidao_agricola, rios, rodovias, cidades_proximas };
 }
 
 // ─── Orquestrador principal ───────────────────────────────────────────────────
@@ -878,12 +1039,16 @@ export async function gerarDadosRelatorio(
     area_total: car.areaTotal,
   });
 
+  const biomaInfo = BIOMA_POR_ESTADO[car.estado.toUpperCase().trim()] ?? { nome: 'Nao identificado', rl_pct: 20 };
+
   return {
     numeroPDF: gerarNumeroPDF(),
     dataEmissao: now.toLocaleDateString('pt-BR'),
     horaEmissao: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     usuarioNome: usuario.email.split('@')[0],
     usuarioEmail: usuario.email,
+    bioma: biomaInfo.nome,
+    rl_minima_pct: biomaInfo.rl_pct,
     car,
     sigef,
     score,
