@@ -17,7 +17,8 @@
       "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-Regular.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Regular.ttf)",
       "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-SemiBold.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-SemiBold.ttf)",
       "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-Bold.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf)",
-      "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-ExtraBold.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf)"
+      "Bash(curl -sL -o /Users/joaorodrigues/Documents/Prylom/Prylom-Prod/public/fonts/Montserrat-ExtraBold.ttf https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf)",
+      "Bash(npm test *)"
     ]
   }
 }

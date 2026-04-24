@@ -6,6 +6,8 @@ import {
   gerarNumeroPDF,
   fetchMunicipio,
   fetchReservaLegal,
+  fetchDesmatamentos,
+  fetchVegetacaoNativa,
   gerarDadosRelatorio,
 } from './smartFazendaReport';
 
@@ -217,8 +219,38 @@ describe('calcScore', () => {
       expect(criterios[4].disponivel).toBe(false);
     });
 
-    it('passivo ambiental = 50 pts (neutro)', () => {
+    it('passivo ambiental = 50 pts (neutro) quando desmatamento_ha não fornecido', () => {
       const { criterios } = calcScore({ situacaoCar: 'Ativo', embargosQtd: 0, sigefCertificado: null, focos: null });
+      expect(criterios[5].pontos).toBe(50);
+      expect(criterios[5].disponivel).toBe(false);
+    });
+  });
+
+  describe('passivo ambiental / desmatamento com dados reais', () => {
+    it('0 ha desmatado = 100 pts, disponivel true', () => {
+      const { criterios } = calcScore({ situacaoCar: 'Ativo', embargosQtd: 0, sigefCertificado: null, focos: null, desmatamento_ha: 0, area_total: 500 });
+      expect(criterios[5].pontos).toBe(100);
+      expect(criterios[5].disponivel).toBe(true);
+    });
+
+    it('< 5% da área = 70 pts', () => {
+      const { criterios } = calcScore({ situacaoCar: 'Ativo', embargosQtd: 0, sigefCertificado: null, focos: null, desmatamento_ha: 20, area_total: 500 });
+      expect(criterios[5].pontos).toBe(70);
+      expect(criterios[5].disponivel).toBe(true);
+    });
+
+    it('5-20% da área = 30 pts', () => {
+      const { criterios } = calcScore({ situacaoCar: 'Ativo', embargosQtd: 0, sigefCertificado: null, focos: null, desmatamento_ha: 50, area_total: 500 });
+      expect(criterios[5].pontos).toBe(30);
+    });
+
+    it('>= 20% da área = 0 pts', () => {
+      const { criterios } = calcScore({ situacaoCar: 'Ativo', embargosQtd: 0, sigefCertificado: null, focos: null, desmatamento_ha: 100, area_total: 500 });
+      expect(criterios[5].pontos).toBe(0);
+    });
+
+    it('desmatamento_ha null mantém neutro (50 pts)', () => {
+      const { criterios } = calcScore({ situacaoCar: 'Ativo', embargosQtd: 0, sigefCertificado: null, focos: null, desmatamento_ha: null, area_total: 500 });
       expect(criterios[5].pontos).toBe(50);
       expect(criterios[5].disponivel).toBe(false);
     });
@@ -419,6 +451,104 @@ describe('fetchReservaLegal', () => {
   });
 });
 
+// ─── fetchDesmatamentos ───────────────────────────────────────────────────────
+
+describe('fetchDesmatamentos', () => {
+  beforeEach(() => { vi.stubGlobal('fetch', vi.fn()); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('soma áreas de múltiplos polígonos de desmatamento', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        features: [
+          { properties: { num_area: '12.5', dat_referencia: '2023-01-01' } },
+          { properties: { num_area: '7.25', dat_referencia: '2022-06-15' } },
+        ],
+      }),
+    } as any);
+    const result = await fetchDesmatamentos('GO-5217302-XXXX');
+    expect(result?.total_ha).toBeCloseTo(19.75, 2);
+    expect(result?.qty).toBe(2);
+    expect(result?.ano_mais_recente).toBe('2023-01-01');
+  });
+
+  it('retorna total_ha=0 e qty=0 quando não há polígonos', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ features: [] }),
+    } as any);
+    const result = await fetchDesmatamentos('GO-5217302-XXXX');
+    expect(result?.total_ha).toBe(0);
+    expect(result?.qty).toBe(0);
+  });
+
+  it('retorna null quando API responde com erro HTTP', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false } as any);
+    const result = await fetchDesmatamentos('GO-5217302-XXXX');
+    expect(result).toBeNull();
+  });
+
+  it('retorna null quando fetch lança exceção', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('timeout'));
+    const result = await fetchDesmatamentos('GO-5217302-XXXX');
+    expect(result).toBeNull();
+  });
+
+  it('usa campo alternativo "des_area" quando "num_area" não existe', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        features: [{ properties: { des_area: '30.0' } }],
+      }),
+    } as any);
+    const result = await fetchDesmatamentos('GO-5217302-XXXX');
+    expect(result?.total_ha).toBeCloseTo(30.0, 1);
+  });
+});
+
+// ─── fetchVegetacaoNativa ─────────────────────────────────────────────────────
+
+describe('fetchVegetacaoNativa', () => {
+  beforeEach(() => { vi.stubGlobal('fetch', vi.fn()); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('soma áreas de múltiplos polígonos de vegetação', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        features: [
+          { properties: { num_area: '80.0' } },
+          { properties: { num_area: '40.5' } },
+        ],
+      }),
+    } as any);
+    const result = await fetchVegetacaoNativa('GO-5217302-XXXX');
+    expect(result?.area_ha).toBeCloseTo(120.5, 1);
+  });
+
+  it('retorna null quando não há polígonos', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ features: [] }),
+    } as any);
+    const result = await fetchVegetacaoNativa('GO-5217302-XXXX');
+    expect(result).toBeNull();
+  });
+
+  it('retorna null quando API responde com erro HTTP', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false } as any);
+    const result = await fetchVegetacaoNativa('GO-5217302-XXXX');
+    expect(result).toBeNull();
+  });
+
+  it('retorna null quando fetch lança exceção', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('network'));
+    const result = await fetchVegetacaoNativa('GO-5217302-XXXX');
+    expect(result).toBeNull();
+  });
+});
+
 // ─── gerarDadosRelatorio — integração ────────────────────────────────────────
 
 describe('gerarDadosRelatorio', () => {
@@ -478,10 +608,12 @@ describe('gerarDadosRelatorio', () => {
     expect(criterioEmb?.pontos).toBe(250);
   });
 
-  it('inclui campos de reservaLegal e municipioData na estrutura', async () => {
+  it('inclui campos de reservaLegal, municipioData, desmatamento e vegetacaoNativa na estrutura', async () => {
     const data = await gerarDadosRelatorio(propertyResult, { email: 'test@test.com' });
     expect(data).toHaveProperty('reservaLegal');
     expect(data).toHaveProperty('municipioData');
+    expect(data).toHaveProperty('desmatamento');
+    expect(data).toHaveProperty('vegetacaoNativa');
   });
 
   it('numero PDF tem formato correto', async () => {

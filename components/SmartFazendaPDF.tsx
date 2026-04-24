@@ -671,7 +671,7 @@ const Pg0Cover: React.FC<{ data: ReportData }> = ({ data }) => {
 // ─── PAGE 1 — Dados Cadastrais ────────────────────────────────────────────────
 
 const Pg1Dados: React.FC<{ data: ReportData }> = ({ data }) => {
-  const { car, sigef, municipioData, reservaLegal, coordenadas } = data;
+  const { car, sigef, municipioData, reservaLegal, vegetacaoNativa, coordenadas } = data;
   const fmtHa  = (v: number) => `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ha`;
   const fmtNum = (v: number | null) => v != null ? v.toLocaleString('pt-BR') : '—';
 
@@ -718,6 +718,12 @@ const Pg1Dados: React.FC<{ data: ReportData }> = ({ data }) => {
         )}
         {reservaLegal?.area_app_ha != null && (
           <DataRow label="APP (SICAR)" value={fmtHa(reservaLegal.area_app_ha)} />
+        )}
+        {vegetacaoNativa?.area_ha != null && (
+          <DataRow
+            label="Vegetacao Nativa (SICAR)"
+            value={`${fmtHa(vegetacaoNativa.area_ha)} · ${((vegetacaoNativa.area_ha / car.areaTotal) * 100).toFixed(1)}% da area`}
+          />
         )}
         {coordenadas && (
           <DataRow
@@ -847,7 +853,7 @@ const Pg2Score: React.FC<{ data: ReportData }> = ({ data }) => {
           <Text style={[s.tblHdrCell, { flex: 3.5 }]}>Descricao</Text>
         </View>
         {score.criterios.map((c: ScoreCriterio, i: number) => (
-          <View key={i} style={[s.scoreDetailRow, i % 2 === 1 && s.tblRowAlt]}>
+          <View key={i} style={[s.scoreDetailRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
             <Text style={[s.tblCellBold, { flex: 2.2 }]}>{c.nome}</Text>
             <Text style={[s.tblCell, { flex: 0.7, textAlign: 'center', fontWeight: 700, color: c.disponivel ? criterioColor(c.pontos, c.maxPontos) : C.textMuted }]}>
               {c.pontos}
@@ -934,7 +940,7 @@ const Pg4Pecuaria: React.FC<{ data: ReportData }> = ({ data }) => {
           <Text style={[s.tblHdrCell, { flex: 2, textAlign: 'right' }]}>Efetivo (cabecas)</Text>
         </View>
         {rebanhos.length > 0 ? rebanhos.map((r, i) => (
-          <View key={i} style={[s.tblRow, i % 2 === 1 && s.tblRowAlt]}>
+          <View key={i} style={[s.tblRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
             <Text style={[s.tblCellBold, { flex: 3 }]}>{r.tipo}</Text>
             <Text style={[s.tblCell, { flex: 2, textAlign: 'right' }]}>
               {r.quantidade.toLocaleString('pt-BR')}
@@ -960,7 +966,7 @@ const Pg4Pecuaria: React.FC<{ data: ReportData }> = ({ data }) => {
           <Text style={[s.tblHdrCell, { flex: 1, textAlign: 'right' }]}>Unid.</Text>
         </View>
         {silvicultura.length > 0 ? silvicultura.map((item, i) => (
-          <View key={i} style={[s.tblRow, i % 2 === 1 && s.tblRowAlt]}>
+          <View key={i} style={[s.tblRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
             <Text style={[s.tblCell, { flex: 4 }]}>{item.descricao}</Text>
             <Text style={[s.tblCellGold, { flex: 2, textAlign: 'right' }]}>
               {item.producao.toLocaleString('pt-BR')}
@@ -983,7 +989,11 @@ const Pg4Pecuaria: React.FC<{ data: ReportData }> = ({ data }) => {
 // ─── PAGE 5 — Embargos e Risco Ambiental ─────────────────────────────────────
 
 const Pg5Ambiental: React.FC<{ data: ReportData }> = ({ data }) => {
-  const { embargos, focosIncendio5Anos: focos } = data;
+  const { embargos, focosIncendio5Anos: focos, desmatamento, car } = data;
+  const fmtHa = (v: number) => `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ha`;
+  const pctDesmat = desmatamento !== null && car.areaTotal > 0
+    ? (desmatamento.total_ha / car.areaTotal) * 100
+    : null;
 
   return (
     <Page size="A4" style={s.page}>
@@ -1052,12 +1062,36 @@ const Pg5Ambiental: React.FC<{ data: ReportData }> = ({ data }) => {
         />
       )}
 
-      <AlertBox
-        type="info"
-        title="Desmatamento (PRODES/DETER) — analise nao disponivel nesta versao."
-        text="A verificacao de supressao de vegetacao requer analise espacial do poligono. Consulte terrabrasilis.dpi.inpe.br."
-      />
-      <Nota>{`Fonte: INPE BDQueimadas — focos de calor nos ultimos 5 anos no municipio. Dado municipal, nao necessariamente no imovel.`}</Nota>
+      {desmatamento === null ? (
+        <AlertBox
+          type="info"
+          title="Desmatamento (SICAR) — dado nao disponivel para este imovel."
+          text="Consulte terrabrasilis.dpi.inpe.br para analise PRODES/DETER sobre o poligono."
+        />
+      ) : desmatamento.total_ha === 0 ? (
+        <AlertBox
+          type="ok"
+          title="Nenhum poligono de desmatamento detectado no imovel (fonte: SICAR)."
+        />
+      ) : (
+        <View style={s.card}>
+          <AlertBox
+            type={pctDesmat !== null && pctDesmat < 5 ? 'warn' : 'err'}
+            title={`${fmtHa(desmatamento.total_ha)} de desmatamento detectado (${desmatamento.qty} poligono(s)).`}
+            text="Recomenda-se verificacao adicional no TerraBrasilis/PRODES e consulta ao IBAMA."
+          />
+          <DataRow label="Area desmatada" value={fmtHa(desmatamento.total_ha)} bold />
+          <DataRow label="Poligonos detectados" value={String(desmatamento.qty)} />
+          <DataRow
+            label="% da area total"
+            value={pctDesmat !== null ? `${pctDesmat.toFixed(1)}%` : '—'}
+          />
+          {desmatamento.ano_mais_recente && (
+            <DataRow label="Deteccao mais recente" value={desmatamento.ano_mais_recente} last />
+          )}
+        </View>
+      )}
+      <Nota>{`Fonte: INPE BDQueimadas — focos de calor nos ultimos 5 anos no municipio. Desmatamento: SICAR /desmatamentos (poligonos detectados no imovel).`}</Nota>
 
       <PageFooter data={data} />
     </Page>
@@ -1075,33 +1109,31 @@ const Pg6Socio: React.FC<{ data: ReportData }> = ({ data }) => (
 
     <AlertBox
       type="info"
-      title="Verificacao de sobreposicoes nao realizada em tempo real."
-      text="A analise de sobreposicao com areas protegidas, terras indigenas e quilombolas requer consulta a multiplas APIs governamentais e analise espacial do poligono. Utilize os sistemas abaixo para consulta manual."
+      title="Dados nao disponiveis em tempo real — comportamento esperado."
+      text="A verificacao de sobreposicao com areas protegidas requer analise espacial do poligono CAR contra bases governamentais (FUNAI, MMA, INCRA). Essas APIs nao oferecem consulta programatica em tempo real. Os campos abaixo indicam onde realizar a verificacao manual obrigatoria."
     />
 
     <View style={s.tbl}>
       <View style={s.tblHdr}>
-        <Text style={[s.tblHdrCell, { flex: 3 }]}>Criterio</Text>
-        <Text style={[s.tblHdrCell, { flex: 1, textAlign: 'center' }]}>Resultado</Text>
-        <Text style={[s.tblHdrCell, { flex: 3 }]}>Sistema para Consulta</Text>
+        <Text style={[s.tblHdrCell, { flex: 3.5 }]}>Criterio</Text>
+        <Text style={[s.tblHdrCell, { flex: 3.5 }]}>Portal de Verificacao Manual</Text>
       </View>
       {[
-        { c: 'Unidades de Conservacao', f: 'sistemas.mma.gov.br/cnuc' },
-        { c: 'Terras Indigenas (FUNAI)', f: 'funai.gov.br · terrasindigenas.org.br' },
+        { c: 'Unidades de Conservacao (ICMBio / MMA)', f: 'sistemas.mma.gov.br/cnuc' },
+        { c: 'Terras Indigenas (FUNAI)', f: 'funai.gov.br / terrasindigenas.org.br' },
         { c: 'Territorios Quilombolas (INCRA)', f: 'incra.gov.br' },
         { c: 'Patrimonio Arqueologico (IPHAN)', f: 'iphan.gov.br' },
         { c: 'Assentamentos Federais (INCRA)', f: 'acervofundiario.incra.gov.br' },
         { c: 'Faixa de Fronteira (CDIF)', f: 'retaguarda.cdif.gov.br' },
       ].map((row, i) => (
-        <View key={i} style={[s.tblRow, i % 2 === 1 && s.tblRowAlt]}>
-          <Text style={[s.tblCellBold, { flex: 3 }]}>{row.c}</Text>
-          <Text style={[s.tblCellMuted, { flex: 1, textAlign: 'center' }]}>N/V</Text>
-          <Text style={[s.tblCellMuted, { flex: 3, fontSize: 6.5 }]}>{row.f}</Text>
+        <View key={i} style={[s.tblRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
+          <Text style={[s.tblCellBold, { flex: 3.5 }]}>{row.c}</Text>
+          <Text style={[s.tblCellMuted, { flex: 3.5, fontSize: 7 }]}>{row.f}</Text>
         </View>
       ))}
     </View>
 
-    <Nota>{`Para analise completa use o SICAR Consulta Publica (car.gov.br), MapBiomas e GeoServer do ICMBio.`}</Nota>
+    <Nota>{`Verificacao manual obrigatoria: SICAR Consulta Publica (car.gov.br), MapBiomas Alert e GeoServer ICMBio. A ausencia de sobreposicao nao e confirmada automaticamente — requer analise espacial do poligono.`}</Nota>
 
     <Divider />
 
@@ -1113,16 +1145,17 @@ const Pg6Socio: React.FC<{ data: ReportData }> = ({ data }) => (
       text="Requer processamento geoespacial do poligono do imovel. Funcionalidade em desenvolvimento."
     />
 
-    <View style={[s.cols2, { marginTop: 6 }]}>
+    <View style={{ marginTop: 6 }}>
       {[
-        { l: 'Tipos de Solo Predominantes', f: 'geoinfo.cnps.embrapa.br' },
-        { l: 'Declividade e Relevo', f: 'opentopography.org (SRTM 30m)' },
-        { l: 'Hidrografia Nacional', f: 'snirh.gov.br — ANA HidroWeb' },
-        { l: 'Aptidao Agricola', f: 'geoinfo.cnps.embrapa.br' },
+        { l: 'Tipos de Solo Predominantes', f: 'geoinfo.cnps.embrapa.br', d: 'Mapa de Solos EMBRAPA/CNPS' },
+        { l: 'Declividade e Relevo (SRTM 30m)', f: 'opentopography.org', d: 'Modelo Digital de Elevacao' },
+        { l: 'Hidrografia Nacional', f: 'snirh.gov.br — ANA HidroWeb', d: 'Rede Hidrografica ANA' },
+        { l: 'Aptidao Agricola', f: 'geoinfo.cnps.embrapa.br', d: 'Zoneamento Agricola EMBRAPA' },
       ].map((row, i) => (
-        <View key={i} style={[s.card, { padding: 9, marginBottom: 6 }]}>
-          <Text style={[s.dLbl, { width: 'auto', marginBottom: 3 }]}>{row.l}</Text>
-          <Text style={s.notaTxt}>Consulte: {row.f}</Text>
+        <View key={i} style={[s.dRow, { paddingVertical: 5, paddingHorizontal: 2 }]}>
+          <Text style={[s.dLbl, { width: 160 }]}>{row.l}</Text>
+          <Text style={[s.dVal, { flex: 1 }]}>{row.d}</Text>
+          <Text style={[s.tblCellMuted, { width: 140, textAlign: 'right', fontSize: 6.5 }]}>{row.f}</Text>
         </View>
       ))}
     </View>
@@ -1174,7 +1207,7 @@ const Pg7Clima: React.FC<{ data: ReportData }> = ({ data }) => {
               <Text style={s.climHdrCell}>Temperatura (°C)</Text>
             </View>
             {clima.meses.map((m, i) => (
-              <View key={i} style={[s.climRow, i % 2 === 1 && s.tblRowAlt]}>
+              <View key={i} style={[s.climRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
                 <Text style={s.climCellBold}>{m.mes}</Text>
                 <Text style={s.climCell}>
                   {m.chuva_mm.toLocaleString('pt-BR', { minimumFractionDigits: 1 })}
@@ -1221,17 +1254,14 @@ const Pg8Final: React.FC<{ data: ReportData }> = ({ data }) => (
       { label: 'SICAR', desc: 'Sistema Nacional de Cadastro Ambiental Rural — car.gov.br' },
       { label: 'SIGEF / INCRA', desc: 'Sistema de Gestao Fundiaria — sigef.incra.gov.br' },
       { label: 'ICMBio', desc: 'Instituto Chico Mendes de Conservacao da Biodiversidade — icmbio.gov.br' },
-      { label: 'INPE', desc: 'BDQueimadas / TerraBrasilis — queimadas.dgi.inpe.br · terrabrasilis.dpi.inpe.br' },
-      { label: 'IBGE SIDRA', desc: 'PAM (tab. 1612/1613) · PPM (tab. 3939) · PEVS (tab. 289) · PIB (tab. 5938) · Pop. (tab. 6579)' },
+      { label: 'INPE', desc: 'BDQueimadas / TerraBrasilis — queimadas.dgi.inpe.br' },
+      { label: 'IBGE SIDRA', desc: 'PAM (tab. 1612/1613), PPM (tab. 3939), PEVS (tab. 289), PIB (tab. 5938), Pop. (tab. 6579)' },
       { label: 'NASA POWER', desc: 'Dados climatologicos historicos para agricultura — power.larc.nasa.gov' },
-      { label: 'OpenStreetMap / Nominatim', desc: 'Geocodificacao de municipios — openstreetmap.org' },
+      { label: 'OpenStreetMap', desc: 'Geocodificacao de municipios via Nominatim — openstreetmap.org' },
     ].map((ref, i) => (
-      <View key={i} style={s.refItem}>
-        <Text style={s.refDot}>•</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.refLbl, { marginBottom: 1 }]}>{ref.label}</Text>
-          <Text style={s.refTxt}>{ref.desc}</Text>
-        </View>
+      <View key={i} style={[s.dRow, { paddingVertical: 4, paddingHorizontal: 2 }]}>
+        <Text style={[s.dLbl, { width: 120, color: C.dark, fontWeight: 700 }]}>{ref.label}</Text>
+        <Text style={[s.dVal, { flex: 1, fontSize: 7.5 }]}>{ref.desc}</Text>
       </View>
     ))}
 

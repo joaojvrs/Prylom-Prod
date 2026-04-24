@@ -47,6 +47,16 @@ export interface ReservaLegalData {
   area_app_ha: number | null;
 }
 
+export interface DesmatamentoData {
+  total_ha: number;
+  qty: number;
+  ano_mais_recente: string | null;
+}
+
+export interface VegetacaoNativaData {
+  area_ha: number;
+}
+
 export type ClassificacaoScore =
   | 'Excelente'
   | 'Muito Bom'
@@ -105,6 +115,8 @@ export interface ReportData {
   clima: ClimaData | null;
   municipioData: MunicipioData | null;
   reservaLegal: ReservaLegalData | null;
+  desmatamento: DesmatamentoData | null;
+  vegetacaoNativa: VegetacaoNativaData | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -172,6 +184,8 @@ export function calcScore(params: {
   embargosQtd: number;
   sigefCertificado: boolean | null;
   focos: number | null;
+  desmatamento_ha?: number | null;
+  area_total?: number;
 }): ScoreData {
   const criterios: ScoreCriterio[] = [];
 
@@ -247,14 +261,28 @@ export function calcScore(params: {
       'UCs, terras indígenas, quilombolas e assentamentos. Consulta não realizada em tempo real — pontuação neutra (50pts).',
   });
 
-  // 6. Passivo Ambiental / Desmatamento (100 pts) — sem dados → neutro
+  // 6. Passivo Ambiental / Desmatamento (100 pts)
+  const desmatHa  = params.desmatamento_ha ?? null;
+  const areaTotal = params.area_total ?? 0;
+  const pctDesmat = desmatHa !== null && areaTotal > 0 ? desmatHa / areaTotal : null;
+  const ptsDesmat =
+    pctDesmat === null ? 50 :
+    pctDesmat === 0   ? 100 :
+    pctDesmat < 0.05  ? 70 :
+    pctDesmat < 0.20  ? 30 : 0;
   criterios.push({
     nome: 'Passivo Ambiental / Desmatamento',
-    pontos: 50,
+    pontos: ptsDesmat,
     maxPontos: 100,
-    disponivel: false,
+    disponivel: pctDesmat !== null,
     descricao:
-      'Análise PRODES/DETER e autos de infração. Consulta não realizada em tempo real — pontuação neutra (50pts).',
+      pctDesmat === null
+        ? 'Análise PRODES/DETER e autos de infração. Consulta não realizada em tempo real — pontuação neutra (50pts).'
+        : pctDesmat === 0
+          ? 'Nenhum polígono de desmatamento detectado no imóvel (SICAR). (100pts)'
+          : `${desmatHa!.toFixed(2)} ha desmatados detectados no imóvel (${(pctDesmat * 100).toFixed(1)}% da área). ${
+              pctDesmat < 0.05 ? '70pts' : pctDesmat < 0.20 ? '30pts — passivo relevante.' : '0pts — passivo crítico.'
+            }`,
   });
 
   const total = criterios.reduce((sum, c) => sum + c.pontos, 0);
@@ -498,6 +526,64 @@ export async function fetchReservaLegal(carCodigo: string): Promise<ReservaLegal
   }
 }
 
+// ─── SICAR — Desmatamentos detectados no imóvel ───────────────────────────────
+
+export async function fetchDesmatamentos(carCodigo: string): Promise<DesmatamentoData | null> {
+  try {
+    const cod = encodeURIComponent(carCodigo.trim());
+    const res = await fetch(`${SICAR_BASE}/imoveis/${cod}/desmatamentos`);
+    if (!res.ok) return null;
+    const geojson = await res.json();
+    const features = geojson?.features ?? (Array.isArray(geojson) ? geojson : []);
+    if (features.length === 0) return { total_ha: 0, qty: 0, ano_mais_recente: null };
+
+    let total = 0;
+    let anoMaisRecente: string | null = null;
+    for (const f of features) {
+      const area = parseFloat(
+        f?.properties?.num_area ?? f?.properties?.des_area ?? f?.properties?.area ?? 0,
+      );
+      if (!isNaN(area)) total += area;
+      const data =
+        f?.properties?.dat_referencia ??
+        f?.properties?.dat_deteccao ??
+        f?.properties?.dat_publicacao ??
+        null;
+      if (data && (!anoMaisRecente || String(data) > String(anoMaisRecente))) {
+        anoMaisRecente = String(data);
+      }
+    }
+    return { total_ha: parseFloat(total.toFixed(4)), qty: features.length, ano_mais_recente: anoMaisRecente };
+  } catch {
+    return null;
+  }
+}
+
+// ─── SICAR — Vegetação Nativa ─────────────────────────────────────────────────
+
+export async function fetchVegetacaoNativa(carCodigo: string): Promise<VegetacaoNativaData | null> {
+  try {
+    const cod = encodeURIComponent(carCodigo.trim());
+    const res = await fetch(`${SICAR_BASE}/imoveis/${cod}/vegetacaonativa`);
+    if (!res.ok) return null;
+    const geojson = await res.json();
+    const features = geojson?.features ?? (Array.isArray(geojson) ? geojson : []);
+    if (features.length === 0) return null;
+
+    let total = 0;
+    for (const f of features) {
+      const area = parseFloat(
+        f?.properties?.num_area ?? f?.properties?.veg_area ?? f?.properties?.area ?? 0,
+      );
+      if (!isNaN(area)) total += area;
+    }
+    if (total === 0) return null;
+    return { area_ha: parseFloat(total.toFixed(4)) };
+  } catch {
+    return null;
+  }
+}
+
 // ─── NASA POWER — Climatologia Histórica ─────────────────────────────────────
 
 async function fetchClima(lat: number, lng: number): Promise<ClimaData | null> {
@@ -595,7 +681,7 @@ export async function gerarDadosRelatorio(
   const ibgeCode = extractIbgeCode(car.codigo);
   const now = new Date();
 
-  const [coords, cultsTemp, cultsPerma, rebanhos, silvicultura, focos, municipioData, reservaLegal] =
+  const [coords, cultsTemp, cultsPerma, rebanhos, silvicultura, focos, municipioData, reservaLegal, desmatamento, vegetacaoNativa] =
     await Promise.all([
       fetchCoords(car.municipio, car.estado),
       ibgeCode ? fetchCulturasTemp(ibgeCode) : Promise.resolve([]),
@@ -605,6 +691,8 @@ export async function gerarDadosRelatorio(
       ibgeCode ? fetchFocos(ibgeCode) : Promise.resolve(null),
       ibgeCode ? fetchMunicipio(ibgeCode) : Promise.resolve(null),
       fetchReservaLegal(car.codigo),
+      fetchDesmatamentos(car.codigo),
+      fetchVegetacaoNativa(car.codigo),
     ]);
 
   const clima = coords ? await fetchClima(coords.lat, coords.lng) : null;
@@ -619,6 +707,8 @@ export async function gerarDadosRelatorio(
     embargosQtd: propertyResult.embargos.length,
     sigefCertificado: sigefCert,
     focos,
+    desmatamento_ha: desmatamento?.total_ha ?? null,
+    area_total: car.areaTotal,
   });
 
   return {
@@ -640,5 +730,7 @@ export async function gerarDadosRelatorio(
     clima,
     municipioData: municipioData ?? null,
     reservaLegal,
+    desmatamento: desmatamento ?? null,
+    vegetacaoNativa: vegetacaoNativa ?? null,
   };
 }

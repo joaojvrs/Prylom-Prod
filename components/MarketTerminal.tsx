@@ -784,6 +784,7 @@ const ResultCard: React.FC<{
   const [kmlLoading, setKmlLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfDone, setPdfDone] = useState(false);
   const { car, sigef, embargos, vinculados } = result;
  
   const handleKml = async () => {
@@ -802,6 +803,7 @@ const ResultCard: React.FC<{
   const handleExportPDF = async () => {
     if (!result.car) return;
     setPdfLoading(true);
+    setPdfDone(false);
     try {
       const reportData = await gerarDadosRelatorio(result, { email: user?.email ?? '' });
       const blob = await pdf(<SmartFazendaPDF data={reportData} />).toBlob();
@@ -809,8 +811,13 @@ const ResultCard: React.FC<{
       const a = document.createElement('a');
       a.href = url;
       a.download = `Prylom-SmartFazendas-${reportData.numeroPDF}.pdf`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setPdfDone(true);
+      setTimeout(() => setPdfDone(false), 3000);
     } catch (err) {
       console.error('[PDF] erro ao gerar relatório:', err);
     } finally {
@@ -930,12 +937,31 @@ const ResultCard: React.FC<{
           onClick={handleExportPDF}
           disabled={pdfLoading || !result.car}
           className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-3 font-black text-[10px] uppercase tracking-widest transition-all ${
-            pdfLoading || !result.car
+            pdfDone
+              ? 'bg-green-600 text-white'
+              : pdfLoading || !result.car
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
               : 'bg-[#bba219] hover:bg-[#a08f16] text-white'
           }`}
         >
-          {pdfLoading ? 'Gerando PDF...' : 'Smart Fazendas PDF'}
+          {pdfLoading ? (
+            <>
+              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Gerando PDF...
+            </>
+          ) : pdfDone ? (
+            <>
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              PDF Gerado!
+            </>
+          ) : (
+            'Smart Fazendas PDF'
+          )}
         </button>
       </div>
     </div>
