@@ -1100,69 +1100,112 @@ const Pg5Ambiental: React.FC<{ data: ReportData }> = ({ data }) => {
 
 // ─── PAGE 6 — Socioambiental ──────────────────────────────────────────────────
 
-const Pg6Socio: React.FC<{ data: ReportData }> = ({ data }) => (
-  <Page size="A4" style={s.page}>
-    <PageHeader data={data} />
-    <Watermark data={data} />
+const Pg6Socio: React.FC<{ data: ReportData }> = ({ data }) => {
+  const mf = data.meioFisico;
 
-    <SectionTitle num="11">Sobreposicoes Socioambientais</SectionTitle>
+  const meioFisicoRows: { label: string; value: string | null; portal: string }[] = [
+    {
+      label: 'Elevacao Media (SRTM 30m)',
+      value: mf?.elevacao_m != null ? `${mf.elevacao_m} m acima do nivel do mar` : null,
+      portal: 'opentopodata.org / NASA SRTM',
+    },
+    {
+      label: 'Relevo (SRTM)',
+      value: mf?.relevo ?? null,
+      portal: 'opentopodata.org — classif. EMBRAPA',
+    },
+    {
+      label: 'Tipo de Solo (WRB/ISRIC)',
+      value: mf?.tipo_solo ?? null,
+      portal: 'soilgrids.org — ISRIC',
+    },
+    {
+      label: 'Hidrografia (rios 50km)',
+      value: mf?.rios != null ? mf.rios.join(' · ') : null,
+      portal: 'OpenStreetMap Overpass API',
+    },
+    {
+      label: 'Aptidao Agricola',
+      value: mf?.aptidao_agricola ?? null,
+      portal: 'EMBRAPA WFS / estimativa UF',
+    },
+  ];
 
-    <AlertBox
-      type="info"
-      title="Dados nao disponiveis em tempo real — comportamento esperado."
-      text="A verificacao de sobreposicao com areas protegidas requer analise espacial do poligono CAR contra bases governamentais (FUNAI, MMA, INCRA). Essas APIs nao oferecem consulta programatica em tempo real. Os campos abaixo indicam onde realizar a verificacao manual obrigatoria."
-    />
+  const temDadosMeioFisico = mf !== null &&
+    (mf.elevacao_m !== null || mf.tipo_solo !== null || mf.aptidao_agricola !== null || mf.rios !== null);
 
-    <View style={s.tbl}>
-      <View style={s.tblHdr}>
-        <Text style={[s.tblHdrCell, { flex: 3.5 }]}>Criterio</Text>
-        <Text style={[s.tblHdrCell, { flex: 3.5 }]}>Portal de Verificacao Manual</Text>
+  return (
+    <Page size="A4" style={s.page}>
+      <PageHeader data={data} />
+      <Watermark data={data} />
+
+      <SectionTitle num="11">Sobreposicoes Socioambientais</SectionTitle>
+
+      <AlertBox
+        type="info"
+        title="Dados nao disponiveis em tempo real — comportamento esperado."
+        text="A verificacao de sobreposicao com areas protegidas requer analise espacial do poligono CAR contra bases governamentais (FUNAI, MMA, INCRA). Essas APIs nao oferecem consulta programatica em tempo real. Os campos abaixo indicam onde realizar a verificacao manual obrigatoria."
+      />
+
+      <View style={s.tbl}>
+        <View style={s.tblHdr}>
+          <Text style={[s.tblHdrCell, { flex: 3.5 }]}>Criterio</Text>
+          <Text style={[s.tblHdrCell, { flex: 3.5 }]}>Portal de Verificacao Manual</Text>
+        </View>
+        {[
+          { c: 'Unidades de Conservacao (ICMBio / MMA)', f: 'sistemas.mma.gov.br/cnuc' },
+          { c: 'Terras Indigenas (FUNAI)', f: 'funai.gov.br / terrasindigenas.org.br' },
+          { c: 'Territorios Quilombolas (INCRA)', f: 'incra.gov.br' },
+          { c: 'Patrimonio Arqueologico (IPHAN)', f: 'iphan.gov.br' },
+          { c: 'Assentamentos Federais (INCRA)', f: 'acervofundiario.incra.gov.br' },
+          { c: 'Faixa de Fronteira (CDIF)', f: 'retaguarda.cdif.gov.br' },
+        ].map((row, i) => (
+          <View key={i} style={[s.tblRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
+            <Text style={[s.tblCellBold, { flex: 3.5 }]}>{row.c}</Text>
+            <Text style={[s.tblCellMuted, { flex: 3.5, fontSize: 7 }]}>{row.f}</Text>
+          </View>
+        ))}
       </View>
-      {[
-        { c: 'Unidades de Conservacao (ICMBio / MMA)', f: 'sistemas.mma.gov.br/cnuc' },
-        { c: 'Terras Indigenas (FUNAI)', f: 'funai.gov.br / terrasindigenas.org.br' },
-        { c: 'Territorios Quilombolas (INCRA)', f: 'incra.gov.br' },
-        { c: 'Patrimonio Arqueologico (IPHAN)', f: 'iphan.gov.br' },
-        { c: 'Assentamentos Federais (INCRA)', f: 'acervofundiario.incra.gov.br' },
-        { c: 'Faixa de Fronteira (CDIF)', f: 'retaguarda.cdif.gov.br' },
-      ].map((row, i) => (
-        <View key={i} style={[s.tblRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
-          <Text style={[s.tblCellBold, { flex: 3.5 }]}>{row.c}</Text>
-          <Text style={[s.tblCellMuted, { flex: 3.5, fontSize: 7 }]}>{row.f}</Text>
-        </View>
-      ))}
-    </View>
 
-    <Nota>{`Verificacao manual obrigatoria: SICAR Consulta Publica (car.gov.br), MapBiomas Alert e GeoServer ICMBio. A ausencia de sobreposicao nao e confirmada automaticamente — requer analise espacial do poligono.`}</Nota>
+      <Nota>{`Verificacao manual obrigatoria: SICAR Consulta Publica (car.gov.br), MapBiomas Alert e GeoServer ICMBio. A ausencia de sobreposicao nao e confirmada automaticamente — requer analise espacial do poligono.`}</Nota>
 
-    <Divider />
+      <Divider />
 
-    <SectionTitle num="12">Dados do Meio Fisico</SectionTitle>
+      <SectionTitle num="12">Dados do Meio Fisico</SectionTitle>
 
-    <AlertBox
-      type="info"
-      title="Dados de solo, declividade e hidrografia nao consultados nesta versao."
-      text="Requer processamento geoespacial do poligono do imovel. Funcionalidade em desenvolvimento."
-    />
+      {!temDadosMeioFisico && (
+        <AlertBox
+          type="info"
+          title="Dados de meio fisico nao disponiveis para este imovel."
+          text="Coordenadas nao obtidas ou APIs externas indisponiveis. Hidrografia requer processamento geoespacial do poligono."
+        />
+      )}
 
-    <View style={{ marginTop: 6 }}>
-      {[
-        { l: 'Tipos de Solo Predominantes', f: 'geoinfo.cnps.embrapa.br', d: 'Mapa de Solos EMBRAPA/CNPS' },
-        { l: 'Declividade e Relevo (SRTM 30m)', f: 'opentopography.org', d: 'Modelo Digital de Elevacao' },
-        { l: 'Hidrografia Nacional', f: 'snirh.gov.br — ANA HidroWeb', d: 'Rede Hidrografica ANA' },
-        { l: 'Aptidao Agricola', f: 'geoinfo.cnps.embrapa.br', d: 'Zoneamento Agricola EMBRAPA' },
-      ].map((row, i) => (
-        <View key={i} style={[s.dRow, { paddingVertical: 5, paddingHorizontal: 2 }]}>
-          <Text style={[s.dLbl, { width: 160 }]}>{row.l}</Text>
-          <Text style={[s.dVal, { flex: 1 }]}>{row.d}</Text>
-          <Text style={[s.tblCellMuted, { width: 140, textAlign: 'right', fontSize: 6.5 }]}>{row.f}</Text>
-        </View>
-      ))}
-    </View>
+      <View style={{ marginTop: temDadosMeioFisico ? 4 : 6 }}>
+        {meioFisicoRows.map((row, i) => (
+          <View
+            key={i}
+            style={[s.dRow, { paddingVertical: 5, paddingHorizontal: 2 }]}
+          >
+            <Text style={[s.dLbl, { width: 160 }]}>{row.label}</Text>
+            <Text style={row.value ? s.dValBold : [s.dVal, { color: C.textMuted }]}>
+              {row.value ?? 'Consultar portal'}
+            </Text>
+            <Text style={[s.tblCellMuted, { width: 150, textAlign: 'right', fontSize: 6.5 }]}>
+              {row.portal}
+            </Text>
+          </View>
+        ))}
+      </View>
 
-    <PageFooter data={data} />
-  </Page>
-);
+      {temDadosMeioFisico && (
+        <Nota>{`Elevacao/Relevo: OpenTopoData / NASA SRTM 30m (Plano <200m · Suave Ondulado <400m · Ondulado <700m · Forte Ondulado >=700m). Solo (WRB): SoilGrids ISRIC. Hidrografia: OpenStreetMap Overpass API (rios num raio de 50km). Aptidao agricola: EMBRAPA WFS; quando indisponivel, estimativa por UF conforme zoneamento EMBRAPA. Dados para o centroide do municipio, nao do poligono exato do imovel.`}</Nota>
+      )}
+
+      <PageFooter data={data} />
+    </Page>
+  );
+};
 
 // ─── PAGE 7 — Clima ───────────────────────────────────────────────────────────
 
@@ -1188,7 +1231,7 @@ const Pg7Clima: React.FC<{ data: ReportData }> = ({ data }) => {
             {`Medias historicas (1981-2023) para ${car.municipio}/${car.estado} · Lat ${clima.lat.toFixed(3)}, Lon ${clima.lng.toFixed(3)}:`}
           </SecSub>
 
-          <View style={[s.cols2, { marginBottom: 10 }]}>
+          <View style={[s.cols2, { marginBottom: 8 }]}>
             <StatBox
               label="PRECIPITACAO ANUAL"
               value={clima.anual.chuva_total.toLocaleString('pt-BR')}
@@ -1200,11 +1243,35 @@ const Pg7Clima: React.FC<{ data: ReportData }> = ({ data }) => {
             />
           </View>
 
+          {(clima.anual.umidade !== null || clima.anual.vento_ms !== null ||
+            clima.anual.radiacao_mj !== null || clima.anual.et0_anual !== null) && (
+            <View style={[s.cols2, { marginBottom: 10 }]}>
+              {clima.anual.umidade !== null && (
+                <StatBox label="UMIDADE RELATIVA" value={`${clima.anual.umidade.toFixed(0)}%`} unit="media anual" />
+              )}
+              {clima.anual.vento_ms !== null && (
+                <StatBox label="VENTO (10m)" value={`${clima.anual.vento_ms.toFixed(1)} m/s`} unit="media anual" />
+              )}
+              {clima.anual.radiacao_mj !== null && (
+                <StatBox label="RADIACAO SOLAR" value={`${clima.anual.radiacao_mj.toFixed(1)}`} unit="MJ/m²/dia (media)" />
+              )}
+              {clima.anual.et0_anual !== null && (
+                <StatBox label="EVAPOTRANSPIRACAO (ET0)" value={clima.anual.et0_anual.toLocaleString('pt-BR')} unit="mm/ano" />
+              )}
+            </View>
+          )}
+
           <View style={s.tbl}>
             <View style={s.climHdr}>
               <Text style={s.climHdrCell}>Mes</Text>
-              <Text style={s.climHdrCell}>Precipitacao (mm)</Text>
-              <Text style={s.climHdrCell}>Temperatura (°C)</Text>
+              <Text style={s.climHdrCell}>Chuva (mm)</Text>
+              <Text style={s.climHdrCell}>Temp Med (°C)</Text>
+              {clima.meses[0]?.temp_max_c != null && (
+                <Text style={s.climHdrCell}>Max (°C)</Text>
+              )}
+              {clima.meses[0]?.temp_min_c != null && (
+                <Text style={s.climHdrCell}>Min (°C)</Text>
+              )}
             </View>
             {clima.meses.map((m, i) => (
               <View key={i} style={[s.climRow, i % 2 === 1 ? s.tblRowAlt : {}]}>
@@ -1213,11 +1280,13 @@ const Pg7Clima: React.FC<{ data: ReportData }> = ({ data }) => {
                   {m.chuva_mm.toLocaleString('pt-BR', { minimumFractionDigits: 1 })}
                 </Text>
                 <Text style={s.climCell}>{m.temp_c.toFixed(1)}</Text>
+                {m.temp_max_c != null && <Text style={s.climCell}>{m.temp_max_c.toFixed(1)}</Text>}
+                {m.temp_min_c != null && <Text style={s.climCell}>{m.temp_min_c.toFixed(1)}</Text>}
               </View>
             ))}
           </View>
 
-          <Nota>{`Fonte: NASA POWER (power.larc.nasa.gov) — climatologia historica (1981-2023), community AG. PRECTOTCORR = precipitacao corrigida (mm/dia x dias do mes); T2M = temperatura a 2m. Dados para o centroide do municipio.`}</Nota>
+          <Nota>{`Fonte: NASA POWER (power.larc.nasa.gov) — climatologia historica (1981-2023), community AG. PRECTOTCORR = chuva corrigida; T2M = temp media 2m; T2M_MAX/MIN = max/min media mensal; RH2M = umidade relativa; WS10M = vento 10m; ALLSKY_SFC_SW_DWN = radiacao solar; EVPTRNS = evapotranspiracao. Dados para o centroide do municipio.`}</Nota>
         </>
       )}
 
@@ -1256,8 +1325,11 @@ const Pg8Final: React.FC<{ data: ReportData }> = ({ data }) => (
       { label: 'ICMBio', desc: 'Instituto Chico Mendes de Conservacao da Biodiversidade — icmbio.gov.br' },
       { label: 'INPE', desc: 'BDQueimadas / TerraBrasilis — queimadas.dgi.inpe.br' },
       { label: 'IBGE SIDRA', desc: 'PAM (tab. 1612/1613), PPM (tab. 3939), PEVS (tab. 289), PIB (tab. 5938), Pop. (tab. 6579)' },
-      { label: 'NASA POWER', desc: 'Dados climatologicos historicos para agricultura — power.larc.nasa.gov' },
-      { label: 'OpenStreetMap', desc: 'Geocodificacao de municipios via Nominatim — openstreetmap.org' },
+      { label: 'NASA POWER', desc: 'Climatologia historica (chuva, temp, umidade, vento, radiacao solar, ET0) — power.larc.nasa.gov' },
+      { label: 'OpenStreetMap / Overpass', desc: 'Geocodificacao (Nominatim) e hidrografia — rios num raio de 50km via Overpass API' },
+      { label: 'SoilGrids (ISRIC)', desc: 'Classificacao de solos WRB — rest.soilgrids.org' },
+      { label: 'EMBRAPA CNPS', desc: 'Aptidao agricola por poligono WFS; fallback por zoneamento por UF — geoinfo.cnps.embrapa.br' },
+      { label: 'OpenTopoData / SRTM', desc: 'Elevacao e classificacao de relevo (NASA SRTM 30m) — api.opentopodata.org' },
     ].map((ref, i) => (
       <View key={i} style={[s.dRow, { paddingVertical: 4, paddingHorizontal: 2 }]}>
         <Text style={[s.dLbl, { width: 120, color: C.dark, fontWeight: 700 }]}>{ref.label}</Text>

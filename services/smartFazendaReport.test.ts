@@ -11,6 +11,9 @@ import {
   gerarDadosRelatorio,
 } from './smartFazendaReport';
 
+// Funções de meio físico testadas via mocks de fetch — importadas indiretamente
+// através dos testes de gerarDadosRelatorio
+
 // ─── extractIbgeCode ─────────────────────────────────────────────────────────
 
 describe('extractIbgeCode', () => {
@@ -608,12 +611,19 @@ describe('gerarDadosRelatorio', () => {
     expect(criterioEmb?.pontos).toBe(250);
   });
 
-  it('inclui campos de reservaLegal, municipioData, desmatamento e vegetacaoNativa na estrutura', async () => {
+  it('inclui campos de reservaLegal, municipioData, desmatamento, vegetacaoNativa e meioFisico na estrutura', async () => {
     const data = await gerarDadosRelatorio(propertyResult, { email: 'test@test.com' });
     expect(data).toHaveProperty('reservaLegal');
     expect(data).toHaveProperty('municipioData');
     expect(data).toHaveProperty('desmatamento');
     expect(data).toHaveProperty('vegetacaoNativa');
+    expect(data).toHaveProperty('meioFisico');
+  });
+
+  it('meioFisico é null quando coordenadas nao sao obtidas (fetch falha)', async () => {
+    const data = await gerarDadosRelatorio(propertyResult, { email: 'test@test.com' });
+    // Com fetch mockado sempre retornando ok:false, coords = null → meioFisico = null
+    expect(data.meioFisico).toBeNull();
   });
 
   it('numero PDF tem formato correto', async () => {

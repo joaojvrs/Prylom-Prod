@@ -25,11 +25,22 @@ export interface MesClima {
   mes: string;
   chuva_mm: number;
   temp_c: number;
+  temp_max_c: number | null;
+  temp_min_c: number | null;
 }
 
 export interface ClimaData {
   meses: MesClima[];
-  anual: { chuva_total: number; temp_media: number };
+  anual: {
+    chuva_total: number;
+    temp_media: number;
+    temp_max: number | null;
+    temp_min: number | null;
+    umidade: number | null;
+    vento_ms: number | null;
+    radiacao_mj: number | null;
+    et0_anual: number | null;
+  };
   lat: number;
   lng: number;
 }
@@ -55,6 +66,14 @@ export interface DesmatamentoData {
 
 export interface VegetacaoNativaData {
   area_ha: number;
+}
+
+export interface MeioFisicoData {
+  elevacao_m: number | null;
+  relevo: string | null;
+  tipo_solo: string | null;
+  aptidao_agricola: string | null;
+  rios: string[] | null;
 }
 
 export type ClassificacaoScore =
@@ -117,6 +136,7 @@ export interface ReportData {
   reservaLegal: ReservaLegalData | null;
   desmatamento: DesmatamentoData | null;
   vegetacaoNativa: VegetacaoNativaData | null;
+  meioFisico: MeioFisicoData | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -145,6 +165,36 @@ const MESES = [
   { nome: 'Nov', chave: 'NOV', dias: 30 },
   { nome: 'Dez', chave: 'DEC', dias: 31 },
 ];
+
+const APTIDAO_ESTADO: Record<string, string> = {
+  AC: 'Restrita (Floresta Amazônica)',
+  AL: 'Regular para Lavouras',
+  AM: 'Restrita (Floresta Amazônica)',
+  AP: 'Restrita (Floresta Amazônica)',
+  BA: 'Restrita/Regular (Sertão/Oeste Baiano)',
+  CE: 'Restrita para Pastagem (Semiárido)',
+  DF: 'Regular para Lavouras (Cerrado)',
+  ES: 'Regular para Lavouras',
+  GO: 'Boa para Lavouras (Cerrado)',
+  MA: 'Regular para Lavouras (MATOPIBA)',
+  MG: 'Regular para Lavouras (Cerrado/Mata Atlântica)',
+  MS: 'Boa para Lavouras (Cerrado/Pantanal)',
+  MT: 'Boa para Lavouras (Cerrado/Amazônia)',
+  PA: 'Restrita (Floresta Amazônica)',
+  PB: 'Restrita para Pastagem (Semiárido)',
+  PE: 'Restrita para Pastagem (Semiárido)',
+  PI: 'Regular (MATOPIBA) / Restrita Pastagem (Semiárido)',
+  PR: 'Boa para Lavouras (Sul)',
+  RJ: 'Regular para Lavouras',
+  RN: 'Restrita para Pastagem (Semiárido)',
+  RO: 'Regular para Lavouras (Floresta/Cerrado)',
+  RR: 'Restrita (Floresta Amazônica)',
+  RS: 'Boa para Lavouras (Sul)',
+  SC: 'Boa para Lavouras (Sul)',
+  SE: 'Regular para Lavouras',
+  SP: 'Regular a Boa para Lavouras',
+  TO: 'Regular para Lavouras (Cerrado)',
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -589,7 +639,7 @@ export async function fetchVegetacaoNativa(carCodigo: string): Promise<Vegetacao
 async function fetchClima(lat: number, lng: number): Promise<ClimaData | null> {
   try {
     const params = new URLSearchParams({
-      parameters: 'PRECTOTCORR,T2M',
+      parameters: 'PRECTOTCORR,T2M,T2M_MAX,T2M_MIN,RH2M,WS10M,ALLSKY_SFC_SW_DWN,EVPTRNS',
       community: 'AG',
       latitude: lat.toFixed(4),
       longitude: lng.toFixed(4),
@@ -603,19 +653,25 @@ async function fetchClima(lat: number, lng: number): Promise<ClimaData | null> {
 
     const meses: MesClima[] = MESES.map(m => ({
       mes: m.nome,
-      chuva_mm: parseFloat(
-        ((p.PRECTOTCORR?.[m.chave] ?? 0) * m.dias).toFixed(1),
-      ),
+      chuva_mm: parseFloat(((p.PRECTOTCORR?.[m.chave] ?? 0) * m.dias).toFixed(1)),
       temp_c: parseFloat((p.T2M?.[m.chave] ?? 0).toFixed(1)),
+      temp_max_c: p.T2M_MAX ? parseFloat((p.T2M_MAX[m.chave] ?? 0).toFixed(1)) : null,
+      temp_min_c: p.T2M_MIN ? parseFloat((p.T2M_MIN[m.chave] ?? 0).toFixed(1)) : null,
     }));
+
+    const et0Raw = p.EVPTRNS?.ANN ?? null;
 
     return {
       meses,
       anual: {
-        chuva_total: parseFloat(
-          ((p.PRECTOTCORR?.ANN ?? 0) * 365).toFixed(0),
-        ),
+        chuva_total: parseFloat(((p.PRECTOTCORR?.ANN ?? 0) * 365).toFixed(0)),
         temp_media: parseFloat((p.T2M?.ANN ?? 0).toFixed(1)),
+        temp_max: p.T2M_MAX?.ANN != null ? parseFloat(Number(p.T2M_MAX.ANN).toFixed(1)) : null,
+        temp_min: p.T2M_MIN?.ANN != null ? parseFloat(Number(p.T2M_MIN.ANN).toFixed(1)) : null,
+        umidade: p.RH2M?.ANN != null ? parseFloat(Number(p.RH2M.ANN).toFixed(1)) : null,
+        vento_ms: p.WS10M?.ANN != null ? parseFloat(Number(p.WS10M.ANN).toFixed(2)) : null,
+        radiacao_mj: p.ALLSKY_SFC_SW_DWN?.ANN != null ? parseFloat(Number(p.ALLSKY_SFC_SW_DWN.ANN).toFixed(1)) : null,
+        et0_anual: et0Raw != null ? parseFloat((et0Raw * 365).toFixed(0)) : null,
       },
       lat,
       lng,
@@ -646,6 +702,112 @@ async function fetchFocos(ibgeCode: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+// ─── OpenTopoData — Elevação média (SRTM 30m) ────────────────────────────────
+
+async function fetchElevacao(lat: number, lng: number): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `https://api.opentopodata.org/v1/srtm30m?locations=${lat.toFixed(5)},${lng.toFixed(5)}`,
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const elev = json?.results?.[0]?.elevation;
+    return typeof elev === 'number' ? Math.round(elev) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── SoilGrids (ISRIC) — Tipo de Solo (WRB) ──────────────────────────────────
+
+async function fetchTipoSolo(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://rest.soilgrids.org/soilgrids/v2.0/classification/query` +
+      `?lon=${lng.toFixed(5)}&lat=${lat.toFixed(5)}&number_classes=1`,
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const nome = json?.properties?.data?.wrb_class_name;
+    return typeof nome === 'string' && nome ? nome : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── EMBRAPA WFS — Aptidão Agrícola (com fallback por estado) ────────────────
+
+async function fetchAptidaoAgricola(lat: number, lng: number, estado?: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://geoinfo.cnps.embrapa.br/geoserver/wfs` +
+      `?service=WFS&version=1.1.0&request=GetFeature` +
+      `&typeName=aptidao:aptidao_agricola_br` +
+      `&outputFormat=application/json&maxFeatures=1` +
+      `&CQL_FILTER=INTERSECTS(the_geom,POINT(${lng.toFixed(5)}+${lat.toFixed(5)}))`,
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const props = json?.features?.[0]?.properties;
+      if (props) {
+        const valor = props.LEGENDA ?? props.CLASSE ?? props.legenda ?? props.classe ?? null;
+        if (valor) return valor as string;
+      }
+    }
+  } catch {
+    // fall through to estado fallback
+  }
+  if (estado) {
+    const uf = estado.toUpperCase().trim();
+    const fallback = APTIDAO_ESTADO[uf];
+    if (fallback) return `${fallback} (estimativa por UF)`;
+  }
+  return null;
+}
+
+// ─── Overpass API — Rios próximos (50km) ─────────────────────────────────────
+
+async function fetchRios(lat: number, lng: number): Promise<string[] | null> {
+  try {
+    const query =
+      `[out:json][timeout:25];` +
+      `(way["waterway"="river"](around:50000,${lat.toFixed(5)},${lng.toFixed(5)}););` +
+      `out tags;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const nomes: string[] = [];
+    for (const el of json?.elements ?? []) {
+      const nome = el?.tags?.name ?? el?.tags?.['name:pt'];
+      if (nome && !nomes.includes(nome)) nomes.push(nome);
+    }
+    return nomes.length > 0 ? nomes.slice(0, 8) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Compositor Meio Físico ───────────────────────────────────────────────────
+
+async function fetchMeioFisico(lat: number, lng: number, estado?: string): Promise<MeioFisicoData> {
+  const [elevacao_m, tipo_solo, aptidao_agricola, rios] = await Promise.all([
+    fetchElevacao(lat, lng),
+    fetchTipoSolo(lat, lng),
+    fetchAptidaoAgricola(lat, lng, estado),
+    fetchRios(lat, lng),
+  ]);
+  const relevo =
+    elevacao_m === null ? null :
+    elevacao_m < 200    ? 'Plano' :
+    elevacao_m < 400    ? 'Suave Ondulado' :
+    elevacao_m < 700    ? 'Ondulado' : 'Forte Ondulado';
+  return { elevacao_m, relevo, tipo_solo, aptidao_agricola, rios };
 }
 
 // ─── Orquestrador principal ───────────────────────────────────────────────────
@@ -695,7 +857,12 @@ export async function gerarDadosRelatorio(
       fetchVegetacaoNativa(car.codigo),
     ]);
 
-  const clima = coords ? await fetchClima(coords.lat, coords.lng) : null;
+  const [clima, meioFisico] = coords
+    ? await Promise.all([
+        fetchClima(coords.lat, coords.lng),
+        fetchMeioFisico(coords.lat, coords.lng, car.estado),
+      ])
+    : [null, null];
 
   const sigef = propertyResult.sigef ?? null;
   const sigefCert = sigef
@@ -732,5 +899,6 @@ export async function gerarDadosRelatorio(
     reservaLegal,
     desmatamento: desmatamento ?? null,
     vegetacaoNativa: vegetacaoNativa ?? null,
+    meioFisico: meioFisico ?? null,
   };
 }
