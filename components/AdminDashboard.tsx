@@ -5,6 +5,7 @@ import { AppLanguage, AppCurrency } from '../types';
 import { supabase } from '../supabaseClient';
 import AssetCRM from './AssetCRM';
 import ProductDetails from './ProductDetails';
+import marcaPrylomUrl from '../assets/marca-prylom.png';
 
 // Constantes de benchmark agroeconômico (espelham ProductDetails)
 const FARM_AREA_FATOR         = 0.68;
@@ -187,11 +188,11 @@ fazendas: [
   { key: 'area_produtiva', label: 'Área Produtiva Total (ha)', type: 'number' },
 
   // Classificação
-  { key: 'aptidao', label: 'Aptidão (classificação geral)', type: 'select' },
-  { key: 'vocacao', label: 'Vocação / Cultura Principal', type: 'select' },
-  { key: 'tipo_de_negocio', label: 'Tipo de Negócio', type: 'select' },
+  { key: 'aptidao', label: 'Aptidão (classificação geral)', type: 'select', required: true },
+  { key: 'vocacao', label: 'Vocação / Cultura Principal', type: 'select', required: true },
+  { key: 'tipo_de_negocio', label: 'Tipo de Negócio', type: 'select', required: true },
   { key: 'tipo_de_producao', label: 'Tipo de Produção', type: 'select' },
-  { key: 'tipo_de_area', label: 'Tipo de Área', type: 'select' },
+  { key: 'tipo_de_area', label: 'Tipo de Área', type: 'select', required: true },
   { key: 'plantacao', label: 'Plantação Atual', type: 'text' },
 
   // Solo e Clima
@@ -572,7 +573,11 @@ const handleEdit = async (asset: Product) => {
     }
 
     if (imgResult.data) {
-      setSelectedImages(imgResult.data.map((img: any) => ({ url: img.image_url, isExisting: true })));
+      setSelectedImages(
+        imgResult.data
+          .filter((img: any) => img.image_url?.startsWith('http'))
+          .map((img: any) => ({ url: img.image_url, isExisting: true }))
+      );
     }
 
     if (asset.categoria === 'fazendas') {
@@ -1400,52 +1405,49 @@ const applyPrylomWatermark = (file: File): Promise<File> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
+    reader.onerror = () => resolve(file);
     reader.onload = (event) => {
       const result = event.target?.result as string;
-      if (!result) return;
+      if (!result) { resolve(file); return; }
 
       const imgAtivo = new Image();
       imgAtivo.src = result;
-      
+      imgAtivo.onerror = () => resolve(file);
+
       imgAtivo.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        if (!ctx) return;
+        if (!ctx) { resolve(file); return; }
 
         canvas.width = imgAtivo.width;
         canvas.height = imgAtivo.height;
 
-        // 1. Desenha a foto original
         ctx.drawImage(imgAtivo, 0, 0);
 
-        // 2. Carrega a marca
+        const finalizarSemMarca = () => {
+          canvas.toBlob((blob) => {
+            resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
+          }, 'image/jpeg', 0.90);
+        };
+
         const logo = new Image();
-        logo.src = '/assets/marca-prylom.png'; 
-        
+        logo.src = marcaPrylomUrl;
+        logo.onerror = () => finalizarSemMarca();
+
         logo.onload = () => {
-          // --- AJUSTE DE TAMANHO (Aumentado para 50% da largura da foto) ---
-          const watermarkWidth = canvas.width * 0.5; 
+          const watermarkWidth = canvas.width * 0.5;
           const aspectRatio = logo.height / logo.width;
           const watermarkHeight = watermarkWidth * aspectRatio;
-
-          // --- AJUSTE DE POSIÇÃO (Centralizado perfeitamente) ---
           const x = (canvas.width - watermarkWidth) / 2;
           const y = (canvas.height - watermarkHeight) / 2;
 
-          // Transparência para marca d'água centralizada (mais sutil para não tampar a foto)
-          ctx.globalAlpha = 0.5; 
-          
+          ctx.globalAlpha = 0.5;
           ctx.drawImage(logo, x, y, watermarkWidth, watermarkHeight);
-          
           ctx.globalAlpha = 1.0;
 
-          // 3. Converte para JPEG com boa qualidade
           canvas.toBlob((blob) => {
-            if (blob) {
-              const finalFile = new File([blob], file.name, { type: 'image/jpeg' });
-              resolve(finalFile);
-            }
+            resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
           }, 'image/jpeg', 0.90);
         };
       };
@@ -2630,6 +2632,7 @@ const handleImproveDescription = async () => {
             </header>
 
             <form onSubmit={handlePublish} className="space-y-10">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest text-right"><span className="text-red-400">*</span> Campo obrigatório</p>
               {/* SEÇÃO 1: IDENTIFICAÇÃO E CÓDIGO (ESSENCIAL) */}
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
@@ -2638,11 +2641,11 @@ const handleImproveDescription = async () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                   <div className="md:col-span-3 space-y-2">
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Código do Ativo *</label>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Código do Ativo <span className="text-red-400">*</span></label>
                     <input value={newAsset.codigo} onChange={e => setNewAsset({...newAsset, codigo: e.target.value.toUpperCase()})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none font-black text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all" placeholder="EX: PRY-882" />
                   </div>
                   <div className="md:col-span-9 space-y-2">
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Título Público do Ativo *</label>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Título Público do Ativo <span className="text-red-400">*</span></label>
                     <input required value={newAsset.titulo} onChange={e => setNewAsset({...newAsset, titulo: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all" placeholder="Ex: Fazenda Prime - 2.500ha - Grãos" />
                   </div>
 <div className="md:col-span-12 space-y-2">
@@ -2704,11 +2707,11 @@ const handleImproveDescription = async () => {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Valor do Ativo (BRL) *</label>
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Valor do Ativo (BRL) <span className="text-red-400">*</span></label>
                     <input required type="number" value={newAsset.valor} onChange={e => setNewAsset({...newAsset, valor: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none font-black text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all" placeholder="0.00" />
                   </div>
 <div className="md:col-span-3 space-y-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100">
-  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Localização do Ativo</label>
+  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Localização do Ativo <span className="text-red-400">*</span></label>
   
   <div className="space-y-3">
     {/* ESTADO - CADASTRO */}
@@ -2822,7 +2825,7 @@ const handleImproveDescription = async () => {
 
         <div className={`space-y-2 ${campo.key === 'portal_parceiro' ? 'md:col-span-3 xl:col-span-4' : ''}`}>
           <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">
-            {campo.label} {campo.required ? '*' : ''}
+            {campo.label} {campo.required ? <span className="text-red-400">*</span> : ''}
           </label>
 
           {/* LÓGICA EXISTENTE DOS CAMPOS (CORRETOR, PORTAL, SELECT, INPUT) */}
@@ -2921,7 +2924,7 @@ const handleImproveDescription = async () => {
         ${draggedIndex === index ? 'opacity-30 scale-95' : 'opacity-100'}
         ${index === 0 ? 'border-prylom-gold shadow-xl' : 'border-transparent hover:border-gray-300'}`}
     >
-      <img src={img.url} className="w-full h-full object-cover pointer-events-none" alt="" />
+      <img src={img.url} className="w-full h-full object-cover pointer-events-none" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
       
       {/* Botão flutuante: Tornar Destaque */}
       {index !== 0 && (

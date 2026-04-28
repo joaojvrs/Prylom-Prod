@@ -17,8 +17,11 @@
     "preview": "vite preview",
 
     "server": "nodemon --watch api --watch server.ts --exec node --loader ts-node/esm server.ts",
+
     "test": "vitest run",
+
     "test:watch": "vitest",
+
     "test:coverage": "vitest run --coverage"
 
   },
