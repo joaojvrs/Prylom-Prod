@@ -671,9 +671,14 @@ const Pg0Cover: React.FC<{ data: ReportData }> = ({ data }) => {
 // ─── PAGE 1 — Dados Cadastrais ────────────────────────────────────────────────
 
 const Pg1Dados: React.FC<{ data: ReportData }> = ({ data }) => {
-  const { car, sigef, municipioData, reservaLegal, vegetacaoNativa, coordenadas } = data;
+  const { car, sigef, municipioData, reservaLegal, vegetacaoNativa, coordenadas, bioma, rl_minima_pct } = data;
   const fmtHa  = (v: number) => `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ha`;
   const fmtNum = (v: number | null) => v != null ? v.toLocaleString('pt-BR') : '—';
+
+  const rl_minima_ha = car.areaTotal * rl_minima_pct / 100;
+  const rlDeclared   = reservaLegal?.area_rl_ha ?? null;
+  const rlDeficit    = rlDeclared !== null ? rl_minima_ha - rlDeclared : null;
+  const rlConforme   = rlDeclared !== null ? rlDeclared >= rl_minima_ha : null;
 
   return (
     <Page size="A4" style={s.page}>
@@ -729,6 +734,22 @@ const Pg1Dados: React.FC<{ data: ReportData }> = ({ data }) => {
           <DataRow
             label="Coordenadas (aprox.)"
             value={`Lat ${coordenadas.lat.toFixed(5)}, Lon ${coordenadas.lng.toFixed(5)}`}
+          />
+        )}
+        <DataRow label="Bioma (dominante por UF)" value={bioma} />
+        <DataRow
+          label={`RL Minima Legal (art. 12 Lei 12.651/2012)`}
+          value={`${rl_minima_pct}% = ${fmtHa(rl_minima_ha)}`}
+        />
+        {rlConforme !== null && (
+          <DataRow
+            label="Conformidade RL (SICAR vs. Lei)"
+            value={
+              rlConforme
+                ? `Em conformidade — RL declarada acima do minimo legal`
+                : `DEFICIT: ${fmtHa(rl_minima_ha - rlDeclared!)} abaixo do minimo exigido`
+            }
+            bold
           />
         )}
         <DataRow label="Fonte" value="SICAR — Sistema Nacional de Cadastro Ambiental Rural" last />
@@ -1125,6 +1146,11 @@ const Pg6Socio: React.FC<{ data: ReportData }> = ({ data }) => {
       portal: 'OpenStreetMap Overpass API',
     },
     {
+      label: 'Rodovias Proximas (100km)',
+      value: mf?.rodovias != null ? mf.rodovias.join(' · ') : null,
+      portal: 'OpenStreetMap Overpass API',
+    },
+    {
       label: 'Aptidao Agricola',
       value: mf?.aptidao_agricola ?? null,
       portal: 'EMBRAPA WFS / estimativa UF',
@@ -1132,7 +1158,8 @@ const Pg6Socio: React.FC<{ data: ReportData }> = ({ data }) => {
   ];
 
   const temDadosMeioFisico = mf !== null &&
-    (mf.elevacao_m !== null || mf.tipo_solo !== null || mf.aptidao_agricola !== null || mf.rios !== null);
+    (mf.elevacao_m !== null || mf.tipo_solo !== null || mf.aptidao_agricola !== null ||
+     mf.rios !== null || mf.rodovias !== null || mf.cidades_proximas !== null);
 
   return (
     <Page size="A4" style={s.page}>
@@ -1198,8 +1225,21 @@ const Pg6Socio: React.FC<{ data: ReportData }> = ({ data }) => {
         ))}
       </View>
 
+      {mf?.cidades_proximas != null && mf.cidades_proximas.length > 0 && (
+        <View style={[s.card, { marginTop: 8 }]}>
+          {mf.cidades_proximas.map((c, i) => (
+            <DataRow
+              key={i}
+              label={`${c.tipo} — ${c.nome}`}
+              value={`≈ ${c.km} km`}
+              last={i === mf.cidades_proximas!.length - 1}
+            />
+          ))}
+        </View>
+      )}
+
       {temDadosMeioFisico && (
-        <Nota>{`Elevacao/Relevo: OpenTopoData / NASA SRTM 30m (Plano <200m · Suave Ondulado <400m · Ondulado <700m · Forte Ondulado >=700m). Solo (WRB): SoilGrids ISRIC. Hidrografia: OpenStreetMap Overpass API (rios num raio de 50km). Aptidao agricola: EMBRAPA WFS; quando indisponivel, estimativa por UF conforme zoneamento EMBRAPA. Dados para o centroide do municipio, nao do poligono exato do imovel.`}</Nota>
+        <Nota>{`Elevacao/Relevo: OpenTopoData / NASA SRTM 30m. Solo (WRB): SoilGrids ISRIC. Hidrografia e Rodovias: Overpass API (50km/100km). Cidades: Overpass API 200km com distancia haversine. Aptidao agricola: EMBRAPA WFS / fallback por UF. Dados para centroide do municipio.`}</Nota>
       )}
 
       <PageFooter data={data} />
@@ -1286,7 +1326,25 @@ const Pg7Clima: React.FC<{ data: ReportData }> = ({ data }) => {
             ))}
           </View>
 
-          <Nota>{`Fonte: NASA POWER (power.larc.nasa.gov) — climatologia historica (1981-2023), community AG. PRECTOTCORR = chuva corrigida; T2M = temp media 2m; T2M_MAX/MIN = max/min media mensal; RH2M = umidade relativa; WS10M = vento 10m; ALLSKY_SFC_SW_DWN = radiacao solar; EVPTRNS = evapotranspiracao. Dados para o centroide do municipio.`}</Nota>
+          <View style={[s.card, { marginTop: 8, marginBottom: 4 }]}>
+            <DataRow
+              label="Classificacao Climatica (Koppen)"
+              value={clima.anual.koppen}
+              bold
+            />
+            <DataRow
+              label="Meses Secos (<60mm precipitacao)"
+              value={`${clima.anual.meses_secos} mes(es) — ${
+                clima.anual.meses_secos === 0 ? 'sem estacao seca definida' :
+                clima.anual.meses_secos <= 3  ? 'estacao seca curta' :
+                clima.anual.meses_secos <= 5  ? 'estacao seca moderada' :
+                'estacao seca prolongada — risco de deficit hidrico'
+              }`}
+              last
+            />
+          </View>
+
+          <Nota>{`Fonte: NASA POWER (power.larc.nasa.gov) — climatologia historica (1981-2023), community AG. Koppen derivado dos dados de chuva e temperatura mensais. Meses secos = meses com precipitacao < 60mm. PRECTOTCORR = chuva corrigida; T2M = temp media 2m; T2M_MAX/MIN = max/min mensal; RH2M = umidade; WS10M = vento 10m; ALLSKY_SFC_SW_DWN = radiacao solar; EVPTRNS = evapotranspiracao.`}</Nota>
         </>
       )}
 
