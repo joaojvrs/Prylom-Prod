@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { AppCurrency, AppLanguage, MarketNews } from '../types';
+import { supabase } from '../supabaseClient';
 
 interface Props {
   onBack: () => void;
@@ -66,6 +67,16 @@ const ToolsHub: React.FC<Props> = ({ onBack, t, lang, currency }) => {
   const [destPrice, setDestPrice] = useState(148.00); // Preço na ponta (Porto)
   const [riskFactor, setRiskFactor] = useState(1.05); // 5% extra para riscos/manutenção
   const [extraCosts, setExtraCosts] = useState(1200); // Pedágios/Seguros fixos
+
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+const [agreedToDisclaimer, setAgreedToDisclaimer] = useState(false);
+
+const [feedbackModulo, setFeedbackModulo]     = useState('');
+const [feedbackNota, setFeedbackNota]          = useState<number | null>(null);
+const [feedbackTexto, setFeedbackTexto]        = useState('');
+const [feedbackTags, setFeedbackTags]          = useState<string[]>([]);
+const [feedbackEnviado, setFeedbackEnviado]    = useState(false);
+const [feedbackEnviando, setFeedbackEnviando]  = useState(false);
 
   // Estados para Indicadores Agrotecnológicos
 interface AgroField { local: string; media: string }
@@ -590,6 +601,29 @@ const fetchLocalInsight = async (specificLocation?: string) => {
   }
 };
 
+const handleEnviarFeedback = async () => {
+  if (!feedbackNota || !feedbackModulo) return;
+  setFeedbackEnviando(true);
+  try {
+    const { error } = await supabase
+      .from('feedback_terminal')
+      .insert([{
+        modulo: feedbackModulo,
+        nota: feedbackNota,
+        tags: feedbackTags,
+        comentario: feedbackTexto || null,
+      }]);
+
+    if (error) throw error;
+    setFeedbackEnviado(true);
+  } catch (e) {
+    console.error('Erro ao salvar feedback:', e);
+    alert('Erro ao enviar. Tente novamente.');
+  } finally {
+    setFeedbackEnviando(false);
+  }
+};
+
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
     let locationQuery: string;
@@ -1034,6 +1068,8 @@ const fetchAgroIndicators = async (location: string) => {
   
 
   return (
+    <>
+
     <div className="max-w-7xl mx-auto w-full px-4 py-8 md:py-12 animate-fadeIn flex flex-col gap-8 pb-32">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
@@ -1047,7 +1083,13 @@ const fetchAgroIndicators = async (location: string) => {
       </div>
 
       <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
-         <form onSubmit={handleManualSearch} className="w-full flex flex-col gap-4">
+         <form 
+  onSubmit={(e) => {
+    e.preventDefault();
+    setShowDisclaimer(true);
+  }} 
+  className="w-full flex flex-col gap-4"
+>
             <div className="flex flex-col md:flex-row items-end gap-4">
                {/* Estado */}
                <div className="flex-1 w-full space-y-2">
@@ -2821,6 +2863,8 @@ const fetchAgroIndicators = async (location: string) => {
                 </div>
               );
             })}
+
+            
           </div>
         )}
 
@@ -2894,8 +2938,394 @@ const fetchAgroIndicators = async (location: string) => {
           </div>
         )}
       </div>
+
+{/* ── AVALIAÇÃO DO TERMINAL — FASE DE TESTES ── */}
+<div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+  <button
+    onClick={() => toggleModule('feedback')}
+    className="w-full p-6 md:p-8 flex items-center gap-5 text-left hover:bg-gray-50/60 transition-colors"
+  >
+    <div className="w-12 h-12 bg-[#2c5363]/5 rounded-2xl flex items-center justify-center shrink-0">
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#2c5363]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
     </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+        <h3 className="text-sm font-black text-prylom-dark uppercase tracking-tight">Avaliação do Terminal</h3>
+        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase tracking-widest">
+          Beta — Fase de Testes
+        </span>
+      </div>
+      <p className="text-[11px] text-gray-400 font-medium leading-snug">
+        Contribua com o aprimoramento do terminal. Informe o que está correto, o que precisa de ajuste e sugestões de melhoria.
+      </p>
+    </div>
+    <svg
+      className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-200 ${openModules.has('feedback') ? 'rotate-180' : ''}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+    </svg>
+  </button>
+
+  {openModules.has('feedback') && (
+    <div className="border-t border-gray-100 p-6 md:p-8">
+
+      {feedbackEnviado ? (
+        <div className="py-16 flex flex-col items-center gap-6 animate-fadeIn">
+          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-sm font-black text-prylom-dark uppercase tracking-widest">Avaliação Registrada</p>
+            <p className="text-[11px] font-medium text-gray-400 max-w-sm leading-relaxed">
+              Sua contribuição foi recebida e será analisada pela equipe técnica da Prylom para aprimoramento do terminal.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setFeedbackEnviado(false);
+              setFeedbackNota(null);
+              setFeedbackTexto('');
+              setFeedbackTags([]);
+              setFeedbackModulo('');
+            }}
+            className="text-[10px] font-black text-prylom-gold uppercase tracking-widest hover:underline"
+          >
+            Registrar nova avaliação
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-8 animate-fadeIn">
+
+          {/* Banner fase de testes */}
+          <div className="flex items-start gap-4 p-5 bg-amber-50 border border-amber-200 rounded-2xl">
+            <div className="w-8 h-8 rounded-lg bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-800 uppercase tracking-widest mb-1">Terminal em Fase Beta</p>
+              <p className="text-[11px] font-medium text-amber-700 leading-relaxed">
+                Esta versão está em processo de calibração e validação de dados. Alguns indicadores podem apresentar variações
+                em relação às fontes oficiais. Sua avaliação é fundamental para garantirmos a precisão e confiabilidade do sistema.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            {/* Coluna esquerda */}
+            <div className="space-y-6">
+
+              {/* Módulo avaliado */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">
+                  Módulo avaliado
+                </label>
+                <select
+                  value={feedbackModulo}
+                  onChange={e => setFeedbackModulo(e.target.value)}
+                  className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none font-bold text-[#2c5363] transition-all appearance-none cursor-pointer text-sm"
+                >
+                  <option value="">Selecione o módulo...</option>
+                  <option value="indicadores_agro">Indicadores Agrotecnológicos</option>
+                  <option value="meteorologia">Monitoramento Agrometeorológico</option>
+                  <option value="escoamento">Inteligência de Escoamento</option>
+                  <option value="produtividade_barter">Produtividade & Barter</option>
+                  <option value="termometro">Termômetro Imobiliário</option>
+                  <option value="alertas">Alertas Estratégicos</option>
+                  <option value="noticias">Feed de Notícias Agro</option>
+                  <option value="prylom_ai">Análise de Região Prylom AI</option>
+                  <option value="geral">Avaliação Geral do Terminal</option>
+                </select>
+              </div>
+
+              {/* Nota */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">
+                  Nível de satisfação
+                </label>
+                <div className="flex gap-2">
+                  {([
+                    { n: 1, label: 'Ruim'      },
+                    { n: 2, label: 'Regular'   },
+                    { n: 3, label: 'Neutro'    },
+                    { n: 4, label: 'Bom'       },
+                    { n: 5, label: 'Excelente' },
+                  ]).map(({ n, label }) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setFeedbackNota(n)}
+                      className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] uppercase tracking-wide transition-all duration-200 active:scale-95 leading-tight flex flex-col items-center gap-1 ${
+                        feedbackNota === n
+                          ? n <= 2
+                            ? 'bg-red-500 border-red-500 text-white shadow-lg'
+                            : n === 3
+                            ? 'bg-amber-400 border-amber-400 text-white shadow-lg'
+                            : 'bg-[#2c5363] border-[#2c5363] text-white shadow-lg'
+                          : 'bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      <span className="text-base font-black">{n}</span>
+                      <span className="text-[8px]">{label}</span>
+                    </button>
+                  ))}
+                </div>
+                {feedbackNota && (
+                  <p className={`text-[10px] font-black text-center uppercase tracking-widest animate-fadeIn ${
+                    feedbackNota <= 2 ? 'text-red-500' : feedbackNota === 3 ? 'text-amber-500' : 'text-[#2c5363]'
+                  }`}>
+                    {feedbackNota === 1 ? 'Insatisfatório — requer correção imediata'
+                      : feedbackNota === 2 ? 'Abaixo do esperado — há pontos críticos'
+                      : feedbackNota === 3 ? 'Aceitável — pode ser aprimorado'
+                      : feedbackNota === 4 ? 'Satisfatório — atende às expectativas'
+                      : 'Excelente — supera as expectativas'}
+                  </p>
+                )}
+              </div>
+
+              {/* Tags */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">
+                  Pontos identificados (múltipla escolha)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: 'dados_corretos',   label: 'Dados corretos'          },
+                    { key: 'dados_incorretos', label: 'Dados incorretos'         },
+                    { key: 'lento',            label: 'Lentidão no carregamento' },
+                    { key: 'rapido',           label: 'Desempenho adequado'      },
+                    { key: 'facil_uso',        label: 'Interface intuitiva'      },
+                    { key: 'dificil_uso',      label: 'Interface confusa'        },
+                    { key: 'faltam_dados',     label: 'Dados insuficientes'      },
+                    { key: 'erro_visual',      label: 'Falha de layout'          },
+                    { key: 'nao_carregou',     label: 'Erro de carregamento'     },
+                    { key: 'muito_util',       label: 'Alta relevância operacional' },
+                  ].map(tag => {
+                    const ativo = feedbackTags.includes(tag.key);
+                    return (
+                      <button
+                        key={tag.key}
+                        type="button"
+                        onClick={() =>
+                          setFeedbackTags(prev =>
+                            prev.includes(tag.key)
+                              ? prev.filter(t => t !== tag.key)
+                              : [...prev, tag.key]
+                          )
+                        }
+                        className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide border-2 transition-all duration-150 active:scale-95 ${
+                          ativo
+                            ? 'bg-[#2c5363] border-[#2c5363] text-white shadow-md'
+                            : 'bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                        }`}
+                      >
+                        {tag.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna direita */}
+            <div className="space-y-6 flex flex-col">
+
+              {/* Textarea */}
+              <div className="space-y-2 flex-1">
+                <label className="text-[10px] font-black text-prylom-dark/60 uppercase tracking-widest block">
+                  Observações técnicas (opcional)
+                </label>
+                <textarea
+                  value={feedbackTexto}
+                  onChange={e => setFeedbackTexto(e.target.value)}
+                  placeholder="Descreva inconsistências nos dados, erros encontrados, sugestões de funcionalidades ou qualquer ponto relevante para o aprimoramento do terminal..."
+                  maxLength={1000}
+                  className="w-full h-44 p-5 bg-gray-50 border-2 border-transparent focus:border-prylom-gold rounded-2xl outline-none text-sm font-medium text-prylom-dark resize-none placeholder-gray-300 transition-all leading-relaxed"
+                />
+                <p className="text-[9px] text-gray-300 font-bold text-right">
+                  {feedbackTexto.length}/1000 caracteres
+                </p>
+              </div>
+
+              {/* Card resumo */}
+              {(feedbackNota || feedbackModulo || feedbackTags.length > 0) && (
+                <div className="bg-prylom-dark rounded-2xl p-5 space-y-3 animate-fadeIn">
+                  <p className="text-[9px] font-black text-prylom-gold uppercase tracking-[0.3em]">Resumo da avaliação</p>
+                  <div className="space-y-1.5">
+                    {feedbackModulo && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-white/50 font-bold uppercase">Módulo</p>
+                        <p className="text-[10px] text-white font-black">{feedbackModulo.replace(/_/g, ' ')}</p>
+                      </div>
+                    )}
+                    {feedbackNota && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-white/50 font-bold uppercase">Nota</p>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map(n => (
+                            <div
+                              key={n}
+                              className={`w-4 h-1.5 rounded-full transition-all ${n <= feedbackNota ? 'bg-prylom-gold' : 'bg-white/20'}`}
+                            />
+                          ))}
+                          <span className="text-[10px] text-prylom-gold font-black ml-2">{feedbackNota}/5</span>
+                        </div>
+                      </div>
+                    )}
+                    {feedbackTags.length > 0 && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-white/50 font-bold uppercase">Pontos</p>
+                        <p className="text-[10px] text-white font-bold">
+                          {feedbackTags.length} item{feedbackTags.length > 1 ? 's' : ''} selecionado{feedbackTags.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Botão enviar */}
+              <button
+                type="button"
+                onClick={handleEnviarFeedback}
+                disabled={!feedbackNota || !feedbackModulo || feedbackEnviando}
+                className="w-full bg-prylom-gold text-black py-5 rounded-2xl font-black uppercase text-[12px] tracking-[0.2em] shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              >
+                {feedbackEnviando ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    Registrando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Registrar Avaliação
+                  </>
+                )}
+              </button>
+
+              {(!feedbackNota || !feedbackModulo) && (
+                <p className="text-[9px] text-gray-300 font-bold text-center uppercase tracking-widest">
+                  Selecione o módulo e a nota para habilitar o envio
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Rodapé */}
+          <div className="pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[#2c5363]/5 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-[#2c5363]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <p className="text-[10px] font-bold text-gray-400 leading-snug">
+                As avaliações são tratadas de forma confidencial e utilizadas<br />exclusivamente para o aprimoramento da plataforma.
+              </p>
+            </div>
+            <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest shrink-0">
+              Prylom Intelligence · Beta v1.0
+            </p>
+          </div>
+
+        </div>
+      )}
+    </div>
+  )}
+</div>
+      
+    </div>
+
+
+
+{showDisclaimer && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
+      
+      {/* Header */}
+      <div className="p-8 bg-prylom-dark text-white">
+        <h2 className="text-lg font-black uppercase tracking-[0.2em] flex items-center gap-3">
+          <span>🛡️</span> Aviso Legal e Limitação de Responsabilidade
+        </h2>
+      </div>
+
+      {/* Conteúdo com Scroll */}
+      <div className="p-8 overflow-y-auto space-y-6 text-sm text-gray-600 leading-relaxed custom-scrollbar">
+        <section>
+          <h3 className="font-black text-prylom-dark uppercase text-xs mb-2">1. Natureza Consultiva e Não-Vinculante</h3>
+          <p>O Terminal Hub Prylom atua exclusivamente como uma ferramenta de inteligência de dados e modelagem preditiva. As informações agrometeorológicas, estimativas de produtividade, relações de troca (Barter) e o Dossiê Técnico gerado por Inteligência Artificial (Prylom AI) possuem caráter estritamente informativo, não constituindo recomendação de investimento, consultoria agronômica, contábil ou aconselhamento jurídico.</p>
+        </section>
+
+        <section>
+          <h3 className="font-black text-prylom-dark uppercase text-xs mb-2">2. Avaliação de Ativos (Valuation Engine)</h3>
+          <p>O Prylom Valuation Engine e as métricas de Valuation Forense são estimativas algorítmicas baseadas em cruzamento referencial de dados (solo, logística, infraestrutura e compliance). Estas projeções financeiras não substituem e não possuem a validade de um Laudo de Avaliação de Imóvel Rural oficial (Norma ABNT NBR 14653-3) emitido por perito ou engenheiro agrônomo habilitado.</p>
+        </section>
+
+        <section>
+          <h3 className="font-black text-prylom-dark uppercase text-xs mb-2">3. Dados de Terceiros e Atrasos (Delay)</h3>
+          <p>Cotações de commodities (B3, CBOT), índices cambiais e alertas regulatórios (IBAMA, INCRA, Receita Federal) são integrados via provedores externos e bases governamentais. O Prylom não garante a exatidão pontual em tempo real, isentando-se de eventuais falhas, instabilidades ou atrasos de atualização das fontes originárias.</p>
+        </section>
+
+        <section>
+          <h3 className="font-black text-prylom-dark uppercase text-xs mb-2">4. Exclusão de Responsabilidade</h3>
+          <p>O Prylom isenta-se de qualquer responsabilidade civil ou financeira (lucros cessantes ou danos emergentes) decorrente de decisões de aquisição, arrendamento ou concessão de crédito tomadas com base nas análises deste terminal. A execução do Checklist de Compra Segura e a Due Diligence documental e física do ativo rural são de inteira e exclusiva responsabilidade do usuário e de seus assessores legais.</p>
+        </section>
+      </div>
+
+      {/* Footer / Aceite */}
+      <div className="p-8 border-t border-gray-100 bg-gray-50 space-y-4">
+        <label className="flex items-start gap-3 cursor-pointer group">
+          <input 
+            type="checkbox" 
+            checked={agreedToDisclaimer}
+            onChange={(e) => setAgreedToDisclaimer(e.target.checked)}
+            className="mt-1 w-5 h-5 rounded border-gray-300 text-prylom-dark focus:ring-prylom-gold transition-all"
+          />
+          <span className="text-xs font-bold text-gray-700 group-hover:text-prylom-dark transition-colors">
+            Li, compreendo e aceito integralmente os termos da Declaração de Ciência e Limitação de Responsabilidade para prosseguir com a análise.
+          </span>
+        </label>
+
+        <div className="flex gap-3">
+          <button 
+            onClick={() => { setShowDisclaimer(false); setAgreedToDisclaimer(false); }}
+            className="flex-1 px-6 py-4 rounded-2xl border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-white hover:text-gray-600 transition-all"
+          >
+            Cancelar
+          </button>
+          <button 
+            disabled={!agreedToDisclaimer}
+            onClick={() => {
+              setShowDisclaimer(false);
+              // Aqui chamamos a função de busca original
+              handleManualSearch(new Event('submit') as any); 
+            }}
+            className="flex-[2] bg-prylom-dark text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-prylom-gold disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg"
+          >
+            Confirmar e Analisar Região
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+  </>  
   );
 };
+
+
 
 export default ToolsHub;

@@ -654,7 +654,7 @@ const handlePublish = async (e: React.FormEvent) => {
 
   try {
     const produtoPayload = {
-      codigo: newAsset.codigo,
+      ...(isEditing && newAsset.codigo ? { codigo: newAsset.codigo } : {}),
       titulo: newAsset.titulo,
       descricao: newAsset.descricao,
       categoria: newAsset.categoria,
@@ -2640,10 +2640,22 @@ const handleImproveDescription = async () => {
                   <div className="h-px flex-1 bg-gray-100"></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                  <div className="md:col-span-3 space-y-2">
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Código do Ativo <span className="text-red-400">*</span></label>
-                    <input value={newAsset.codigo} onChange={e => setNewAsset({...newAsset, codigo: e.target.value.toUpperCase()})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none font-black text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all" placeholder="EX: PRY-882" />
-                  </div>
+<div className="md:col-span-3 space-y-2">
+  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">
+    Código do Ativo
+  </label>
+  {isEditing ? (
+    // Em edição: exibe o código atual como somente leitura
+    <div className="w-full py-4 px-6 bg-gray-50 rounded-2xl font-black text-prylom-gold border-2 border-dashed border-gray-200 text-sm tracking-widest">
+      {newAsset.codigo || '---'}
+    </div>
+  ) : (
+    // Em criação: informa que será gerado automaticamente
+    <div className="w-full py-4 px-6 bg-gray-50 rounded-2xl font-bold text-gray-400 border-2 border-dashed border-gray-200 text-[11px] italic">
+      ✦ Gerado automaticamente após o cadastro
+    </div>
+  )}
+</div>
                   <div className="md:col-span-9 space-y-2">
                     <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Título Público do Ativo <span className="text-red-400">*</span></label>
                     <input required value={newAsset.titulo} onChange={e => setNewAsset({...newAsset, titulo: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all" placeholder="Ex: Fazenda Prime - 2.500ha - Grãos" />

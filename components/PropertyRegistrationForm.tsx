@@ -213,7 +213,7 @@ const validarCPF = (cpf: string) => {
     // 1. No topo, onde ficam os estados:
 const [docEntidadeStatus, setDocEntidadeStatus] = useState('idle'); // idle, validating, valid, invalid
 
-const formatarDocumento = (value) => {
+const formatarDocumento = (value: string) => {
   const digits = value.replace(/\D/g, ""); // Remove letras/símbolos
 
   if (digits.length <= 11) {
@@ -235,7 +235,7 @@ const formatarDocumento = (value) => {
 };
 
 // 2. A função de mudança:
-const handleDocEntidadeChange = (e) => {
+const handleDocEntidadeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const { value } = e.target;
   const maskedValue = formatarDocumento(value); // Aquela função de máscara que criamos
 

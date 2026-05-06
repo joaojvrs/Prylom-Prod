@@ -964,79 +964,116 @@ const ResultCard: React.FC<{
           )}
         </button>
       </div>
+
+      <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+        <p className="text-[12px] leading-relaxed text-gray-500 font-medium text-justify italic">
+          <strong className="text-gray-700 not-italic uppercase tracking-wider block mb-1">
+            Aviso Legal e de Compliance:
+          </strong>
+          O Módulo Prylom atua exclusivamente como um integrador tecnológico de dados públicos. 
+          As informações apresentadas são extraídas em tempo real via APIs de órgãos governamentais (IBAMA, INCRA, SICAR). 
+          O Instituto Prylom não possui ingerência sobre o conteúdo, não garante a estabilidade dos servidores oficiais 
+          (sujeitos a indisponibilidade) e isenta-se de qualquer responsabilidade civil ou financeira por decisões 
+          comerciais, de crédito ou imobiliárias tomadas com base neste espelho de dados. Para efeitos legais e 
+          comprobatórios, recomenda-se a emissão das certidões oficiais diretamente nos portais do governo.
+        </p>
+      </div>
+
     </div>
   );
 };
  
 // ─── Modal de Intenção ────────────────────────────────────────────────────────
- 
+
+
 const INTENCOES: { value: IntencaoConsulta; label: string; desc: string }[] = [
   { value: 'vender',  label: 'Quero vender',          desc: 'Estou avaliando a propriedade para venda' },
   { value: 'comprar', label: 'Quero comprar',          desc: 'Estou avaliando a propriedade para compra' },
   { value: 'duvidas', label: 'Apenas tirando dúvidas', desc: 'Consulta informativa, sem intenção de negócio' },
 ];
+
+
  
 const ModalIntencao: React.FC<{
   onConfirm: (intencao: IntencaoConsulta) => void;
   onCancel: () => void;
 }> = ({ onConfirm, onCancel }) => {
   const [selected, setSelected] = useState<IntencaoConsulta | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
  
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-sm overflow-hidden">
-        <div className="border-l-4 border-[#2c5363] px-6 py-5 bg-[#2c5363]/5">
-          <p className="text-[9px] font-black text-[#2c5363]/50 uppercase tracking-[0.4em] mb-1">Antes de consultar</p>
-          <h2 className="text-base font-black text-[#2c5363] uppercase tracking-tight leading-tight">
-            Qual é sua intenção<br />com esta consulta?
-          </h2>
-        </div>
-        <div className="p-4 space-y-2">
-          {INTENCOES.map(op => (
-            <button
-              key={op.value}
-              onClick={() => setSelected(op.value)}
-              className={`w-full text-left px-4 py-3.5 rounded-xl border transition-all ${
-                selected === op.value
-                  ? 'border-[#2c5363] bg-[#2c5363]/5'
-                  : 'border-gray-200 bg-white hover:border-[#2c5363]/40 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${
-                  selected === op.value ? 'border-[#2c5363] bg-[#2c5363]' : 'border-gray-300'
-                }`} />
-                <div>
-                  <p className={`text-xs font-black uppercase tracking-wider ${selected === op.value ? 'text-[#2c5363]' : 'text-gray-700'}`}>
-                    {op.label}
-                  </p>
-                  <p className="text-[10px] text-gray-400 font-medium mt-0.5">{op.desc}</p>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2 px-4 pb-4">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:border-gray-300 hover:text-gray-600 transition-all"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={() => selected && onConfirm(selected)}
-            disabled={!selected}
-            className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-              selected
-                ? 'bg-[#2c5363] text-white hover:bg-[#1e3d4d]'
-                : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-            }`}
-          >
-            Consultar
-          </button>
-        </div>
-      </div>
+<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 animate-fadeIn">
+  <div className="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-sm overflow-hidden">
+    <div className="border-l-4 border-[#2c5363] px-6 py-5 bg-[#2c5363]/5">
+      <p className="text-[9px] font-black text-[#2c5363]/50 uppercase tracking-[0.4em] mb-1">Antes de consultar</p>
+      <h2 className="text-base font-black text-[#2c5363] uppercase tracking-tight leading-tight">
+        Qual é sua intenção<br />com esta consulta?
+      </h2>
     </div>
+
+    <div className="p-4 pb-2 space-y-2">
+      {INTENCOES.map(op => (
+        <button
+          key={op.value}
+          onClick={() => setSelected(op.value)}
+          className={`w-full text-left px-4 py-3.5 rounded-xl border transition-all ${
+            selected === op.value
+              ? 'border-[#2c5363] bg-[#2c5363]/5'
+              : 'border-gray-200 bg-white hover:border-[#2c5363]/40 hover:bg-gray-50'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${
+              selected === op.value ? 'border-[#2c5363] bg-[#2c5363]' : 'border-gray-300'
+            }`} />
+            <div>
+              <p className={`text-xs font-black uppercase tracking-wider ${selected === op.value ? 'text-[#2c5363]' : 'text-gray-700'}`}>
+                {op.label}
+              </p>
+              <p className="text-[10px] text-gray-400 font-medium mt-0.5">{op.desc}</p>
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+
+    {/* SEÇÃO DO CHECKBOX OBRIGATÓRIO */}
+    <div className="px-5 py-3 bg-gray-50 border-y border-gray-100">
+      <label className="flex gap-3 cursor-pointer group">
+        <input 
+          type="checkbox" 
+          checked={acceptedTerms}
+          onChange={(e) => setAcceptedTerms(e.target.checked)}
+          className="mt-1 w-4 h-4 rounded border-gray-300 text-[#2c5363] focus:ring-[#2c5363]"
+        />
+        <p className="text-[10px] leading-relaxed text-gray-500 font-medium group-hover:text-gray-700 transition-colors">
+          Declaro ciência e concordo que o <strong className="text-gray-700">Módulo de Consulta de Propriedades Prylom</strong> é uma ferramenta de apoio gerencial e inteligência de dados, e <strong className="text-gray-700">não substitui</strong> a due diligence jurídica, a emissão de certidões oficiais ou a análise técnica de um advogado e/ou engenheiro ambiental. Estou ciente de que a instabilidade nos sistemas do Governo Federal (SICAR/SIGEF/IBAMA) pode gerar ausência temporária de dados.
+        </p>
+      </label>
+    </div>
+
+    <div className="flex gap-2 px-4 py-4">
+      <button
+        onClick={onCancel}
+        className="flex-1 py-2.5 rounded-lg border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:border-gray-300 hover:text-gray-600 transition-all"
+      >
+        Cancelar
+      </button>
+      <button
+        onClick={() => selected && acceptedTerms && onConfirm(selected)}
+       
+        disabled={!selected || !acceptedTerms}
+        className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+          selected && acceptedTerms
+            ? 'bg-[#2c5363] text-white hover:bg-[#1e3d4d]'
+            : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+        }`}
+      >
+        Consultar
+      </button>
+    </div>
+  </div>
+</div>
   );
 };
  

@@ -5,6 +5,7 @@ import landingPrylom from "../assets/landingPrylom.jpeg";
 import ativos_e_negocios from "../assets/ativos_e_negocios.jpeg";
 import acessoria_ia from "../assets/acessoria_ia_integrada.jpeg";
 import inteligencia_agro from "../assets/inteligencia_agro.jpeg";
+import logoinstituto from "../assets/logo-instituto.png";
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { 
@@ -126,7 +127,7 @@ const LandingPage: React.FC<Props> = ({
       click: onSelectTools, 
       icon: inteligencia_agro, 
       label: t.btnTools, 
-      desc: "Cálculos de barter, logística e viabilidade econômica.",
+      desc: "Modelagem preditiva para maximizar margens: análise exata de barter, otimização logística e viabilidade financeira.",
       color: "bg-white",
       span: "md:col-span-1"
     },
@@ -142,20 +143,22 @@ const LandingPage: React.FC<Props> = ({
       click: onSelectMarket, 
       icon: "📈", 
       label: t.btnMarket, 
-      desc: "Terminal em tempo real com preços CBOT e radar global.",
+      desc: "Varredura em tempo real de passivos ambientais e conformidade fundiária via IBAMA, INCRA e SICAR.",
       color: "bg-gray-50",
       span: "md:col-span-1"
     },
-    { 
-      click: onSelectValuation, 
-      icon: "📋", 
-      label: t.btnValuation, 
-      desc: "Auditória técnica e avaliação oficial de valor de mercado.",
-      color: "bg-prylom-dark",
-      text: "text-white",
-      iconBg: "bg-white/10",
-      span: "md:col-span-1"
-    }
+{ 
+  click: () => window.open('https://institutoprylom.vercel.app/', '_blank'),
+  icon: logoinstituto, 
+  label: t.btnValuation, 
+  subLabel: t.btnValuationSubTitle,
+  desc: "A cada instante existe um amanhecer civilizacional que nos permite avaliar o que somos neste estar humano...",
+  buttonText: "ACESSAR INSTITUTO",
+  color: "bg-[#2D4F5E]",
+  text: "text-white",
+  iconBg: "bg-white",
+  span: "md:col-span-1"
+}
   ];
 
   const [user, setUser] = useState<any>(null);
@@ -220,35 +223,49 @@ const LandingPage: React.FC<Props> = ({
               Integramos cinco pilares estratégicos para garantir que cada etapa do seu negócio agro seja baseada em dados e segurança.
             </p>
           </header>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {modules.map((m, idx) => (
-              <div key={idx} onClick={m.click} className={`${m.span} ${m.color} ${m.text || 'text-prylom-dark'} p-12 rounded-[3.5rem] border border-gray-100 shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer group flex flex-col justify-between overflow-hidden relative`}>
-                <div className="relative z-10">
-{/* Removemos o padding e itens-center/justify-center do container para a imagem ocupar tudo */}
-<div className={`${m.iconBg || 'bg-gray-100'} w-20 h-20 rounded-[2rem] flex items-center justify-center mb-10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 overflow-hidden`}>
-  {/* Verifica se o ícone é um emoji (texto curto) ou uma imagem importada */}
-  {typeof m.icon === 'string' && m.icon.length <= 4 ? (
-    <span className="text-4xl">{m.icon}</span>
-  ) : (
-    <img 
-      src={m.icon} 
-      alt={m.label}       
-      className="w-full h-full object-cover" 
-    />
-  )}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+  {modules.map((m, idx) => (
+    <div key={idx} onClick={m.click} className={`${m.span} ${m.color} ${m.text || 'text-prylom-dark'} p-12 rounded-[3.5rem] border border-gray-100 shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer group flex flex-col justify-between overflow-hidden relative`}>
+      
+      <div className="relative z-10">
+        <div className={`${m.iconBg || 'bg-gray-100'} w-20 h-20 rounded-[2rem] flex items-center justify-center mb-10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 overflow-hidden`}>
+          {typeof m.icon === 'string' && m.icon.length <= 4 ? (
+            <span className="text-4xl">{m.icon}</span>
+          ) : (
+            <img src={m.icon} alt={m.label} className="w-full h-full object-cover" />
+          )}
+        </div>
+
+        {/* Título Principal */}
+        <h3 className="text-3xl font-black uppercase tracking-tighter leading-tight">
+          {m.label}
+        </h3>
+
+        {/* Subtítulo (Renderiza apenas se existir) */}
+        {m.subLabel && (
+          <p className="text-sm font-bold uppercase tracking-widest text-[#D4AF37] mt-1 mb-4">
+            {m.subLabel}
+          </p>
+        )}
+
+        {/* Descrição - Ajuste de margem se não houver subLabel */}
+        <p className={`text-base font-medium opacity-80 leading-relaxed max-w-xs ${m.subLabel ? 'mt-4' : 'mt-4'} mb-8`}>
+          {m.desc}
+        </p>
+      </div>
+
+      {/* Botão com Texto Dinâmico */}
+      <button className="relative z-10 w-fit text-[12px] font-black uppercase tracking-[0.2em] border-b-2 border-current pb-1 group-hover:text-prylom-gold group-hover:border-prylom-gold transition-colors">
+        {m.buttonText || "Acessar Terminal"}
+      </button>
+
+      {/* Número de fundo */}
+      <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+        <div className="text-9xl font-black">{idx + 1}</div>
+      </div>
+    </div>
+  ))}
 </div>
-                  <h3 className="text-3xl font-black uppercase tracking-tighter mb-4">{m.label}</h3>
-                  <p className={`text-base font-medium opacity-60 leading-relaxed max-w-xs mb-8`}>{m.desc}</p>
-                </div>
-                <button className="relative z-10 w-fit text-[10px] font-black uppercase tracking-widest border-b-2 border-current pb-1 group-hover:text-prylom-gold group-hover:border-prylom-gold transition-colors">
-                  Acessar Terminal
-                </button>
-                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                  <div className="text-9xl font-black">{idx + 1}</div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
