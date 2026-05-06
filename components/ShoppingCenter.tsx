@@ -8,6 +8,7 @@ import 'leaflet/dist/leaflet.css';
 import { useParams, useNavigate } from 'react-router-dom';
 import agro_brasil from "../assets/agro_brasil.jpg";
 import mapaBrasil from "../assets/mapaBrasil.png";
+import headalicebrandao from "../assets/headalicebrandao.jpeg";
 import { createPortal } from 'react-dom';
 import professorHernandez from "../assets/professor-hernandez.jpg";
 import lidia from "../assets/lidia.jpeg";
@@ -1179,7 +1180,7 @@ const equipeOriginaçao = corretores.filter(c => c.cargo === "Originador Estrat�
 const slotsFaltantes = Math.max(0, 4 - parceirosCredenciados.length);
 
 const headOperacao: HeadOperacaoItem[] = [
-  { 
+  {
     subcategoria: "Jurídico",
     icone: "⚖️",
     nome: "Dr. Marcos Vieira",
@@ -1188,16 +1189,28 @@ const headOperacao: HeadOperacaoItem[] = [
     estado: "SP",
     foto_url: null,
     descricao: "Apoio jurídico integral à Mesa de Operações e Due Diligence.",
+    detalhes: {
+      funcao: "É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.",
+      filtroAtivos: "Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.",
+      filtroCompradores: "Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de Know Your Customer (KYC - Conheça Seu Cliente) em conjunto com as normas de Prevenção à Lavagem de Dinheiro (COAF) e qualificação financeira de perfil. O cliente só é liberado para a visita de campo com o corretor local quando estiver 100% validado e pronto para a aquisição.",
+      citacao: "\"O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por nossos princípios de ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido.\"",
+    },
   },
   {
     subcategoria: "Fazendas",
     icone: "🌾",
-    nome: "Roberto Castilho",
+    nome: "Alice Brandão",
     cargo: "Head Fazendas",
     creci: "CRECI/MT 78901",
     estado: "MT",
-    foto_url: null,
+    foto_url: headalicebrandao,
     descricao: "Gestão e intermediação de ativos rurais de grande porte.",
+    detalhes: {
+      funcao: "Conduz a arquitetura e a estruturação completa das negociações junto aos clientes (Buy-side e Sell-side). Atua como o executivo principal (Deal Maker) no relacionamento institucional, liderando as tratativas diretas com Conselhos de Administração (Boards), Gestores de Fundos de Private Equity e Family Offices",
+      filtroAtivos: "Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.",
+      filtroCompradores: "Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de Know Your Customer (KYC - Conheça Seu Cliente) em conjunto com as normas de Prevenção à Lavagem de Dinheiro (COAF) e qualificação financeira de perfil. O cliente só é liberado para a visita de campo com o corretor local quando estiver 100% validado e pronto para a aquisição.",
+      citacao: "\"O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por nossos princípios de ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido.\"",
+    },
   },
   {
     subcategoria: "Máquinas",
@@ -1208,6 +1221,12 @@ const headOperacao: HeadOperacaoItem[] = [
     estado: "GO",
     foto_url: null,
     descricao: "Avaliação e comercialização de maquinário agrícola e industrial.",
+    detalhes: {
+      funcao: "É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.",
+      filtroAtivos: "Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.",
+      filtroCompradores: "Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de Know Your Customer (KYC - Conheça Seu Cliente) em conjunto com as normas de Prevenção à Lavagem de Dinheiro (COAF) e qualificação financeira de perfil. O cliente só é liberado para a visita de campo com o corretor local quando estiver 100% validado e pronto para a aquisição.",
+      citacao: "\"O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por nossos princípios de ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido.\"",
+    },
   },
   {
     subcategoria: "Grãos",
@@ -1218,6 +1237,12 @@ const headOperacao: HeadOperacaoItem[] = [
     estado: "MS",
     foto_url: null,
     descricao: "Estruturação de operações de compra e venda de commodities.",
+    detalhes: {
+      funcao: "É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.",
+      filtroAtivos: "Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.",
+      filtroCompradores: "Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de Know Your Customer (KYC - Conheça Seu Cliente) em conjunto com as normas de Prevenção à Lavagem de Dinheiro (COAF) e qualificação financeira de perfil. O cliente só é liberado para a visita de campo com o corretor local quando estiver 100% validado e pronto para a aquisição.",
+      citacao: "\"O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por nossos princípios de ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido.\"",
+    },
   },
   {
     subcategoria: "Aeronave",
@@ -1228,6 +1253,12 @@ const headOperacao: HeadOperacaoItem[] = [
     estado: "SP",
     foto_url: null,
     descricao: "Intermediação e avaliação de aeronaves executivas e agrícolas.",
+    detalhes: {
+      funcao: "É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.",
+      filtroAtivos: "Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.",
+      filtroCompradores: "Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de Know Your Customer (KYC - Conheça Seu Cliente) em conjunto com as normas de Prevenção à Lavagem de Dinheiro (COAF) e qualificação financeira de perfil. O cliente só é liberado para a visita de campo com o corretor local quando estiver 100% validado e pronto para a aquisição.",
+      citacao: "\"O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por nossos princípios de ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido.\"",
+    },
   },
 ];
 
@@ -1240,6 +1271,12 @@ interface HeadOperacaoItem {
   estado: string;
   foto_url: string | null;
   descricao: string;
+  detalhes: {
+    funcao: string;        // "A Função" — coluna central, 1º parágrafo
+    filtroAtivos: string;  // "Filtro de Ativos" — coluna central, 2º parágrafo
+    filtroCompradores: string; // "Filtro de Compradores" — coluna direita, parágrafo
+    citacao: string;       // Citação em destaque — coluna direita, bloco inferior
+  };
 }
 
 const HeadOperacaoCard: React.FC<{
@@ -1448,17 +1485,17 @@ const HeadModal: React.FC<{
             {/* Coluna Central */}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
               <p style={{ margin: 0 }}>
-                <strong>A Função :</strong> É o cérebro tático e o filtro primário da Prylom. Centraliza todas as negociações de entrada e atua em alinhamento direto com o Head de Operação Jurídica, garantindo que nenhum ativo seja listado e nenhum investidor avance sem o carimbo absoluto de Compliance, COAF e LGPD.
+                <strong>A Função :</strong> {item.detalhes.funcao}
               </p>
               <p style={{ margin: 0 }}>
-                <strong>Filtro de Ativos :</strong> Recepciona as propriedades originadas por corretores ou proprietários. Realiza a curadoria minuciosa das informações, ajusta e formaliza a Autorização de Venda e blinda os dados sensíveis antes de cadastrar o ativo em nossa plataforma.
+                <strong>Filtro de Ativos :</strong> {item.detalhes.filtroAtivos}
               </p>
             </div>
 
             {/* Coluna Direita */}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px', fontSize: '13.5px', color: '#4a5568', lineHeight: '1.8', textAlign: 'justify', fontWeight: 500 }}>
               <p style={{ margin: 0 }}>
-                <strong>Filtro de Compradores :</strong> Conduz o atendimento e a negociação inicial com os investidores interessados. Aplica rigorosamente os protocolos de Know Your Customer (KYC - Conheça Seu Cliente) em conjunto com as normas de Prevenção à Lavagem de Dinheiro (COAF) e qualificação financeira de perfil. O cliente só é liberado para a visita de campo com o corretor local quando estiver 100% validado e pronto para a aquisição.
+                <strong>Filtro de Compradores :</strong> {item.detalhes.filtroCompradores}
               </p>
               <div style={{
                 fontStyle: 'italic',
@@ -1471,7 +1508,7 @@ const HeadModal: React.FC<{
                 lineHeight: '1.6',
                 borderRadius: '0 8px 8px 0',
               }}>
-                "O campo revela a oportunidade, mas é a governança da Mesa de Operações que consolida o negócio. Pautados por nossos princípios de ética e excelência, garantimos que cada visita seja uma agenda estratégica e cada ativo listado seja um legado protegido."
+                {item.detalhes.citacao}
               </div>
             </div>
 

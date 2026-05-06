@@ -3660,9 +3660,10 @@ atípicas ao COAF.
 )}
       
 {selectedFormType && (
-  <PropertyRegistrationForm 
-    type={selectedFormType} 
-    onBack={() => setSelectedFormType(null)} 
+  <PropertyRegistrationForm
+    type={selectedFormType}
+    onBack={() => setSelectedFormType(null)}
+    onReturnToSelection={() => { setSelectedFormType(null); setShowSelectionModal(true); }}
   />
 )}
 

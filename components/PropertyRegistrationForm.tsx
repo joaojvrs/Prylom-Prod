@@ -8,9 +8,10 @@ import 'react-phone-input-2/lib/style.css';
 interface FormProps {
   type: 'open' | 'offmarket' | 'selected';
   onBack: () => void;
+  onReturnToSelection: () => void;
 }
 
-const PropertyRegistrationForm: React.FC<FormProps> = ({ type, onBack }) => {
+const PropertyRegistrationForm: React.FC<FormProps> = ({ type, onBack, onReturnToSelection }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [currentAssetId, setCurrentAssetId] = useState<string | null>(null);
@@ -1872,6 +1873,7 @@ Diligence Agronômica) executadas por laboratórios e especialistas homologados:
             <li className="text-prylom-gold font-black italic">Custo Zero : Ao assinar o mandato de exclusividade, a Prylom assume 100% dos custos e a
 coordenação deste pacote de inteligência agronômica.</li>
           </ul>
+          <p className="mt-4 text-[10px] font-black uppercase italic text-gray-400 tracking-widest">* Caso seja necessário</p>
         </div>
 
         {/* Bloco 2 */}
@@ -1884,6 +1886,7 @@ coordenação deste pacote de inteligência agronômica.</li>
             <li>• <span className="text-[#2C5266]">Visita Acompanhada:</span> Todas as visitas são guiadas por nossos especialistas (agrônomo se for agricultura ou zootecnista na pecuária) para apresentar os dados produtivos reais aos interessados.</li>
             <li>• <span className="text-[#2C5266]">ORGANIZAÇÃO DOCUMENTAL E FINANCEIRA:</span> ORGANIZAÇÃO DOCUMENTAL ESTRATÉGICA PARA MONTAR A APRESENTAÇÃO TÉCNICA (certidões ambientais e dossiê de transferência), além de análise financeira, estudo de viabilidade e avaliação mercadológica.</li>
           </ul>
+          <p className="mt-4 text-[10px] font-black uppercase italic text-gray-400 tracking-widest">* Caso seja necessário</p>
         </div>
 
         {/* Bloco 3, 4 e 5 resumidos conforme texto enviado */}
@@ -2075,12 +2078,15 @@ QUEBRA CONTRATUAL.</p>
 
 return createPortal(
   <div className="fixed inset-0 z-[999999] bg-white flex flex-col h-screen w-screen overflow-hidden">
-    <nav className={`w-full py-4 px-8 flex items-center shadow-lg shrink-0 ${type === 'selected' ? 'bg-black border-b border-prylom-gold/50' : 'bg-[#2C5266]'}`}>
+    <nav className={`w-full py-4 px-8 flex items-center gap-6 shadow-lg shrink-0 ${type === 'selected' ? 'bg-black border-b border-prylom-gold/50' : 'bg-[#2C5266]'}`}>
       <button onClick={onBack} className="text-white/80 hover:text-white flex items-center gap-3 font-black uppercase text-[10px] tracking-widest transition-all">
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
         Sair do Cadastro
       </button>
-
+      <button onClick={onReturnToSelection} className="text-white/50 hover:text-white/80 flex items-center gap-2 font-black uppercase text-[10px] tracking-widest transition-all border-l border-white/20 pl-6">
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 6h16M4 12h10" /></svg>
+        Voltar à Seleção
+      </button>
     </nav>
 
 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
