@@ -99,6 +99,11 @@ const [vendaCarLeads, setVendaCarLeads] = useState<any[]>([]);
 const [vendaCarLoading, setVendaCarLoading] = useState(false);
 const [vendaCarFiltro, setVendaCarFiltro] = useState<string>('todos');
 
+const [selectedVideos, setSelectedVideos] = useState<{file?: File; url: string; isExisting?: boolean}[]>([]);
+const videosFileInputRef = useRef<HTMLInputElement>(null);
+
+
+
 const STATUS_NEGOCIACAO = [
   { value: 'pendente',   label: 'Não chamado',      dot: 'bg-gray-400',    badge: 'bg-gray-100 text-gray-600 border-gray-200' },
   { value: 'chamado',    label: 'Chamado',           dot: 'bg-blue-500',    badge: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -289,6 +294,25 @@ graos: [
   const [dadosEspecificos, setDadosEspecificos] = useState<any>({
   portal_parceiro: []
 });
+
+const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files) {
+    const filesArray = Array.from(e.target.files) as File[];
+    const newVideos = filesArray.map(file => ({
+      file,
+      url: URL.createObjectURL(file),
+      isExisting: false
+    }));
+    setSelectedVideos(prev => [...prev, ...newVideos]);
+  }
+};
+
+const removeVideo = (index: number) => {
+  const v = selectedVideos[index];
+  if (!v.isExisting && v.url) URL.revokeObjectURL(v.url);
+  setSelectedVideos(prev => prev.filter((_, i) => i !== index));
+};
+
 
   const [selectedImages, setSelectedImages] = useState<ProductImage[]>([]);
 
@@ -539,6 +563,7 @@ const handleEdit = async (asset: Product) => {
   setSelectedImages([]);
   setSelectedDocuments([]);
   setAutorizacaoVenda(null);
+  setSelectedVideos([]);
 
   setNewAsset({
     codigo: asset.codigo || '',
@@ -612,6 +637,16 @@ const handleEdit = async (asset: Product) => {
         })));
       }
     }
+
+    const { data: vidData } = await supabase
+      .from('produtos_videos')
+      .select('video_url')
+      .eq('produto_id', asset.id)
+      .order('ordem', { ascending: true });
+
+    if (vidData) {
+      setSelectedVideos(vidData.map((v: any) => ({ url: v.video_url, isExisting: true })));
+    }
   } catch (e) {
     console.error('❌ ERRO handleEdit:', e);
   } finally {
@@ -619,7 +654,6 @@ const handleEdit = async (asset: Product) => {
     setShowModal(true);
   }
 };
-
 
   const handleDeleteConfirmed = async (asset: Product) => {
     setLoading(true);
@@ -658,6 +692,15 @@ function normalizarDados(obj: Record<string, any>) {
 const handlePublish = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
+
+  // Garante que o token está válido antes de qualquer escrita no banco.
+  // Se o admin ficou afastado por mais de 1h, o SDK renova silenciosamente.
+  const { error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    alert('Sessão expirada. Faça login novamente.');
+    setLoading(false);
+    return;
+  }
 
   try {
     const produtoPayload = {
@@ -753,6 +796,31 @@ if (error) throw error;
       });
       if (imgError) throw imgError;
 
+      // Upload de VÍDEOS
+const videoUrlsToSave: string[] = [];
+for (const vid of selectedVideos) {
+  if (vid.isExisting) {
+    videoUrlsToSave.push(vid.url);
+  } else if (vid.file) {
+    const fileName = `${Date.now()}-${vid.file.name}`;
+    const filePath = `assets/${produtoId}/videos/${fileName}`;
+    const { error: uploadError } = await supabase.storage
+      .from('produtos')          // ou um bucket 'videos' separado
+      .upload(filePath, vid.file);
+    if (uploadError) throw uploadError;
+    const { data: { publicUrl } } = supabase.storage.from('produtos').getPublicUrl(filePath);
+    videoUrlsToSave.push(publicUrl);
+  }
+}
+
+// Salvar URLs numa tabela produtos_videos (delete+insert)
+if (videoUrlsToSave.length > 0) {
+  await supabase.from('produtos_videos').delete().eq('produto_id', produtoId);
+  await supabase.from('produtos_videos').insert(
+    videoUrlsToSave.map((url, idx) => ({ produto_id: produtoId, video_url: url, ordem: idx + 1 }))
+  );
+}
+
       // ✅ 3. NOVO: Upload de DOCUMENTOS DA FAZENDA
 // ✅ 3. Upload de DOCUMENTOS (Consolidado: Autorização + Gerais)
 if (newAsset.categoria === 'fazendas') {
@@ -804,8 +872,9 @@ if (newAsset.categoria === 'fazendas') {
     setNewAsset(initialAssetState);
     setDadosEspecificos({});
     setSelectedImages([]);
-    setSelectedDocuments([]); // Limpar documentos
-  } catch (err: any) { 
+    setSelectedDocuments([]);
+    setSelectedVideos([]);
+  } catch (err: any) {
     alert("Erro ao salvar anúncio: " + err.message); 
   } finally { 
     setLoading(false); 
@@ -3279,12 +3348,68 @@ return (
   </div>
 )}
 {/* --- FIM DO BLOCO --- */}
-    
+
     <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest text-center">
       PDF, Word, JPG/PNG. Matrícula, CAR, CCIR, Laudos, Contratos...
     </p>
   </div>
 )}
+
+{/* SEÇÃO: GALERIA DE VÍDEOS */}
+<div className="space-y-6">
+  <div className="flex items-center gap-4">
+    <h4 className="text-[11px] font-black text-prylom-dark uppercase tracking-widest whitespace-nowrap">
+      🎬 Vídeos do Ativo
+    </h4>
+    <div className="h-px flex-1 bg-gray-100"></div>
+  </div>
+
+  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+    {selectedVideos.map((vid, index) => (
+      <div key={index} className="relative aspect-video bg-black rounded-3xl overflow-hidden group border border-gray-100 shadow-sm">
+        <video src={vid.url} className="w-full h-full object-cover" controls />
+        <button
+          type="button"
+          onClick={() => removeVideo(index)}
+          className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="absolute bottom-0 inset-x-0 bg-black/50 py-1 text-center">
+          <p className="text-[7px] font-black text-white uppercase">
+            {vid.isExisting ? 'Salvo' : 'Novo'} · Vídeo {index + 1}
+          </p>
+        </div>
+      </div>
+    ))}
+
+    <button
+      type="button"
+      onClick={() => videosFileInputRef.current?.click()}
+      className="aspect-video flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-prylom-gold hover:text-prylom-gold transition-all bg-gray-50/30"
+    >
+      <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+      </svg>
+      <span className="text-[9px] font-black uppercase tracking-widest text-center px-4">Adicionar Vídeo</span>
+    </button>
+  </div>
+
+  <input
+    type="file"
+    ref={videosFileInputRef}
+    className="hidden"
+    accept="video/mp4,video/mov,video/avi,video/webm"
+    multiple
+    onChange={handleVideoSelect}
+  />
+  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest text-center">
+    MP4, MOV, AVI ou WebM · Máx. recomendado: 500MB por vídeo
+  </p>
+</div>
 
 
               {/* SEÇÃO 5: CONFIGURAÇÕES DE VISIBILIDADE E AUDITORIA */}

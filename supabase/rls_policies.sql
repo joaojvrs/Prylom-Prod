@@ -75,6 +75,33 @@ CREATE POLICY "produtos_imagens_delete_admin"
 
 
 -- =============================================================================
+-- TABELA: produtos_videos
+-- SELECT público, escrita restrita ao admin
+-- =============================================================================
+ALTER TABLE produtos_videos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "produtos_videos_select_public" ON produtos_videos;
+CREATE POLICY "produtos_videos_select_public"
+  ON produtos_videos FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "produtos_videos_insert_admin" ON produtos_videos;
+CREATE POLICY "produtos_videos_insert_admin"
+  ON produtos_videos FOR INSERT
+  WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "produtos_videos_update_admin" ON produtos_videos;
+CREATE POLICY "produtos_videos_update_admin"
+  ON produtos_videos FOR UPDATE
+  USING (is_admin());
+
+DROP POLICY IF EXISTS "produtos_videos_delete_admin" ON produtos_videos;
+CREATE POLICY "produtos_videos_delete_admin"
+  ON produtos_videos FOR DELETE
+  USING (is_admin());
+
+
+-- =============================================================================
 -- TABELA: fazendas
 -- SELECT público (dados técnicos visíveis no detalhe do produto)
 -- =============================================================================

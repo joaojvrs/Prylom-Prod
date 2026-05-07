@@ -102,6 +102,9 @@ const ProductDetails: React.FC<Props> = ({ productId, onSelectProduct, onBack, f
   const [spec, setSpec] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [videos, setVideos] = useState<any[]>([]);
+  const [galleryMode, setGalleryMode] = useState<'fotos' | 'videos'>('fotos');
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [availableAudios, setAvailableAudios] = useState<any[]>([]);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
@@ -441,12 +444,13 @@ const scroll = (direction: 'left' | 'right') => {
       if (!baseData) return;
 
       // spec, imagens e audios são independentes — buscar em paralelo
-      const [specResult, imgResult, audioResult] = await Promise.all([
+      const [specResult, imgResult, audioResult, vidResult] = await Promise.all([
         baseData.categoria === 'graos'
   ? supabase.from('graos').select('*').eq('produto_id', productId).maybeSingle()
   : supabase.from(baseData.categoria).select('*, corretor:corretores(creci, nome)').eq('produto_id', productId).maybeSingle(),
         supabase.from('produtos_imagens').select('*').eq('produto_id', productId).order('ordem', { ascending: true }),
         supabase.from('produtos_audios').select('*').eq('produto_id', productId),
+        supabase.from('produtos_videos').select('video_url, ordem').eq('produto_id', productId).order('ordem', { ascending: true }),
       ]);
 
       setProduct(baseData);
@@ -463,6 +467,7 @@ const scroll = (direction: 'left' | 'right') => {
         if (imgResult.data.length > 0) setActiveImage(imgResult.data[0].image_url);
       }
       if (audioResult.data) setAvailableAudios(audioResult.data);
+      if (vidResult.data) setVideos(vidResult.data);
       fetchRelatedProducts(baseData);
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
@@ -2507,49 +2512,122 @@ const handleDownloadPdfEn = async () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 print:block">
         <div className="lg:col-span-8 space-y-6 print-full">
-{/* GALERIA PRINCIPAL "PREMIUM" - AGORA 100% LIMPA */}
-<div className="relative group">
-<div 
-  className="aspect-video bg-gray-100 rounded-[3.5rem] overflow-hidden border border-gray-200 shadow-xl relative group cursor-pointer"
-  onClick={() => setIsLightboxOpen(true)}
->
-  <img 
-    key={activeImage} 
-    src={activeImage ? getFullImage(activeImage) : ''}      
-    loading="eager"
-    decoding="async"
-    className="w-full h-full object-cover transition-opacity duration-500 opacity-0" 
-    onLoad={(e) => (e.currentTarget.classList.remove('opacity-0'))}
-  />
-      
-    {/* Navegação flutuante (Apenas setas mantidas para funcionalidade) */}
-    {images.length > 1 && (
-      <>
-        <button 
-          onClick={handlePrevImage}
-          className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-prylom-dark shadow-2xl z-20 no-print"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
-        </button>
-        <button 
-          onClick={handleNextImage}
-          className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-prylom-dark shadow-2xl z-20 no-print"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-        </button>
-      </>
-    )}
+{/* GALERIA PRINCIPAL */}
+<div className="space-y-3">
 
-    {/* Contador numérico sutil mantido no canto inferior */}
-    {images.length > 1 && (
-      <div className="absolute bottom-8 right-8 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-[9px] font-black uppercase tracking-widest no-print">
-        {images.findIndex(img => img.image_url === activeImage) + 1} / {images.length}
+  {/* Toggle Fotos / Vídeos — só aparece quando há vídeos */}
+  {videos.length > 0 && (
+    <div className="flex gap-2 no-print">
+      <button
+        type="button"
+        onClick={() => setGalleryMode('fotos')}
+        className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
+          galleryMode === 'fotos'
+            ? 'bg-prylom-dark text-white border-prylom-dark'
+            : 'bg-white text-gray-400 border-gray-200 hover:border-prylom-dark hover:text-prylom-dark'
+        }`}
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        Fotos
+      </button>
+      <button
+        type="button"
+        onClick={() => { setGalleryMode('videos'); setActiveVideoIndex(0); }}
+        className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${
+          galleryMode === 'videos'
+            ? 'bg-prylom-dark text-white border-prylom-dark'
+            : 'bg-white text-gray-400 border-gray-200 hover:border-prylom-dark hover:text-prylom-dark'
+        }`}
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+        </svg>
+        Vídeos
+        <span className="bg-white/20 text-[8px] px-1.5 py-0.5 rounded-full">{videos.length}</span>
+      </button>
+    </div>
+  )}
+
+  {/* Área principal */}
+  <div className="relative group">
+    {galleryMode === 'fotos' ? (
+      <div
+        className="aspect-video bg-gray-100 rounded-[3.5rem] overflow-hidden border border-gray-200 shadow-xl relative group cursor-pointer"
+        onClick={() => setIsLightboxOpen(true)}
+      >
+        <img
+          key={activeImage}
+          src={activeImage ? getFullImage(activeImage) : ''}
+          loading="eager"
+          decoding="async"
+          className="w-full h-full object-cover transition-opacity duration-500 opacity-0"
+          onLoad={(e) => (e.currentTarget.classList.remove('opacity-0'))}
+        />
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={handlePrevImage}
+              className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-prylom-dark shadow-2xl z-20 no-print"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button
+              onClick={handleNextImage}
+              className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-prylom-dark shadow-2xl z-20 no-print"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </>
+        )}
+
+        {images.length > 1 && (
+          <div className="absolute bottom-8 right-8 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-[9px] font-black uppercase tracking-widest no-print">
+            {images.findIndex(img => img.image_url === activeImage) + 1} / {images.length}
+          </div>
+        )}
+      </div>
+    ) : (
+      <div className="aspect-video bg-black rounded-[3.5rem] overflow-hidden border border-gray-200 shadow-xl relative">
+        <video
+          key={activeVideoIndex}
+          src={videos[activeVideoIndex]?.video_url}
+          className="w-full h-full object-contain"
+          controls
+          autoPlay={false}
+          preload="metadata"
+        />
+
+        {/* Navegação entre vídeos */}
+        {videos.length > 1 && (
+          <>
+            <button
+              onClick={() => setActiveVideoIndex(i => Math.max(0, i - 1))}
+              disabled={activeVideoIndex === 0}
+              className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-prylom-dark shadow-2xl z-20 disabled:opacity-30"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button
+              onClick={() => setActiveVideoIndex(i => Math.min(videos.length - 1, i + 1))}
+              disabled={activeVideoIndex === videos.length - 1}
+              className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-prylom-dark shadow-2xl z-20 disabled:opacity-30"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+            </button>
+            <div className="absolute bottom-8 right-8 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-[9px] font-black uppercase tracking-widest">
+              {activeVideoIndex + 1} / {videos.length}
+            </div>
+          </>
+        )}
       </div>
     )}
   </div>
 </div>
 
- {/* ECONOMICS (FAZENDAS) */}
+{/* ECONOMICS (FAZENDAS) */}
 {isFarm && farmEconomics && (
 <div className="space-y-8 animate-fadeIn pt-4">
     <div className="bg-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border border-gray-100 shadow-sm space-y-8 print-full">
