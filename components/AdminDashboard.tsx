@@ -702,7 +702,7 @@ const {
 
 
 
-const dadosNormalizados = normalizarDados(dadosEspecificos);
+const dadosNormalizados = normalizarDados(dadosParaBanco);
 
 
 
@@ -1162,12 +1162,16 @@ const fetchCorretores = async () => {
   if (error) console.error("Erro corretores:", error);
 };
 
-// No handleSelectCorretor, em vez de espalhar strings, salve a referência
 const handleSelectCorretor = (id: string) => {
   if (!id) {
     setDadosEspecificos((prev: any) => ({
       ...prev,
-      corretor_id: null, // Apenas a FK
+      corretor_id: null,
+      _display_corretor_nome: '',
+      _display_corretor_creci: '',
+      telefone_corretor: '',
+      email_corretor: '',
+      estado_corretor: '',
     }));
     return;
   }
@@ -1176,14 +1180,15 @@ const handleSelectCorretor = (id: string) => {
   if (corretor) {
     setDadosEspecificos((prev: any) => ({
       ...prev,
-      corretor_id: corretor.id, // Salva o ID para o banco
-      // Você pode manter as outras apenas no ESTADO para exibição em tela (read-only)
-      _display_corretor_nome: corretor.nome, 
+      corretor_id: corretor.id,
+      _display_corretor_nome: corretor.nome,
       _display_corretor_creci: corretor.creci,
+      telefone_corretor: corretor.telefone,
+      email_corretor: corretor.email,
+      estado_corretor: corretor.estado,
     }));
   }
 };
-
 
 
 const uploadFoto = async (file: File) => {
@@ -2844,7 +2849,7 @@ const handleImproveDescription = async () => {
           {campo.key === 'corretor' ? (
             <div className="relative">
               <select
-                value={corretores.find(c => c.nome === dadosEspecificos.corretor)?.id || ''}
+                value={dadosEspecificos.corretor_id || ''}
                 onChange={(e) => handleSelectCorretor(e.target.value)}
                 className="w-full h-[56px] py-4 px-6 bg-gray-100/50 rounded-2xl outline-none font-bold text-prylom-dark border-2 border-transparent focus:border-prylom-gold appearance-none cursor-pointer text-[11px]"
               >
