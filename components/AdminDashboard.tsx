@@ -264,12 +264,16 @@ fazendas: [
       { key: 'tipo_operacao', label: 'Operação (agricola/executivo)', type: 'text', required: true },
       { key: 'homologado_anac', label: 'Homologação ANAC (Sim/Não)', type: 'text' },
     ],
-    graos: [
-      { key: 'cultura', label: 'Cultura', type: 'text', required: true },
-      { key: 'safra', label: 'Safra (Ex: 24/25)', type: 'text', required: true },
-      { key: 'qualidade', label: 'Qualidade/Padrão', type: 'text', required: true },
-      { key: 'estoque_toneladas', label: 'Volume Disponível (t)', type: 'number', required: true },
-    ]
+graos: [
+  { key: 'cultura',        label: 'Cultura',              type: 'select', required: true },
+  { key: 'safra',          label: 'Safra (Ex: 24/25)',     type: 'text',   required: true },
+  { key: 'qualidade',      label: 'Qualidade / Padrão',    type: 'select', required: true },
+  { key: 'unidade',        label: 'Unidade de Medida',     type: 'select', required: true },
+  { key: 'quantidade',     label: 'Quantidade',            type: 'number', required: true },
+  { key: 'preco_unitario', label: 'Preço Unitário (R$)',   type: 'number', required: true },
+  { key: 'modalidade_entrega', label: 'Modalidade de Entrega', type: 'select', required: true },
+  { key: 'observacoes',    label: 'Observações',           type: 'text' },
+]
   }), []);
 
   const initialAssetState = {
@@ -976,6 +980,38 @@ const TIPO_NEGOCIO_OPTIONS = ['Venda', 'Arrendamento', 'Parceria', 'Permuta'];
 const TIPO_PRODUCAO_OPTIONS = ['Grãos', 'Pecuária', 'Mista', 'Cana', 'Café', 'Fruticultura', 'Silvicultura', 'Aquicultura'];
 const TIPO_AREA_OPTIONS = ['Lavoura', 'Pasto', 'Reflorestamento', 'Preservação', 'Mista'];
 
+
+const CULTURA_OPTIONS = [
+  'Soja', 'Milho', 'Arroz', 'Trigo', 'Algodão',
+  'Café', 'Cana-de-Açúcar', 'Sorgo', 'Feijão', 'Girassol'
+];
+
+const QUALIDADE_OPTIONS = [
+  'Padrão Exportação',
+  'Padrão Mercado Interno',
+  'Padrão Industrial',
+  'Fora de Padrão',
+];
+
+const UNIDADE_GRAO_OPTIONS = [
+  'Tonelada (t)',
+  'Saca 60kg',
+  'Saca 50kg',
+  'Saca 40kg',
+  'Arroba (@)',
+  'Quilograma (kg)',
+];
+
+const MODALIDADE_ENTREGA_OPTIONS = [
+  'FOB — Free On Board (Comprador retira no armazém/fazenda)',
+  'CIF — Cost, Insurance and Freight (Vendedor entrega no destino, frete incluso)',
+  'FCA — Free Carrier (Vendedor entrega ao transportador do comprador)',
+  'EXW — Ex Works (Disponível no local de produção, mínima responsabilidade do vendedor)',
+  'CPT — Carriage Paid To (Vendedor paga frete até destino, risco passa ao transportador)',
+  'DAP — Delivered At Place (Vendedor entrega no local designado, comprador descarrega)',
+];
+
+
 const SELECT_FIELDS = {
   aptidao: APTIDAO_OPTIONS,
   vocacao: VOCACAO_OPTIONS,
@@ -994,7 +1030,12 @@ const SELECT_FIELDS = {
   tipo_de_negocio: TIPO_NEGOCIO_OPTIONS,
   tipo_de_producao: TIPO_PRODUCAO_OPTIONS,
   tipo_de_area: TIPO_AREA_OPTIONS,
+  cultura:             CULTURA_OPTIONS,
+  qualidade:           QUALIDADE_OPTIONS,
+  unidade:             UNIDADE_GRAO_OPTIONS,        // atenção: só para grãos
+  modalidade_entrega:  MODALIDADE_ENTREGA_OPTIONS
 };
+
 
 
 const formatDateBR = (isoString: string | null | undefined): string => {
@@ -1333,6 +1374,22 @@ useEffect(() => {
   });
 }, [newAsset.valor, newAsset.tipo_transacao, dadosEspecificos.area_total_ha, dadosEspecificos.area_lavoura_ha, dadosEspecificos.vocacao]);
 
+useEffect(() => {
+  if (newAsset.categoria !== 'graos') return;
+
+  const quantidade     = Number(dadosEspecificos.quantidade);
+  const precoUnitario  = Number(dadosEspecificos.preco_unitario);
+
+  if (quantidade > 0 && precoUnitario > 0) {
+    const valorTotal = quantidade * precoUnitario;
+    setNewAsset(prev => {
+      if (Number(prev.valor) === valorTotal) return prev; // evita re-render desnecessário
+      return { ...prev, valor: valorTotal.toString() };
+    });
+  }
+}, [dadosEspecificos.quantidade, dadosEspecificos.preco_unitario, newAsset.categoria]);
+
+
 // Preview visual dos indicadores calculados — não gera state, só leitura
 const farmEconomicsPreview = useMemo(() => {
   if (newAsset.categoria !== 'fazendas') return null;
@@ -1504,6 +1561,21 @@ const handleImproveDescription = async () => {
     setLoadingAI(false);
   }
 };
+
+const graosPricePreview = useMemo(() => {
+  if (newAsset.categoria !== 'graos') return null;
+  const qtd   = Number(dadosEspecificos.quantidade);
+  const preco = Number(dadosEspecificos.preco_unitario);
+  if (!qtd || !preco) return null;
+
+  const total = qtd * preco;
+  const unidade = dadosEspecificos.unidade || 'unidade';
+
+  return {
+    linha: `${qtd.toLocaleString('pt-BR')} × R$ ${preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / ${unidade}`,
+    total: `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+  };
+}, [newAsset.categoria, dadosEspecificos.quantidade, dadosEspecificos.preco_unitario, dadosEspecificos.unidade]);
 
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-[#f4f6f8]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
@@ -2723,10 +2795,32 @@ const handleImproveDescription = async () => {
                       <option value="arrendamento">Arrendamento</option>
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Valor do Ativo (BRL) <span className="text-red-400">*</span></label>
-                    <input required type="number" value={newAsset.valor} onChange={e => setNewAsset({...newAsset, valor: e.target.value})} className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none font-black text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all" placeholder="0.00" />
-                  </div>
+<div className="space-y-2">
+  <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">
+    {newAsset.categoria === 'graos' 
+      ? 'Valor Total Calculado (R$)' 
+      : 'Valor do Ativo (BRL)'}
+    {newAsset.categoria !== 'graos' && <span className="text-red-400"> *</span>}
+  </label>
+
+  {newAsset.categoria === 'graos' ? (
+    <div className="w-full py-4 px-6 bg-gray-50 rounded-2xl font-black text-prylom-gold border-2 border-dashed border-gray-200 text-sm">
+      {dadosEspecificos.quantidade && dadosEspecificos.preco_unitario
+        ? `R$ ${(Number(dadosEspecificos.quantidade) * Number(dadosEspecificos.preco_unitario))
+            .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : '← Preencha quantidade e preço'}
+    </div>
+  ) : (
+    <input
+      required
+      type="number"
+      value={newAsset.valor}
+      onChange={e => setNewAsset({...newAsset, valor: e.target.value})}
+      className="w-full py-4 px-6 bg-gray-50 rounded-2xl outline-none font-black text-prylom-dark border-2 border-transparent focus:border-prylom-gold transition-all"
+      placeholder="0.00"
+    />
+  )}
+</div>
 <div className="md:col-span-3 space-y-3 bg-gray-50/50 p-4 rounded-3xl border border-gray-100">
   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Localização do Ativo <span className="text-red-400">*</span></label>
   
@@ -2920,6 +3014,13 @@ const handleImproveDescription = async () => {
       </React.Fragment>
     );
   })}
+
+    {graosPricePreview && (
+    <div className="col-span-full p-4 bg-prylom-gold/10 border border-prylom-gold/20 rounded-2xl flex items-center justify-between">
+      <span className="text-[10px] font-bold text-gray-500 uppercase">{graosPricePreview.linha}</span>
+      <span className="text-sm font-black text-prylom-dark">{graosPricePreview.total}</span>
+    </div>
+  )}
 </div>
 
               {/* SEÇÃO 4: GALERIA DE IMAGENS (UPLOAD DE ARQUIVOS) */}
