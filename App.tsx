@@ -73,8 +73,7 @@ const navigate = useNavigate(); // Hook para mudar de página
         (position) => {
           const browserLang = navigator.language.split('-')[0].toLowerCase();
           if (browserLang === 'en') { setLang(AppLanguage.EN); setCurrency(AppCurrency.USD); }
-          else if (browserLang === 'zh') { setLang(AppLanguage.ZH); setCurrency(AppCurrency.CNY); }
-          else if (browserLang === 'ru') { setLang(AppLanguage.RU); setCurrency(AppCurrency.RUB); }
+          else if (browserLang === 'zh') { setLang(AppLanguage.ZH); setCurrency(AppCurrency.CNY); }          
           else { setLang(AppLanguage.PT); setCurrency(AppCurrency.BRL); }
         },
         () => console.warn("Location denied")
@@ -126,15 +125,13 @@ const openProduct = (productId: string) => {
   const flags = [
     { lang: AppLanguage.PT, currency: AppCurrency.BRL, img: "https://flagcdn.com/w80/br.png", name: "Português" },
     { lang: AppLanguage.EN, currency: AppCurrency.USD, img: "https://flagcdn.com/w80/us.png", name: "English" },
-    { lang: AppLanguage.ZH, currency: AppCurrency.CNY, img: "https://flagcdn.com/w80/cn.png", name: "中文" },
-    { lang: AppLanguage.RU, currency: AppCurrency.RUB, img: "https://flagcdn.com/w80/ru.png", name: "Русский" }
+    { lang: AppLanguage.ZH, currency: AppCurrency.CNY, img: "https://flagcdn.com/w80/cn.png", name: "中文" }
   ];
 
   const currenciesList = [
     { code: AppCurrency.BRL, symbol: 'R$' },
     { code: AppCurrency.USD, symbol: '$' },
-    { code: AppCurrency.CNY, symbol: '¥' },
-    { code: AppCurrency.RUB, symbol: '₽' }
+    { code: AppCurrency.CNY, symbol: '¥' }
   ];
 
 const [user, setUser] = useState<User | null>(null);

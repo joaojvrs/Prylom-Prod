@@ -2383,79 +2383,190 @@ const HeadModal: React.FC<{
     </span>
   </button>
   
-        <div className="mt-8 mb-4 mx-2 rounded-[2rem] border border-amber-200/60 bg-amber-50/40 backdrop-blur-sm p-6 md:p-8 space-y-5">
-        
-        {/* Cabeçalho */}
-        <div className="flex items-center gap-3 border-b border-amber-200/50 pb-4">
-          <span className="text-2xl">🛡️</span>
-          <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-700">
-              Aviso Legal de Representação
-            </h4>
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-600/70 mt-0.5">
-              Compliance Operacional — Prylom Ecosystem
-            </p>
-          </div>
-        </div>
+<div className="mt-8 mb-4 mx-2 rounded-[2rem] overflow-hidden border border-[#2c5363]/20 shadow-lg">
 
-        {/* Itens */}
-        <div className="space-y-4">
-          
-          {/* Item 1 */}
-          <div className="flex gap-3">
-            <div className="shrink-0 w-5 h-5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center mt-0.5">
-              <span className="text-[8px] font-black text-amber-700">1</span>
-            </div>
-            <div className="space-y-1">
-              <h5 className="text-[9px] font-black uppercase tracking-widest text-amber-800">
-                Ausência de Vínculo Empregatício — O Escudo Trabalhista
-              </h5>
-              <p className="text-[9px] leading-relaxed text-amber-900/70 font-medium text-justify">
-                A Rede de Originação Estratégica, Parceiros Credenciados (Co-Brokers) e representantes do Prylom Global Farms atuam como pessoas jurídicas e profissionais independentes, sob regime de parceria comercial e/ou prestação de serviços autônomos. A exibição neste painel possui caráter estritamente institucional e de networking, não configurando, sob nenhuma hipótese, vínculo empregatício (CLT), subordinação jurídica ou exclusividade com o Grupo Prylom.
-              </p>
-            </div>
-          </div>
-
-          {/* Item 2 */}
-          <div className="flex gap-3">
-            <div className="shrink-0 w-5 h-5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center mt-0.5">
-              <span className="text-[8px] font-black text-amber-700">2</span>
-            </div>
-            <div className="space-y-1">
-              <h5 className="text-[9px] font-black uppercase tracking-widest text-amber-800">
-                Limitação de Poderes e Representação — A Trava Contra Fraudes
-              </h5>
-              <p className="text-[9px] leading-relaxed text-amber-900/70 font-medium text-justify">
-                Nenhum Originador de Campo, Co-Broker ou Gestor Local possui mandato, procuração ou autorização legal para assinar contratos, firmar recibos de sinal, negociar valores, receber pagamentos em espécie/conta pessoal ou assumir compromissos financeiros em nome do Instituto Prylom ou da Prylom Agronegócios. Todo e qualquer fechamento transacional (Closing) é de competência <strong className="text-amber-800 uppercase">exclusiva</strong> da Diretoria Executiva na Mesa Operacional.
-              </p>
-            </div>
-          </div>
-
-          {/* Item 3 */}
-          <div className="flex gap-3">
-            <div className="shrink-0 w-5 h-5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center mt-0.5">
-              <span className="text-[8px] font-black text-amber-700">3</span>
-            </div>
-            <div className="space-y-1">
-              <h5 className="text-[9px] font-black uppercase tracking-widest text-amber-800">
-                Conformidade Regulatória — CRECI / COFECI
-              </h5>
-              <p className="text-[9px] leading-relaxed text-amber-900/70 font-medium text-justify">
-                As atividades de originação limitam-se à inteligência de mercado, prospecção e estruturação de teses (Business Intelligence). A formalização de intermediações imobiliárias rurais obedece às normativas do Sistema COFECI/CRECI, sendo executada exclusivamente pelos diretores e parceiros legalmente credenciados na Mesa Operacional.
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Rodapé do aviso */}
-        <div className="border-t border-amber-200/50 pt-3 flex items-center justify-between">
-          <span className="text-[8px] font-bold text-amber-600/50 uppercase tracking-widest">
-            LGPD · COAF · COFECI
-          </span>
-        </div>
-
+  {/* Cabeçalho */}
+  <div
+    className="flex items-center justify-between px-8 py-5"
+    style={{ background: "linear-gradient(135deg, #2c5363 0%, #1a3a48 100%)" }}
+  >
+    <div className="flex items-center gap-4">
+      {/* Ícone SVG escudo */}
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: "rgba(184,134,11,0.15)", border: "1px solid rgba(184,134,11,0.35)" }}
+      >
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6l-8-4z"
+            fill="rgba(184,134,11,0.2)"
+            stroke="#B8860B"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M9 12l2 2 4-4"
+            stroke="#FFD700"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </div>
+
+      <div>
+        <h4
+          className="text-[11px] font-black uppercase tracking-[0.28em] leading-none text-white"
+        >
+          Aviso Legal de Representação
+        </h4>
+        <p
+          className="text-[8px] font-bold uppercase tracking-[0.2em] mt-1"
+          style={{ color: "rgba(184,134,11,0.75)" }}
+        >
+          Compliance Operacional
+          <span className="mx-1.5 opacity-50">✦</span>
+          Prylom Ecosystem
+        </p>
+      </div>
+    </div>
+
+    {/* Selos à direita */}
+    <div className="hidden md:flex items-center gap-2">
+      {["LGPD", "COAF", "COFECI"].map((selo) => (
+        <span
+          key={selo}
+          className="text-[7px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
+          style={{
+            background: "rgba(184,134,11,0.12)",
+            border: "1px solid rgba(184,134,11,0.25)",
+            color: "#bba219",
+          }}
+        >
+          {selo}
+        </span>
+      ))}
+    </div>
+  </div>
+
+  {/* Corpo */}
+  <div
+    className="p-7 md:p-9 space-y-0"
+    style={{ background: "#f8fafb" }}
+  >
+    {[
+      {
+        n: "01",
+        text: (
+          <>
+            A Rede de Originação Estratégica, Parceiros Credenciados (Co-Brokers) e representantes do Prylom Global
+            Farms atuam como pessoas jurídicas e profissionais independentes, sob regime de parceria comercial e/ou
+            prestação de serviços autônomos. A exibição neste painel possui caráter estritamente institucional e de
+            networking, não configurando, sob nenhuma hipótese, vínculo empregatício (CLT), subordinação jurídica ou
+            exclusividade com o Grupo Prylom.
+          </>
+        ),
+      },
+      {
+        n: "02",
+        text: (
+          <>
+            Nenhum Originador de Campo, Co-Broker ou Gestor Local possui mandato, procuração ou autorização legal
+            para assinar contratos, firmar recibos de sinal, negociar valores, receber pagamentos em espécie/conta
+            pessoal ou assumir compromissos financeiros em nome do Instituto Prylom ou da Prylom Agronegócios. Todo
+            e qualquer fechamento transacional (Closing) é de competência{" "}
+            <strong className="font-black uppercase" style={{ color: "#2c5363" }}>
+              exclusiva
+            </strong>{" "}
+            da Diretoria Executiva na Mesa Operacional.
+          </>
+        ),
+      },
+      {
+        n: "03",
+        text: (
+          <>
+            As atividades de originação limitam-se à inteligência de mercado, prospecção e estruturação de teses
+            (Business Intelligence). A formalização de intermediações imobiliárias rurais obedece às normativas do
+            Sistema COFECI/CRECI, sendo executada exclusivamente pelos diretores e parceiros legalmente credenciados
+            na Mesa Operacional.
+          </>
+        ),
+      },
+    ].map((item, i, arr) => (
+      <div
+        key={item.n}
+        className="flex gap-5 py-6"
+        style={{
+          borderBottom: i < arr.length - 1 ? "1px solid #e4eaee" : "none",
+        }}
+      >
+        {/* Número */}
+        <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, #2c5363 0%, #1a3a48 100%)",
+              boxShadow: "0 4px 12px -4px rgba(44,83,99,0.4)",
+            }}
+          >
+            <span
+              className="text-[9px] font-black"
+              style={{
+                background: "linear-gradient(to bottom, #FFD700, #B8860B)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              {item.n}
+            </span>
+          </div>
+          {i < arr.length - 1 && (
+            <div
+              className="w-px flex-1 min-h-[12px]"
+              style={{ background: "linear-gradient(to bottom, #2c536340, transparent)" }}
+            />
+          )}
+        </div>
+
+        {/* Texto */}
+        <p
+          className="text-[9.5px] leading-[1.85] font-medium text-justify pt-1.5"
+          style={{ color: "#3d5a6b" }}
+        >
+          {item.text}
+        </p>
+      </div>
+    ))}
+  </div>
+
+  {/* Rodapé */}
+  <div
+    className="flex items-center justify-between px-8 py-3"
+    style={{ background: "#edf2f5", borderTop: "1px solid #dce5ec" }}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+      <span className="text-[7.5px] font-black uppercase tracking-widest" style={{ color: "#7a8fa0" }}>
+        Protocolo de Compliance Ativo
+      </span>
+    </div>
+    {/* Selos mobile */}
+    <div className="flex md:hidden items-center gap-1.5">
+      {["LGPD", "COAF", "COFECI"].map((selo) => (
+        <span
+          key={selo}
+          className="text-[6.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+          style={{ background: "rgba(44,83,99,0.08)", color: "#2c5363", border: "1px solid rgba(44,83,99,0.15)" }}
+        >
+          {selo}
+        </span>
+      ))}
+    </div>
+
+  </div>
+
+</div>
 
   <span className="text-[8px] font-black text-gray-300 uppercase tracking-[0.3em]">
     Prylom Ecosystem © 2026
