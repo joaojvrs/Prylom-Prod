@@ -370,7 +370,7 @@ const channel = supabase
     <p className="text-[9px] font-black uppercase text-prylom-dark tracking-[0.2em] mb-1 ml-1 opacity-70">
       {t.selectLanguage || "Selecione o Idioma"}
     </p>
-    <div className="flex items-center gap-2 p-1.5 rounded-full border border-gray-200 bg-white/60 shadow-sm">
+    <div className="flex items-center gap-5 p-1.5 rounded-full border border-gray-200 bg-white/60 shadow-sm">
       {flags.map(f => (
         <button 
           key={f.lang}
