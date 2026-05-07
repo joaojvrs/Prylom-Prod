@@ -265,14 +265,17 @@ fazendas: [
       { key: 'homologado_anac', label: 'Homologação ANAC (Sim/Não)', type: 'text' },
     ],
 graos: [
-  { key: 'cultura',        label: 'Cultura',              type: 'select', required: true },
-  { key: 'safra',          label: 'Safra (Ex: 24/25)',     type: 'text',   required: true },
-  { key: 'qualidade',      label: 'Qualidade / Padrão',    type: 'select', required: true },
-  { key: 'unidade',        label: 'Unidade de Medida',     type: 'select', required: true },
-  { key: 'quantidade',     label: 'Quantidade',            type: 'number', required: true },
-  { key: 'preco_unitario', label: 'Preço Unitário (R$)',   type: 'number', required: true },
-  { key: 'modalidade_entrega', label: 'Modalidade de Entrega', type: 'select', required: true },
-  { key: 'observacoes',    label: 'Observações',           type: 'text' },
+  { key: 'cultura',            label: 'Cultura',                       type: 'select', required: true },
+  { key: 'safra',              label: 'Safra (Ex: 24/25)',              type: 'text'   },
+  { key: 'qualidade',          label: 'Qualidade / Padrão',            type: 'select', required: true },
+  { key: 'unidade',            label: 'Unidade de Medida',             type: 'select', required: true },
+  { key: 'quantidade',         label: 'Quantidade',                    type: 'number', required: true },
+  { key: 'preco_unitario',     label: 'Preço Unitário (R$)',           type: 'number', required: true },
+  { key: 'comissao_tipo',      label: 'Tipo de Comissão',              type: 'select', required: true },
+  { key: 'comissao_valor',     label: 'Comissão (% ou R$/unidade)',    type: 'number', required: true },
+  { key: 'comissao_total',     label: 'Comissão Total (R$)',           type: 'number' },
+  { key: 'modalidade_entrega', label: 'Modalidade de Entrega',         type: 'select', required: true },
+  { key: 'observacoes',        label: 'Observações',                   type: 'text'  },
 ]
   }), []);
 
@@ -1011,6 +1014,7 @@ const MODALIDADE_ENTREGA_OPTIONS = [
   'DAP — Delivered At Place (Vendedor entrega no local designado, comprador descarrega)',
 ];
 
+const comissao_tipo = ['Percentual (%)', 'Valor por Unidade (R$)'];
 
 const SELECT_FIELDS = {
   aptidao: APTIDAO_OPTIONS,
@@ -1033,7 +1037,8 @@ const SELECT_FIELDS = {
   cultura:             CULTURA_OPTIONS,
   qualidade:           QUALIDADE_OPTIONS,
   unidade:             UNIDADE_GRAO_OPTIONS,        // atenção: só para grãos
-  modalidade_entrega:  MODALIDADE_ENTREGA_OPTIONS
+  modalidade_entrega:  MODALIDADE_ENTREGA_OPTIONS,
+  comissao_tipo:       comissao_tipo
 };
 
 
@@ -1377,18 +1382,43 @@ useEffect(() => {
 useEffect(() => {
   if (newAsset.categoria !== 'graos') return;
 
-  const quantidade     = Number(dadosEspecificos.quantidade);
-  const precoUnitario  = Number(dadosEspecificos.preco_unitario);
+  const quantidade    = Number(dadosEspecificos.quantidade);
+  const precoUnitario = Number(dadosEspecificos.preco_unitario);
+  const comissaoValor = Number(dadosEspecificos.comissao_valor);
+  const comissaoTipo  = dadosEspecificos.comissao_tipo || '';
 
   if (quantidade > 0 && precoUnitario > 0) {
     const valorTotal = quantidade * precoUnitario;
-    setNewAsset(prev => {
-      if (Number(prev.valor) === valorTotal) return prev; // evita re-render desnecessário
-      return { ...prev, valor: valorTotal.toString() };
+
+    // Cálculo de comissão conforme tipo selecionado
+    let comissaoTotal = 0;
+    if (comissaoValor > 0 && comissaoTipo) {
+      if (comissaoTipo === 'Percentual (%)') {
+        // % incide sobre o valor total
+        comissaoTotal = valorTotal * (comissaoValor / 100);
+      } else if (comissaoTipo === 'Valor por Unidade (R$)') {
+        // R$ por unidade × quantidade
+        comissaoTotal = comissaoValor * quantidade;
+      }
+    }
+
+    setNewAsset(prev =>
+      Number(prev.valor) === valorTotal ? prev : { ...prev, valor: valorTotal.toString() }
+    );
+
+    setDadosEspecificos((prev: any) => {
+      const novoTotal = comissaoTotal > 0 ? comissaoTotal.toFixed(2) : '';
+      if (String(prev.comissao_total) === novoTotal) return prev;
+      return { ...prev, comissao_total: novoTotal };
     });
   }
-}, [dadosEspecificos.quantidade, dadosEspecificos.preco_unitario, newAsset.categoria]);
-
+}, [
+  dadosEspecificos.quantidade,
+  dadosEspecificos.preco_unitario,
+  dadosEspecificos.comissao_valor,
+  dadosEspecificos.comissao_tipo,
+  newAsset.categoria,
+]);
 
 // Preview visual dos indicadores calculados — não gera state, só leitura
 const farmEconomicsPreview = useMemo(() => {
@@ -1564,20 +1594,46 @@ const handleImproveDescription = async () => {
 
 const graosPricePreview = useMemo(() => {
   if (newAsset.categoria !== 'graos') return null;
-  const qtd   = Number(dadosEspecificos.quantidade);
-  const preco = Number(dadosEspecificos.preco_unitario);
+  const qtd           = Number(dadosEspecificos.quantidade);
+  const preco         = Number(dadosEspecificos.preco_unitario);
+  const comissaoValor = Number(dadosEspecificos.comissao_valor);
+  const comissaoTipo  = dadosEspecificos.comissao_tipo || '';
   if (!qtd || !preco) return null;
 
   const total = qtd * preco;
   const unidade = dadosEspecificos.unidade || 'unidade';
 
+  let comissaoTotal: number | null = null;
+  let comissaoLabel: string | null = null;
+
+  if (comissaoValor > 0 && comissaoTipo) {
+    if (comissaoTipo === 'Percentual (%)') {
+      comissaoTotal = total * (comissaoValor / 100);
+      comissaoLabel = `${comissaoValor}% sobre valor total`;
+    } else if (comissaoTipo === 'Valor por Unidade (R$)') {
+      comissaoTotal = comissaoValor * qtd;
+      comissaoLabel = `R$ ${comissaoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} × ${qtd.toLocaleString('pt-BR')} ${unidade}`;
+    }
+  }
+
   return {
     linha: `${qtd.toLocaleString('pt-BR')} × R$ ${preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / ${unidade}`,
     total: `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+    comissaoLabel,
+    comissaoTotal: comissaoTotal !== null
+      ? `R$ ${comissaoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      : null,
   };
-}, [newAsset.categoria, dadosEspecificos.quantidade, dadosEspecificos.preco_unitario, dadosEspecificos.unidade]);
+}, [
+  newAsset.categoria,
+  dadosEspecificos.quantidade,
+  dadosEspecificos.preco_unitario,
+  dadosEspecificos.comissao_valor,
+  dadosEspecificos.comissao_tipo,
+  dadosEspecificos.unidade,
+]);
 
-  return (
+return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-[#f4f6f8]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       {/* SIDEBAR */}
       <aside className="w-full md:w-72 md:sticky md:top-0 md:h-screen bg-[#2c5363] flex flex-col text-white z-50 shadow-2xl">
@@ -2826,16 +2882,16 @@ const graosPricePreview = useMemo(() => {
   
   <div className="space-y-3">
     {/* ESTADO - CADASTRO */}
-    <select
-      required
-      value={newAsset.estado}
-      onChange={e => {
-        setNewAsset({
-          ...newAsset,
-          estado: e.target.value,
-          cidade: '' 
-        });
-      }}
+<select
+  required={newAsset.categoria !== 'graos'}
+  value={newAsset.estado}
+  onChange={e => {
+    setNewAsset({
+      ...newAsset,
+      estado: e.target.value,
+      cidade: '' 
+    });
+  }}
       className="w-full py-3 px-5 bg-white rounded-xl font-bold text-prylom-dark outline-none border-2 border-transparent focus:border-prylom-gold text-[12px] shadow-sm"
     >
       <option value="">Selecione o Estado</option>
@@ -2847,11 +2903,11 @@ const graosPricePreview = useMemo(() => {
     </select>
 
     {/* CIDADE - CADASTRO */}
-    <select
-      required
-      value={newAsset.cidade}
-      onChange={e => setNewAsset({ ...newAsset, cidade: e.target.value })}
-      disabled={!newAsset.estado}
+<select
+  required={newAsset.categoria !== 'graos'}
+  value={newAsset.cidade}
+  onChange={e => setNewAsset({ ...newAsset, cidade: e.target.value })}
+  disabled={!newAsset.estado}
       className="w-full py-3 px-5 bg-white rounded-xl font-bold text-prylom-dark outline-none border-2 border-transparent focus:border-prylom-gold text-[12px] shadow-sm disabled:bg-gray-100"
     >
       <option value="">Selecione o Município</option>
@@ -3015,12 +3071,25 @@ const graosPricePreview = useMemo(() => {
     );
   })}
 
-    {graosPricePreview && (
-    <div className="col-span-full p-4 bg-prylom-gold/10 border border-prylom-gold/20 rounded-2xl flex items-center justify-between">
+{graosPricePreview && (
+  <div className="col-span-full p-4 bg-prylom-gold/10 border border-prylom-gold/20 rounded-2xl space-y-2">
+    {/* Linha principal: valor total */}
+    <div className="flex items-center justify-between">
       <span className="text-[10px] font-bold text-gray-500 uppercase">{graosPricePreview.linha}</span>
       <span className="text-sm font-black text-prylom-dark">{graosPricePreview.total}</span>
     </div>
-  )}
+    {/* Linha de comissão (só aparece se preenchida) */}
+    {graosPricePreview.comissaoTotal && (
+      <div className="flex items-center justify-between border-t border-prylom-gold/30 pt-2">
+        <span className="text-[10px] font-bold text-gray-400 uppercase">
+          Comissão — {graosPricePreview.comissaoLabel}
+        </span>
+        <span className="text-sm font-black text-prylom-gold">{graosPricePreview.comissaoTotal}</span>
+      </div>
+    )}
+  </div>
+)}
+
 </div>
 
               {/* SEÇÃO 4: GALERIA DE IMAGENS (UPLOAD DE ARQUIVOS) */}

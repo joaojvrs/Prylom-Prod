@@ -4050,6 +4050,116 @@ useEffect(() => {
               )}
               {filteredProducts.slice(visibleStart, visibleEnd).map(p => {
                 const price = formatPriceParts(p.valor);
+                
+if (p.categoria === 'graos') {
+  const g = p.grao_data;
+
+  const estoqueNum = Number(String(g?.estoque_toneladas || g?.volume_toneladas || '0').replace(',', '.'));
+  const totalCalculado = g?.preco_unitario && estoqueNum > 0
+    ? g.preco_unitario * estoqueNum
+    : p.valor;
+  const totalFormatado = formatPriceParts(totalCalculado);
+  const unitFormatado  = formatPriceParts(g?.preco_unitario ?? null);
+
+  return (
+    <div key={p.id} data-card onClick={() => onSelectProduct(p.id)}
+      className="bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl transition-all cursor-pointer flex flex-col group">
+
+      {/* ── IMAGEM — mesma altura h-64 das fazendas ── */}
+      <div className="h-64 relative overflow-hidden bg-gray-50">
+        <img
+          src={p.main_image || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&q=80&w=800'}
+          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+          alt={p.titulo}
+        />
+        {/* Badge cultura — canto inferior esquerdo como decoração sutil */}
+        {g?.safra && (
+          <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+            Safra {g.safra}
+          </div>
+        )}
+        {/* Botão favorito — igual às fazendas */}
+        <button
+          onClick={(e) => toggleFavorite(e, p.id)}
+          className="absolute top-5 right-5 z-10 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg transform transition-all active:scale-90 hover:scale-110"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-all" viewBox="0 0 24 24"
+            fill={favorites.includes(p.id) ? '#2c5363' : 'none'}
+            stroke={favorites.includes(p.id) ? '#2c5363' : '#9ca3af'}
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round"
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* ── CORPO — mesma estrutura p-8 das fazendas ── */}
+      <div className="p-8 flex flex-col flex-1">
+        <h2 className="flex flex-wrap items-baseline gap-3 text-2xl font-black tracking-tight line-clamp-2 uppercase">
+          <span className="text-prylom-dark group-hover:text-prylom-gold transition-colors">
+            {p.titulo}
+          </span>
+        </h2>
+        <span className={`text-[11px] font-black uppercase tracking-widest ${getStatusTextColor(p.status)}`}>
+          {getStatusLabel(p.status)}
+        </span>
+
+        {/* Grid de atributos — mesmo padrão cols-2 das fazendas */}
+<div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-gray-400 font-bold uppercase mb-6">
+  <span>Cultura: <strong className="font-black">{g?.cultura || '-'}</strong></span>
+  <span>Qualidade: <strong className="font-black">{g?.qualidade || '-'}</strong></span>
+
+  <span>Estoque: <strong className="font-black">{g?.estoque_toneladas || g?.volume_toneladas || '-'} t</strong></span>
+  <span>Unidade: <strong className="font-black">{g?.unidade || 'Tonelada'}</strong></span>
+
+  <span>Safra: <strong className="font-black">{g?.safra || '-'}</strong></span>
+  <span>Código: <strong className="font-black">{p.codigo || '-'}</strong></span>
+
+  <span className="col-span-2">Entrega: <strong className="font-black normal-case">{g?.modalidade_entrega || '-'}</strong></span>
+</div>
+        {/* ── BLOCO DE PREÇO — mesmo padrão bg-gray-50 das fazendas ── */}
+        <div className="mt-auto p-6 bg-gray-50 rounded-3xl border border-gray-100">
+          <p className="text-[9px] font-black text-prylom-gold uppercase tracking-widest mb-1">
+            Grão à Venda
+          </p>
+
+          <div className="flex flex-col gap-1">
+            {/* Preço unitário em destaque */}
+            {unitFormatado.value !== '---' ? (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-black text-prylom-dark">{getSymbol()}</span>
+                  <span className="text-2xl font-black text-prylom-dark tabular-nums">
+                    {unitFormatado.value}
+                  </span>
+                  <span className="text-[10px] font-black text-gray-400 self-end mb-0.5">/ t</span>
+                </div>
+
+                {/* Total calculado — mesmo estilo do preço/ha das fazendas */}
+                {totalFormatado.value !== '---' && (
+                  <div className="flex items-baseline gap-1 opacity-60">
+                    <span className="text-sm font-black text-gray-500">Total: {getSymbol()}</span>
+                    <span className="text-lg font-black text-gray-500 tabular-nums">
+                      {totalFormatado.value}
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Fallback: valor total da tabela produtos, idêntico ao bloco de venda das fazendas */
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-black text-prylom-dark">{price.symbol}</span>
+                <span className="text-2xl font-black text-prylom-dark tabular-nums">{price.value}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
                 return (
                   <div key={p.id} data-card onClick={() => onSelectProduct(p.id)} className="bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl transition-all cursor-pointer flex flex-col group">
                     <div className="h-64 relative overflow-hidden bg-gray-50">

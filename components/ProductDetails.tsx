@@ -442,7 +442,9 @@ const scroll = (direction: 'left' | 'right') => {
 
       // spec, imagens e audios são independentes — buscar em paralelo
       const [specResult, imgResult, audioResult] = await Promise.all([
-        supabase.from(baseData.categoria).select('*, corretor:corretores(creci, nome)').eq('produto_id', productId).maybeSingle(),
+        baseData.categoria === 'graos'
+  ? supabase.from('graos').select('*').eq('produto_id', productId).maybeSingle()
+  : supabase.from(baseData.categoria).select('*, corretor:corretores(creci, nome)').eq('produto_id', productId).maybeSingle(),
         supabase.from('produtos_imagens').select('*').eq('produto_id', productId).order('ordem', { ascending: true }),
         supabase.from('produtos_audios').select('*').eq('produto_id', productId),
       ]);
@@ -2361,7 +2363,13 @@ const handleDownloadPdfEn = async () => {
     {product.status === 'vendido' 
       ? 'Indisponível' 
       : isGrain
-        ? `${formatNumber(spec?.estoque_toneladas || 0, 0)} t`
+        ? `${spec?.estoque_toneladas
+  ? String(spec.estoque_toneladas).replace('.', ',')
+  : spec?.volume_toneladas
+    ? formatNumber(Number(spec.volume_toneladas), 0)
+    : spec?.quantidade
+      ? formatNumber(Number(spec.quantidade), 0)
+      : '-'} t`
         : isPlane
           ? `${planeEcoData?.liquidez} (TMV: ${planeEcoData?.tmv} dias)`
           : isLease
@@ -2386,24 +2394,36 @@ const handleDownloadPdfEn = async () => {
 
 
 
- 
-           {isGrain && <p className="text-[8px] font-bold text-prylom-gold mt-1 uppercase tracking-widest">Preço: {formatV(product.valor || 1000)} / t</p>}
         </div>
         <div className="col-span-1 bg-gray-100/70 p-6 rounded-[2.5rem] border border-gray-200 flex flex-col justify-center">
-           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{isGrain ? 'Valor Total Lote' : (isLease ? 'Área Disponível' : t.priceTotal)}</p>
+<p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">
+  {isGrain ? 'Preço por Tonelada' : (isLease ? 'Área Disponível' : t.priceTotal)}
+</p>
            <p className="text-[1.6rem] font-black text-prylom-dark leading-tight">
-             {isGrain
-  ? formatV((spec?.estoque_toneladas || 120000) * (product.valor || 1000))
-  : isLease
-    ? `${formatNumber(spec?.area_total_ha || 1000)} ha`
-    : formatV(product.valor)
-}
+  {isGrain
+    ? formatV(spec?.preco_unitario || product.valor || 0)
+    : isLease
+      ? `${formatNumber(spec?.area_total_ha || 1000)} ha`
+      : formatV(product.valor)}
+
 {isLease && (
              <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase tracking-widest">
                Quantidade Pedida: {spec?.valor_sc_ha || 10} Sc Soja/ha
              </p>
            )}
            </p>
+
+{isGrain && (spec?.preco_unitario || product.valor) && (
+  <div className="mt-2 flex items-baseline gap-1 opacity-70">
+    <span className="text-sm font-black text-gray-500">Total do lote:</span>
+    <span className="text-base font-black text-gray-500 tabular-nums">
+      {formatV(
+        (Number(spec?.estoque_toneladas) || spec?.volume_toneladas || spec?.quantidade || 0)
+        * (spec?.preco_unitario || product.valor || 0)
+      )}
+    </span>
+  </div>
+)}
 
 {/* VALOR POR HECTARE — apenas fazenda à venda */}
 
@@ -2430,10 +2450,53 @@ const handleDownloadPdfEn = async () => {
       {/* SNAPSHOT INDICADORES (ESTRATÉGICOS) */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4 print-full">
         {[
-          { label: isGrain ? 'Preço Spot (Hoje)' : (isPlane ? 'Positioning' : (isLease ? 'Perfil do Operador' : 'Perfil do Investidor')), val: isGrain ? <div className="flex flex-col"><span className="text-prylom-dark">CBOT: US$ {grainMarketData?.cbotPrice}</span><span className="text-[7px] opacity-60">Basis: {grainMarketData?.basis} | FOB: {grainMarketData?.fobSantos}</span></div> : isPlane ? 'Operação Regional / Pista Curta' : (isFarm ? (isLease ? 'Produtor | Grupo Agro' : 'Produção | Arrendamento') : 'Corporativo') },
-          { label: isGrain ? 'Tendência (30d)' : (isPlane ? 'Hours vs Média' : 'Aptidão Mecanizavel'), val: isGrain ? <span className="text-green-600">📈 Alta moderada ({grainMarketData?.trend})</span> : isPlane ? '✔ Abaixo da Média (Low Time)' : (isFarm ? '✔ Produção de grãos mecanizada' : t.highPerformance) },
-          { label: isGrain ? 'Liquidez do Ativo' : (isPlane ? 'Selo de Robustez' : (isLease ? 'Liquidez Operacional' : 'Liquidez Patrimonial')), val: isGrain ? grainMarketData?.liquidez : isPlane ? 'Agro Ready: Pista não pavimentada' : (isFarm ? '✔ Alta consolidação regional' : 'Auditada') },
-          { label: t.valuationConfidence, val: <div className="flex flex-col items-center"><span className="text-prylom-gold font-black">{prylomScore || '8.2'} / 10</span><span className="text-[6px] font-bold text-gray-400 uppercase text-center mt-1">Analytics Real-Time</span></div> }
+{ 
+  label: isGrain ? 'Cultura & Safra' : (isPlane ? 'Positioning' : (isLease ? 'Perfil do Operador' : 'Perfil do Investidor')), 
+  val: isGrain 
+    ? <div className="flex flex-col gap-0.5">
+        <span className="text-prylom-dark font-black">{spec?.cultura || '-'}</span>
+        <span className="text-[9px] opacity-60 font-bold">Safra {spec?.safra || '-'}</span>
+      </div> 
+    : isPlane ? 'Operação Regional / Pista Curta' 
+    : (isFarm ? (isLease ? 'Produtor | Grupo Agro' : 'Produção | Arrendamento') : 'Corporativo') 
+},
+{ 
+  label: isGrain ? 'Volume Disponível' : (isPlane ? 'Hours vs Média' : 'Aptidão Mecanizavel'), 
+  val: isGrain 
+    ? <div className="flex flex-col gap-0.5">
+        <span className="text-prylom-dark font-black">
+          {spec?.estoque_toneladas
+            ? `${String(spec.estoque_toneladas).replace('.', ',')} t`
+            : spec?.volume_toneladas
+              ? `${formatNumber(Number(spec.volume_toneladas), 0)} t`
+              : spec?.quantidade
+                ? `${formatNumber(Number(spec.quantidade), 0)} t`
+                : '-'}
+        </span>
+        {spec?.unidade && (
+          <span className="text-[9px] opacity-60 font-bold normal-case">{spec.unidade}</span>
+        )}
+      </div>
+    : isPlane ? '✔ Abaixo da Média (Low Time)' 
+    : (isFarm ? '✔ Produção de grãos mecanizada' : t.highPerformance) 
+},
+{ 
+  label: isGrain ? 'Qualidade & Entrega' : (isPlane ? 'Selo de Robustez' : (isLease ? 'Liquidez Operacional' : 'Liquidez Patrimonial')), 
+  val: isGrain 
+    ? <div className="flex flex-col gap-0.5">
+        <span className="text-prylom-dark font-black">{spec?.qualidade || '-'}</span>
+        <span className="text-[9px] opacity-60 font-bold normal-case truncate">{spec?.modalidade_entrega || '-'}</span>
+      </div>
+    : isPlane ? 'Agro Ready: Pista não pavimentada' 
+    : (isFarm ? '✔ Alta consolidação regional' : 'Auditada') 
+},
+{ 
+  label: t.valuationConfidence, 
+  val: <div className="flex flex-col items-center">
+    <span className="text-prylom-gold font-black">{prylomScore || '8.2'} / 10</span>
+    <span className="text-[6px] font-bold text-gray-400 uppercase text-center mt-1">Analytics Real-Time</span>
+  </div> 
+},
         ].map((item, i) => (
           <div key={i} className="bg-white p-6 rounded-[2rem] border border-gray-100 text-center shadow-sm flex flex-col justify-center">
             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">{item.label}</p>
@@ -2779,13 +2842,45 @@ const handleDownloadPdfEn = async () => {
               </h3>
               
               <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
-                {isGrain ? (
-                  <>
-                    <div><p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Cultura</p><p className="text-xs font-black text-prylom-dark uppercase">{spec?.cultura || '---'}</p></div>
-                    <div><p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Safra</p><p className="text-xs font-black text-prylom-dark uppercase">{spec?.safra || '---'}</p></div>
-                    <div><p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Volume</p><p className="text-xs font-black text-prylom-dark uppercase">{formatNumber(spec?.estoque_toneladas, 0)} t</p></div>
-                    <div><p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Qualidade</p><p className="text-xs font-black text-green-600 uppercase">{spec?.qualidade || 'Exportação'}</p></div>
-                  </>
+{isGrain ? (
+  <>
+    <div>
+      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Cultura</p>
+      <p className="text-xs font-black text-prylom-dark uppercase">{spec?.cultura || '---'}</p>
+    </div>
+    <div>
+      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Safra</p>
+      <p className="text-xs font-black text-prylom-dark uppercase">{spec?.safra || '---'}</p>
+    </div>
+    <div>
+      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Estoque</p>
+      <p className="text-xs font-black text-prylom-dark uppercase">
+        {spec?.estoque_toneladas
+          ? `${spec.estoque_toneladas} t`
+          : spec?.volume_toneladas
+            ? `${formatNumber(spec.volume_toneladas, 0)} t`
+            : spec?.quantidade
+              ? `${formatNumber(spec.quantidade, 0)} t`
+              : '---'}
+      </p>
+    </div>
+    <div>
+      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Qualidade</p>
+      <p className="text-xs font-black text-green-600 uppercase">{spec?.qualidade || '---'}</p>
+    </div>
+    <div>
+      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Unidade</p>
+      <p className="text-xs font-black text-prylom-dark uppercase">{spec?.unidade || '---'}</p>
+    </div>
+    <div className="col-span-2">
+      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Modalidade de Entrega</p>
+      <p className="text-xs font-black text-prylom-dark normal-case">{spec?.modalidade_entrega || '---'}</p>
+    </div>
+    <div>
+      <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Observações</p>
+      <p className="text-xs font-bold text-gray-500 normal-case line-clamp-2">{spec?.observacoes || '---'}</p>
+    </div>
+  </>
                 ) : isPlane ? (
                   <>
                     <div><p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Fabricante</p><p className="text-xs font-black text-prylom-dark uppercase">{spec?.fabricante || '---'}</p></div>
